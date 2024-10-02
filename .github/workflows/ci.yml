@@ -1,0 +1,34 @@
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "**.md"
+      - "!.github/workflows/*.yml"
+
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "!.github/workflows/*.yml"
+
+name: Tests
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: build - ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build
