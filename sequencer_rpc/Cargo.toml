@@ -9,6 +9,9 @@ serde_json.workspace = true
 env_logger.workspace = true
 log.workspace = true
 serde.workspace = true
+actix.workspace = true
+actix-cors.workspace = true
+futures.workspace = true
 
 actix-web.workspace = true
 
@@ -23,3 +26,6 @@ path = "../networking"
 
 [dependencies.sequencer_core]
 path = "../sequencer_core"
+
+[dependencies.rpc_primitives]
+path = "../rpc_primitives"

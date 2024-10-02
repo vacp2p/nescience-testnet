@@ -1,5 +1,16 @@
-//ToDo: Add sequencer_runner module
+use anyhow::Result;
 
-fn main() {
-    println!("Hello, world!");
+use sequencer_runner::main_runner;
+
+pub const NUM_THREADS: usize = 4;
+
+fn main() -> Result<()> {
+    actix::System::with_tokio_rt(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(NUM_THREADS)
+            .enable_all()
+            .build()
+            .unwrap()
+    })
+    .block_on(main_runner())
 }

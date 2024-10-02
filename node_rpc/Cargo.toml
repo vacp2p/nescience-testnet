@@ -9,6 +9,9 @@ serde_json.workspace = true
 env_logger.workspace = true
 log.workspace = true
 serde.workspace = true
+actix.workspace = true
+actix-cors.workspace = true
+futures.workspace = true
 
 actix-web.workspace = true
 
@@ -35,3 +38,6 @@ path = "../zkvm"
 
 [dependencies.node_core]
 path = "../node_core"
+
+[dependencies.rpc_primitives]
+path = "../rpc_primitives"

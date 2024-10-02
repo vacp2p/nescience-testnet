@@ -9,6 +9,7 @@ serde_json.workspace = true
 env_logger.workspace = true
 log.workspace = true
 serde.workspace = true
+actix.workspace = true
 
 actix-web.workspace = true
 tokio.workspace = true
@@ -27,3 +28,6 @@ path = "../sequencer_rpc"
 
 [dependencies.sequencer_core]
 path = "../sequencer_core"
+
+[dependencies.rpc_primitives]
+path = "../rpc_primitives"

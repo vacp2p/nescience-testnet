@@ -1,0 +1,27 @@
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+
+use crate::errors::RpcParseError;
+
+pub trait RpcRequest: Sized {
+    fn parse(value: Option<Value>) -> Result<Self, RpcParseError>;
+}
+
+pub fn parse_params<T: DeserializeOwned>(value: Option<Value>) -> Result<T, RpcParseError> {
+    if let Some(value) = value {
+        serde_json::from_value(value)
+            .map_err(|err| RpcParseError(format!("Failed parsing args: {err}")))
+    } else {
+        Err(RpcParseError("Require at least one parameter".to_owned()))
+    }
+}
+#[macro_export]
+macro_rules! parse_request {
+    ($request_name:ty) => {
+        impl RpcRequest for $request_name {
+            fn parse(value: Option<Value>) -> Result<Self, RpcParseError> {
+                parse_params::<Self>(value)
+            }
+        }
+    };
+}
