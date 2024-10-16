@@ -157,6 +157,13 @@ mod tests {
         assert_eq!(pool.len(), 0);
     }
 
+    #[test]
+    fn test_is_empty() {
+        let mut pool = MemPool::new();
+        assert!(pool.is_empty());
+        pool.push_item(test_item_with_id(1));
+        assert!(!pool.is_empty());
+    }
 
     #[test]
     fn test_push_pop() {
