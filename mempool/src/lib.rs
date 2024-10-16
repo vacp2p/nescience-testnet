@@ -150,6 +150,12 @@ mod tests {
         assert_eq!(pool.len(), 2);
     }
 
+    #[test]
+    fn test_default() {
+        let pool: MemPool<TestItem> = MemPool::default();
+        assert!(pool.is_empty());
+        assert_eq!(pool.len(), 0);
+    }
 
 
     #[test]
