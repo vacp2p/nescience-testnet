@@ -153,4 +153,16 @@ mod tests {
         let proof = tree.get_proof(tx1.hash());
         assert!(proof.is_some());
     }
+
+    #[test]
+    fn test_add_tx() {
+        let tx1 = MockTransaction { hash: get_first_32_bytes("tx1") };
+        let tx2 = MockTransaction { hash: get_first_32_bytes("tx2") };
+
+        let mut tree = HashStorageMerkleTree::new(vec![tx1.clone()]);
+
+        tree.add_tx(tx2.clone());
+        assert_eq!(tree.leaves.len(), 2);
+        assert_eq!(tree.get_tx(tx2.hash()), Some(&tx2));
+    }
 }
