@@ -179,4 +179,16 @@ mod tests {
         assert_eq!(tree.get_tx(tx2.hash()), Some(&tx2));
         assert_eq!(tree.get_tx(tx3.hash()), Some(&tx3));
     }
+
+    #[test]
+    fn test_get_proof_multiple() {
+        let tx1 = MockTransaction { hash: get_first_32_bytes("tx1") };
+        let tx2 = MockTransaction { hash: get_first_32_bytes("tx2") };
+        let tx3 = MockTransaction { hash: get_first_32_bytes("tx3") };
+
+        let tree = HashStorageMerkleTree::new(vec![tx1.clone(), tx2.clone(), tx3.clone()]);
+        let proof = tree.get_proof_multiple(&[tx1.hash(), tx2.hash()]);
+
+        assert!(proof.is_some());
+    }
 }
