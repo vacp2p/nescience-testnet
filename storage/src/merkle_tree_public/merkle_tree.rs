@@ -95,3 +95,29 @@ impl<Leav: TreeLeavItem + Clone> HashStorageMerkleTree<Leav> {
         self.tree.commit();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Mock implementation of TreeLeavItem trait for testing
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    struct MockTransaction {
+        pub hash: TreeHashType,
+    }
+
+    impl TreeLeavItem for MockTransaction {
+        fn hash(&self) -> TreeHashType {
+            self.hash
+        }
+    }
+
+    fn get_first_32_bytes(s: &str) -> [u8; 32] {
+        let mut buffer = [0u8; 32];
+        let bytes = s.as_bytes();
+        let len = std::cmp::min(32, bytes.len());
+        
+        buffer[..len].copy_from_slice(&bytes[..len]);
+        buffer
+    }
+}
