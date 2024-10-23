@@ -149,4 +149,17 @@ mod tests {
         assert!(tree.curr_root.is_some());
     }
 
+    #[test]
+    fn test_insert_multiple_items() {
+        let mut tree = NullifierSparseMerkleTree::new();
+        let nullifiers = vec![
+            create_nullifier([1u8; 32]),
+            create_nullifier([2u8; 32]),
+            create_nullifier([3u8; 32]),
+        ];
+
+        let result = tree.insert_items(nullifiers);
+        assert!(result.is_ok());
+        assert!(tree.curr_root.is_some());
+    }
 }
