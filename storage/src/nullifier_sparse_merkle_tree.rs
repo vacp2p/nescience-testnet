@@ -179,4 +179,22 @@ mod tests {
         assert_eq!(non_existing.unwrap(), false);
     }
 
+    #[test]
+    fn test_search_multiple_item_inclusions() {
+        let mut tree = NullifierSparseMerkleTree::new();
+        let nullifiers = vec![
+            create_nullifier([1u8; 32]),
+            create_nullifier([2u8; 32]),
+            create_nullifier([3u8; 32]),
+        ];
+
+        tree.insert_items(nullifiers).unwrap();
+
+        let search_hashes = vec![[1u8; 32], [2u8; 32], [99u8; 32]];
+        let result = tree.search_item_inclusions(&search_hashes);
+        assert!(result.is_ok());
+
+        let expected_results = vec![true, true, false];
+        assert_eq!(result.unwrap(), expected_results);
+    }
 }
