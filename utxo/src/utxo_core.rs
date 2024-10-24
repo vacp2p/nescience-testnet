@@ -80,7 +80,11 @@ mod tests {
     fn sample_payload() -> UTXOPayload {
         UTXOPayload {
             owner: sample_account(),
-            asset: serde_json::to_vec(&TestAsset { id: 1, name: "Test".to_string() }).unwrap(),
+            asset: serde_json::to_vec(&TestAsset {
+                id: 1,
+                name: "Test".to_string(),
+            })
+            .unwrap(),
         }
     }
 
@@ -119,7 +123,13 @@ mod tests {
         // Interpret asset as TestAsset
         let interpreted: TestAsset = utxo.interpret_asset().unwrap();
 
-        assert_eq!(interpreted, TestAsset { id: 1, name: "Test".to_string() });
+        assert_eq!(
+            interpreted,
+            TestAsset {
+                id: 1,
+                name: "Test".to_string()
+            }
+        );
     }
 
     #[test]

@@ -76,8 +76,8 @@ impl Default for UTXOSparseMerkleTree {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utxo_core::{UTXOPayload, UTXO};
     use storage::{merkle_tree_public::TreeHashType, AccountId};
-    use crate::utxo_core::{UTXO, UTXOPayload};
 
     fn sample_utxo_payload() -> UTXOPayload {
         UTXOPayload {
