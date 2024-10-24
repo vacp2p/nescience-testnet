@@ -84,5 +84,16 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_create_utxo_from_payload() {
+        let payload = sample_payload();
+        let utxo = UTXO::create_utxo_from_payload(payload.clone());
+
+        // Ensure hash is created and the UTXO fields are correctly assigned
+        assert_eq!(utxo.owner, payload.owner);
+        assert_eq!(utxo.asset, payload.asset);
+        assert!(utxo.nullifier.is_none());
+    }
+
 
 }
