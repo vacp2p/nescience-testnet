@@ -111,4 +111,16 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_interpret_asset() {
+        let payload = sample_payload();
+        let utxo = UTXO::create_utxo_from_payload(payload);
+
+        // Interpret asset as TestAsset
+        let interpreted: TestAsset = utxo.interpret_asset().unwrap();
+
+        assert_eq!(interpreted, TestAsset { id: 1, name: "Test".to_string() });
+    }
+
+
 }
