@@ -40,6 +40,18 @@ rocksdb = { version = "0.21.0", default-features = false, features = ["snappy"] 
 
 #ToDo: Add necessary risc0 submodules for zkvm module
 
+[workspace.dependencies.rand]
+features = ["std", "std_rng", "getrandom"]
+version = "0.8.5"
+
+[workspace.dependencies.k256]
+features = ["ecdsa-core", "arithmetic", "expose-field"]
+version = "0.13.4"
+
+[workspace.dependencies.elliptic-curve]
+features = ["arithmetic"]
+version = "0.13.8"
+
 [workspace.dependencies.serde]
 features = ["derive"]
 version = "1.0.60"
