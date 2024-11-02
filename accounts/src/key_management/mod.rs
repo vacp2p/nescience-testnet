@@ -201,6 +201,44 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn test_decrypt_data_with_incorrect_ciphertext() {
+        let address_key_holder = AddressKeyHolder::new_os_random();
+
+        // Generate ephemeral public key and shared secret
+        let scalar = Scalar::random(OsRng);
+        let ephemeral_public_key_sender = (ProjectivePoint::generator() * scalar).to_affine();
+        let shared_secret = address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
+
+        // Prepare the encryption key from shared secret
+        let key_raw = shared_secret.to_bytes();
+        let key_raw_adjust_pre = &key_raw.as_slice()[..32];
+        let key_raw_adjust: [u8; 32] = key_raw_adjust_pre.try_into().unwrap();
+        let key: Key<Aes256Gcm> = key_raw_adjust.into();
+
+        let cipher = Aes256Gcm::new(&key);
+
+        // Encrypt sample data
+        let nonce = Nonce::from_slice(b"unique nonce");
+        let plaintext = b"Sensitive data";
+        let ciphertext = cipher.encrypt(nonce, plaintext.as_ref()).expect("encryption failure");
+
+        // Tamper with the ciphertext to simulate corruption
+        let mut corrupted_ciphertext = ciphertext.clone();
+        corrupted_ciphertext[0] ^= 1; // Flip a bit in the ciphertext
+
+        // Attempt decryption
+        let result = address_key_holder.decrypt_data(
+        ephemeral_public_key_sender,
+        CipherText::from(corrupted_ciphertext),
+        nonce.clone(),
+        );
+
+        // The decryption should fail or produce incorrect output due to tampered ciphertext
+        assert_ne!(result, plaintext);
+    }
+
+    #[test]
     fn key_generation_test() {
         let seed_holder = SeedHolder::new_os_random();
         let top_secret_key_holder = seed_holder.produce_top_secret_key_holder();
