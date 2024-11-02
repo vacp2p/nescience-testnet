@@ -111,6 +111,35 @@ mod tests {
     }
 
     #[test]
+    fn test_decrypt_data() {
+        let address_key_holder = AddressKeyHolder::new_os_random();
+
+        // Generate an ephemeral key and shared secret
+        let scalar = Scalar::random(OsRng);
+        let ephemeral_public_key_sender = address_key_holder.produce_ephemeral_key_holder().generate_ephemeral_public_key();
+        let shared_secret = address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
+
+        // Prepare the encryption key from shared secret
+        let key_raw = shared_secret.to_bytes();
+        let key_raw_adjust_pre = &key_raw.as_slice()[..32];
+        let key_raw_adjust: [u8; 32] = key_raw_adjust_pre.try_into().unwrap();
+        let key: Key<Aes256Gcm> = key_raw_adjust.into();
+
+        let cipher = Aes256Gcm::new(&key);
+
+        // Encrypt sample data
+        let nonce = Nonce::from_slice(b"unique nonce");
+        let plaintext = b"Sensitive data";
+        let ciphertext = cipher.encrypt(nonce, plaintext.as_ref()).expect("encryption failure");
+
+        // Attempt decryption
+        let decrypted_data: Vec<u8> = address_key_holder.decrypt_data(ephemeral_public_key_sender, CipherText::from(ciphertext), nonce.clone());
+
+        // Verify decryption is successful and matches original plaintext
+        assert_eq!(decrypted_data, plaintext);
+    }
+
+    #[test]
     fn key_generation_test() {
         let seed_holder = SeedHolder::new_os_random();
         let top_secret_key_holder = seed_holder.produce_top_secret_key_holder();
