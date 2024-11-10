@@ -74,4 +74,18 @@ mod tests {
             message * message_2
         );
     }
+
+    #[test]
+    fn bigger_multiplication() {
+        let message = 3498;
+        let message_2 = 438563;
+    
+        let (digest, receipt) = prove(vec![message, message_2], MULTIPLICATION_ELF);
+    
+        verify(receipt, MULTIPLICATION_ID);
+        assert_eq!(
+            digest,
+            message * message_2
+        );
+    }
 }
