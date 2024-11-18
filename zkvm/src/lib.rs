@@ -49,7 +49,7 @@ mod tests {
     use test_methods::{SUMMATION_ELF, SUMMATION_ID};
 
     #[test]
-    fn simple_sum() {
+    fn prove_simple_sum() {
         let message = 1;
         let message_2 = 2;
 
@@ -60,7 +60,7 @@ mod tests {
     }
 
     #[test]
-    fn bigger_sum() {
+    fn prove_bigger_sum() {
         let message = 123476;
         let message_2 = 2342384;
 
@@ -71,7 +71,7 @@ mod tests {
     }
 
     #[test]
-    fn simple_multiplication() {
+    fn prove_simple_multiplication() {
         let message = 1;
         let message_2 = 2;
 
@@ -82,7 +82,7 @@ mod tests {
     }
 
     #[test]
-    fn bigger_multiplication() {
+    fn prove_bigger_multiplication() {
         let message = 3498;
         let message_2 = 438563;
 
