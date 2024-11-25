@@ -1,4 +1,4 @@
+set -e
 curl -L https://risczero.com/install | bash 
-source /home/runner/.bashrc
-rzup install 
+/home/runner/.risc0/bin/rzup install 
 cargo build
