@@ -48,9 +48,9 @@ pub fn verify(receipt: Receipt, image_id: impl Into<Digest>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_methods::{BIG_CALCULATION_ELF, BIG_CALCULATION_ID};
     use test_methods::{MULTIPLICATION_ELF, MULTIPLICATION_ID};
     use test_methods::{SUMMATION_ELF, SUMMATION_ID};
-    use test_methods::{BIG_CALCULATION_ELF, BIG_CALCULATION_ID};
 
     #[test]
     fn prove_simple_sum() {
@@ -140,5 +140,5 @@ mod tests {
         }
 
         res
-    } 
+    }
 }
