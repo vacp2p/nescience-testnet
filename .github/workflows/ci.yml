@@ -30,16 +30,9 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - name: install risc0
+      - name: build ubuntu test
         if: success() || failure()
-        run: |
-          curl -L https://risczero.com/install | bash
-      - name: install risc0 step 2
-        if: success() || failure()
-        run: |
-          source /home/runner/.bashrc && rzup install && source /home/runner/.bashrc
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo build
+        run: ./ci_scripts/build-ubuntu.sh
 
   lint:
     strategy:
