@@ -15,12 +15,9 @@ use crate::key_management::{
     AddressKeyHolder,
 };
 
-pub type PublicKey = AffinePoint;
-pub type AccountAddress = TreeHashType;
-
 pub struct Account {
     pub key_holder: AddressKeyHolder,
-    pub address: AccountAddress,
+    pub address: TreeHashType,
     pub balance: u64,
     pub utxo_tree: UTXOSparseMerkleTree,
 }
