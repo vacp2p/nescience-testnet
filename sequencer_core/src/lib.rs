@@ -68,6 +68,7 @@ impl SequencerCore {
             ref execution_output,
             ref utxo_commitments_created_hashes,
             ref nullifier_created_hashes,
+            ..
         } = tx.tx;
 
         //Sanity check
@@ -176,10 +177,18 @@ impl SequencerCore {
             self.execute_check_transaction_on_state(tx)?;
         }
 
+        let prev_block_hash = self
+            .store
+            .block_store
+            .get_block_at_id(self.chain_height)?
+            .prev_block_hash;
+
         let hashable_data = HashableBlockData {
             block_id: self.chain_height + 1,
+            prev_block_id: self.chain_height,
             transactions: transactions.into_iter().map(|tx_mem| tx_mem.tx).collect(),
             data: vec![],
+            prev_block_hash,
         };
 
         let block = Block::produce_block_from_hashable_data(hashable_data);

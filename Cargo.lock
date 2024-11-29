@@ -3775,6 +3775,7 @@ dependencies = [
  "sequencer_core",
  "serde",
  "serde_json",
+ "storage",
  "tokio",
 ]
 

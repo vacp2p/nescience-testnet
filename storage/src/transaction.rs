@@ -23,4 +23,6 @@ pub struct Transaction {
     pub utxo_commitments_created_hashes: Vec<TreeHashType>,
     ///Tx output nullifiers
     pub nullifier_created_hashes: Vec<TreeHashType>,
+    ///Execution proof (private part)
+    pub execution_proof_private: String,
 }

@@ -5,6 +5,7 @@ use rpc_primitives::parser::RpcRequest;
 use sequencer_core::transaction_mempool::TransactionMempool;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use storage::block::Block;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloRequest {}
@@ -21,9 +22,15 @@ pub struct SendTxRequest {
     pub transaction: TransactionMempool,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetBlockDataRequest {
+    pub block_id: u64,
+}
+
 parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
+parse_request!(GetBlockDataRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -38,4 +45,9 @@ pub struct RegisterAccountResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendTxResponse {
     pub status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetBlockDataResponse {
+    pub block: Block,
 }

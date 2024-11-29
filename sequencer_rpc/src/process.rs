@@ -11,8 +11,8 @@ use rpc_primitives::{
 use crate::{
     rpc_error_responce_inverter,
     types::rpc_structs::{
-        HelloRequest, HelloResponse, RegisterAccountRequest, RegisterAccountResponse,
-        SendTxRequest, SendTxResponse,
+        GetBlockDataRequest, GetBlockDataResponse, HelloRequest, HelloResponse,
+        RegisterAccountRequest, RegisterAccountResponse, SendTxRequest, SendTxResponse,
     },
 };
 
@@ -83,11 +83,29 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
+    async fn process_get_block_data(&self, request: Request) -> Result<Value, RpcErr> {
+        let get_block_req = GetBlockDataRequest::parse(Some(request.params))?;
+
+        let block = {
+            let state = self.sequencer_state.lock().await;
+
+            state
+                .store
+                .block_store
+                .get_block_at_id(get_block_req.block_id)?
+        };
+
+        let helperstruct = GetBlockDataResponse { block };
+
+        respond(helperstruct)
+    }
+
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             "hello" => self.process_temp_hello(request).await,
             "register_account" => self.process_register_account_request(request).await,
             "send_tx" => self.process_send_tx(request).await,
+            "get_block" => self.process_get_block_data(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }
