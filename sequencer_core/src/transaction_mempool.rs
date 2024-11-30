@@ -2,7 +2,7 @@ use mempool::mempoolitem::MemPoolItem;
 use serde::{Deserialize, Serialize};
 use storage::{merkle_tree_public::TreeHashType, transaction::Transaction};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionMempool {
     pub tx: Transaction,
 }

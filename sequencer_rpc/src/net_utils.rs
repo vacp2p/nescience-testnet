@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_web::{http, middleware, web, App, Error as HttpError, HttpResponse, HttpServer};
@@ -8,6 +9,8 @@ use log::info;
 
 use rpc_primitives::message::Message;
 use rpc_primitives::RpcConfig;
+use sequencer_core::SequencerCore;
+use tokio::sync::Mutex;
 
 use super::JsonHandler;
 
@@ -38,7 +41,10 @@ fn get_cors(cors_allowed_origins: &[String]) -> Cors {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn new_http_server(config: RpcConfig) -> io::Result<actix_web::dev::Server> {
+pub fn new_http_server(
+    config: RpcConfig,
+    seuquencer_core: Arc<Mutex<SequencerCore>>,
+) -> io::Result<actix_web::dev::Server> {
     let RpcConfig {
         addr,
         cors_allowed_origins,
@@ -46,7 +52,10 @@ pub fn new_http_server(config: RpcConfig) -> io::Result<actix_web::dev::Server> 
         limits_config,
     } = config;
     info!(target:"network", "Starting http server at {}", addr);
-    let handler = web::Data::new(JsonHandler { polling_config });
+    let handler = web::Data::new(JsonHandler {
+        polling_config,
+        sequencer_state: seuquencer_core.clone(),
+    });
 
     // HTTP server
     Ok(HttpServer::new(move || {

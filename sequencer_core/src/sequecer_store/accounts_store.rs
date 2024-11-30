@@ -1,12 +1,28 @@
-use std::collections::HashMap;
-
 use accounts::account_core::{AccountAddress, PublicKey};
+use elliptic_curve::group::GroupEncoding;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct AccountPublicData {
     pub nullifier_public_key: PublicKey,
     pub viewing_public_key: PublicKey,
     pub address: AccountAddress,
+}
+
+impl AccountPublicData {
+    pub fn from_raw(
+        address: AccountAddress,
+        nullifier_public_key: Vec<u8>,
+        viewing_public_key: Vec<u8>,
+    ) -> Self {
+        Self {
+            nullifier_public_key: PublicKey::from_bytes(nullifier_public_key.as_slice().into())
+                .unwrap(),
+            viewing_public_key: PublicKey::from_bytes(viewing_public_key.as_slice().into())
+                .unwrap(),
+            address,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

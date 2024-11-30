@@ -28,15 +28,19 @@ impl SequecerChainStore {
         let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
 
         let mut data = [0; 32];
+        let mut prev_block_hash = [0; 32];
 
         if is_genesis_random {
             OsRng.fill_bytes(&mut data);
+            OsRng.fill_bytes(&mut prev_block_hash);
         }
 
         let hashable_data = HashableBlockData {
             block_id: genesis_id,
+            prev_block_id: genesis_id.saturating_sub(1),
             transactions: vec![],
             data: data.to_vec(),
+            prev_block_hash,
         };
 
         let genesis_block = Block::produce_block_from_hashable_data(hashable_data);

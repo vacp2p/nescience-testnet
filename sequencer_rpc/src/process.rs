@@ -1,4 +1,5 @@
 use actix_web::Error as HttpError;
+use sequencer_core::sequecer_store::accounts_store::AccountPublicData;
 use serde_json::Value;
 
 use rpc_primitives::{
@@ -9,7 +10,10 @@ use rpc_primitives::{
 
 use crate::{
     rpc_error_responce_inverter,
-    types::rpc_structs::{HelloRequest, HelloResponse},
+    types::rpc_structs::{
+        GetBlockDataRequest, GetBlockDataResponse, HelloRequest, HelloResponse,
+        RegisterAccountRequest, RegisterAccountResponse, SendTxRequest, SendTxResponse,
+    },
 };
 
 use super::{respond, types::err_rpc::RpcErr, JsonHandler};
@@ -43,10 +47,65 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
+    async fn process_register_account_request(&self, request: Request) -> Result<Value, RpcErr> {
+        let acc_req = RegisterAccountRequest::parse(Some(request.params))?;
+
+        {
+            let mut acc_store = self.sequencer_state.lock().await;
+
+            acc_store.register_account(AccountPublicData::from_raw(
+                acc_req.address,
+                acc_req.nullifier_public_key,
+                acc_req.viewing_public_key,
+            ));
+        }
+
+        let helperstruct = RegisterAccountResponse {
+            status: "Success".to_string(),
+        };
+
+        respond(helperstruct)
+    }
+
+    async fn process_send_tx(&self, request: Request) -> Result<Value, RpcErr> {
+        let send_tx_req = SendTxRequest::parse(Some(request.params))?;
+
+        {
+            let mut state = self.sequencer_state.lock().await;
+
+            state.mempool.push_item(send_tx_req.transaction);
+        }
+
+        let helperstruct = SendTxResponse {
+            status: "Success".to_string(),
+        };
+
+        respond(helperstruct)
+    }
+
+    async fn process_get_block_data(&self, request: Request) -> Result<Value, RpcErr> {
+        let get_block_req = GetBlockDataRequest::parse(Some(request.params))?;
+
+        let block = {
+            let state = self.sequencer_state.lock().await;
+
+            state
+                .store
+                .block_store
+                .get_block_at_id(get_block_req.block_id)?
+        };
+
+        let helperstruct = GetBlockDataResponse { block };
+
+        respond(helperstruct)
+    }
+
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
-            //Todo : Add handling of more JSON RPC methods
             "hello" => self.process_temp_hello(request).await,
+            "register_account" => self.process_register_account_request(request).await,
+            "send_tx" => self.process_send_tx(request).await,
+            "get_block" => self.process_get_block_data(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }
