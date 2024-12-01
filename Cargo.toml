@@ -38,6 +38,8 @@ monotree = "0.1.5"
 hex = "0.4.3"
 aes-gcm = "0.10.3"
 toml = "0.7.4"
+secp256k1-zkp = "0.11.0"
+bincode = "1.3.3"
 
 rocksdb = { version = "0.21.0", default-features = false, features = [
   "snappy",
