@@ -113,3 +113,55 @@ pub fn validate_nullifiers_proof(
     nsmt.get_non_membership_proof(nullifier).unwrap().1.is_none()
 }
 
+// Check balances
+
+//  takes the public_info and output_utxos[], 
+// returns the True if the token amount in public_info matches the sum of all output_utxos[], otherwise return False.
+pub fn check_balances(public_info: u128, output_utxos: &[UTXO]) -> bool {
+    let total_output: u128 = output_utxos.iter().map(|utxo| utxo.amount).sum();
+    public_info == total_output
+}
+
+// Verify Pedersen commitment
+
+// takes the public_info, secret_r and pedersen_commitment and 
+// checks that commitment(public_info,secret_r) is equal pedersen_commitment where the commitment is pedersen commitment.
+pub fn verify_commitment(public_info: u64, secret_r: &[u8], pedersen_commitment: &PedersenCommitment) -> bool {
+    let commitment_secrets = CommitmentSecrets {
+        value: public_info,
+        value_blinding_factor: Tweak::from_slice(secret_r).unwrap(),
+        generator_blinding_factor: Tweak::new(&mut thread_rng()),
+    };
+
+    let tag = tag_random();
+    let commitment = commit(&commitment_secrets, tag);
+
+    commitment == *pedersen_commitment
+}
+
+
+fn de_kernel(
+    root_commitment: &[u8],
+    root_nullifier: [u8; 32],
+    public_info: u64,
+    input_utxos: &[UTXO],
+    in_commitments_proof: &[Vec<u8>],
+    nullifiers_proof: &[[u8; 32]],
+    nullifier_secret_key: Scalar,
+) -> (Vec<u8>, Vec<Vec<u8>>) {
+    check_balances(public_info as u128, input_utxos);
+
+    let nullifiers: Vec<_> = input_utxos.into_iter().map(|utxo| generate_nullifiers(&utxo, &nullifier_secret_key.to_bytes())).collect();
+
+    let in_commitments = generate_commitments(&input_utxos);
+
+    for in_commitment in in_commitments {
+        validate_in_commitments_proof(&in_commitment, root_commitment.to_vec(), in_commitments_proof);
+    }
+
+    for nullifier in nullifiers.iter() {
+        validate_nullifiers_proof(nullifier[0..32].try_into().unwrap(), root_nullifier, nullifiers_proof);
+    }
+
+    (vec![], nullifiers)
+}
