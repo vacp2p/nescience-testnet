@@ -69,7 +69,10 @@ impl NodeCore {
 
                     wrapped_chain_height_thread.store(next_block, Ordering::Relaxed);
                 } else {
-                    tokio::time::sleep(std::time::Duration::from_secs(config.seq_poll_timeout_secs)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        config.seq_poll_timeout_secs,
+                    ))
+                    .await;
                 }
             }
         });
