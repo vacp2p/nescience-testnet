@@ -102,10 +102,8 @@ impl RocksDBIO {
         let mut db_opts = Options::default();
         db_opts.create_missing_column_families(true);
         db_opts.create_if_missing(true);
-        DBWithThreadMode::<MultiThreaded>::destroy(
-            &db_opts,
-            path,
-        ).map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))
+        DBWithThreadMode::<MultiThreaded>::destroy(&db_opts, path)
+            .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))
     }
 
     pub fn meta_column(&self) -> Arc<BoundColumnFamily> {

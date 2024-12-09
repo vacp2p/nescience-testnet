@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use storage::{block::Block, RocksDBIO};
 
 pub struct NodeBlockStore {
@@ -42,9 +42,9 @@ impl NodeBlockStore {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    use tempfile::tempdir;
     use storage::block::{Block, BlockHash, BlockId, Data};
     use storage::transaction::Transaction;
+    use tempfile::tempdir;
 
     fn create_genesis_block() -> Block {
         Block {
@@ -74,8 +74,8 @@ mod tests {
         let path = temp_dir.path();
 
         let genesis_block = create_genesis_block();
-        let node_store = NodeBlockStore::open_db_with_genesis(path, Some(genesis_block.clone()))
-            .unwrap();
+        let node_store =
+            NodeBlockStore::open_db_with_genesis(path, Some(genesis_block.clone())).unwrap();
 
         // Verify the genesis block is stored
         let stored_block = node_store.get_block_at_id(0).unwrap();

@@ -38,11 +38,10 @@ mod tests {
 
     fn pad_to_32(slice: &[u8]) -> [u8; 32] {
         let mut padded = [0u8; 32];
-        let len = slice.len().min(32); 
+        let len = slice.len().min(32);
         padded[..len].copy_from_slice(&slice[..len]);
         padded
     }
-
 
     #[test]
     fn test_create_empty_store() {
