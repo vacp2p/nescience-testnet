@@ -92,6 +92,22 @@ impl RocksDBIO {
         }
     }
 
+    pub fn destroy(path: &Path) -> DbResult<()> {
+        let mut cf_opts = Options::default();
+        cf_opts.set_max_write_buffer_number(16);
+        //ToDo: Add more column families for different data
+        let cfb = ColumnFamilyDescriptor::new(CF_BLOCK_NAME, cf_opts.clone());
+        let cfmeta = ColumnFamilyDescriptor::new(CF_META_NAME, cf_opts.clone());
+
+        let mut db_opts = Options::default();
+        db_opts.create_missing_column_families(true);
+        db_opts.create_if_missing(true);
+        DBWithThreadMode::<MultiThreaded>::destroy(
+            &db_opts,
+            path,
+        ).map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))
+    }
+
     pub fn meta_column(&self) -> Arc<BoundColumnFamily> {
         self.db.cf_handle(CF_META_NAME).unwrap()
     }
