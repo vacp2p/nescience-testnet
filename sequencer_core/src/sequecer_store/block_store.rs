@@ -5,6 +5,7 @@ use storage::{block::Block, RocksDBIO};
 
 pub struct SequecerBlockStore {
     dbio: RocksDBIO,
+    pub genesis_id: u64,
 }
 
 impl SequecerBlockStore {
@@ -13,9 +14,11 @@ impl SequecerBlockStore {
     ///
     /// ATTENTION: Will overwrite genesis block.
     pub fn open_db_with_genesis(location: &Path, genesis_block: Option<Block>) -> Result<Self> {
-        Ok(Self {
-            dbio: RocksDBIO::new(location, genesis_block)?,
-        })
+        let dbio = RocksDBIO::new(location, genesis_block)?;
+
+        let genesis_id = dbio.get_meta_first_block_in_db()?;
+
+        Ok(Self { dbio, genesis_id })
     }
 
     ///Reopening existing database

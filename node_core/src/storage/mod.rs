@@ -2,12 +2,14 @@ use std::path::Path;
 
 use accounts::account_core::{Account, AccountAddress};
 use accounts_store::NodeAccountsStore;
+use anyhow::Result;
 use block_store::NodeBlockStore;
-use rand::{rngs::OsRng, RngCore};
 use storage::{
-    block::{Block, HashableBlockData},
+    block::Block,
     merkle_tree_public::merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree},
+    nullifier::UTXONullifier,
     nullifier_sparse_merkle_tree::NullifierSparseMerkleTree,
+    utxo_commitment::UTXOCommitment,
 };
 
 pub mod accounts_store;
@@ -25,29 +27,11 @@ pub struct NodeChainStore {
 }
 
 impl NodeChainStore {
-    pub fn new_with_genesis(home_dir: &Path, genesis_id: u64, is_genesis_random: bool) -> Self {
+    pub fn new_with_genesis(home_dir: &Path, genesis_block: Block) -> Self {
         let acc_store = NodeAccountsStore::default();
         let nullifier_store = NullifierSparseMerkleTree::default();
         let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
         let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
-
-        let mut data = [0; 32];
-        let mut prev_block_hash = [0; 32];
-
-        if is_genesis_random {
-            OsRng.fill_bytes(&mut data);
-            OsRng.fill_bytes(&mut prev_block_hash);
-        }
-
-        let hashable_data = HashableBlockData {
-            block_id: genesis_id,
-            prev_block_id: genesis_id.saturating_sub(1),
-            transactions: vec![],
-            data: data.to_vec(),
-            prev_block_hash,
-        };
-
-        let genesis_block = Block::produce_block_from_hashable_data(hashable_data);
 
         //Sequencer should panic if unable to open db,
         //as fixing this issue may require actions non-native to program scope
@@ -67,5 +51,31 @@ impl NodeChainStore {
 
     pub fn get_main_account_addr(&self) -> AccountAddress {
         self.node_main_account_info.address
+    }
+
+    pub fn dissect_insert_block(&mut self, block: Block) -> Result<()> {
+        for tx in &block.transactions {
+            self.utxo_commitments_store.add_tx_multiple(
+                tx.utxo_commitments_created_hashes
+                    .clone()
+                    .into_iter()
+                    .map(|hash| UTXOCommitment { hash })
+                    .collect(),
+            );
+
+            self.nullifier_store.insert_items(
+                tx.nullifier_created_hashes
+                    .clone()
+                    .into_iter()
+                    .map(|hash| UTXONullifier { utxo_hash: hash })
+                    .collect(),
+            )?;
+
+            self.pub_tx_store.add_tx(tx.clone());
+        }
+
+        self.block_store.put_block_at_id(block)?;
+
+        Ok(())
     }
 }

@@ -27,10 +27,14 @@ pub struct GetBlockDataRequest {
     pub block_id: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetGenesisIdRequest {}
+
 parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
+parse_request!(GetGenesisIdRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -50,4 +54,9 @@ pub struct SendTxResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetBlockDataResponse {
     pub block: Block,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetGenesisIdResponse {
+    pub genesis_id: u64,
 }

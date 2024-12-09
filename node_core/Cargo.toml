@@ -16,6 +16,8 @@ monotree.workspace = true
 bincode.workspace = true
 elliptic-curve.workspace = true
 reqwest.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
 
 [dependencies.accounts]
 path = "../accounts"
