@@ -196,10 +196,10 @@ impl RocksDBIO {
         let cf_block = self.block_column();
 
         if !first {
-        let last_curr_block = self.get_meta_last_block_in_db()?;
+            let last_curr_block = self.get_meta_last_block_in_db()?;
 
-        if block.block_id > last_curr_block {
-            self.put_meta_last_block_in_db(block.block_id)?;
+            if block.block_id > last_curr_block {
+                self.put_meta_last_block_in_db(block.block_id)?;
             }
         }
 

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use storage::{block::Block, RocksDBIO};
 
 pub struct NodeBlockStore {
@@ -20,7 +20,13 @@ impl NodeBlockStore {
 
     ///Reopening existing database
     pub fn open_db_restart(location: &Path) -> Result<Self> {
+        NodeBlockStore::db_destroy(location)?;
         NodeBlockStore::open_db_with_genesis(location, None)
+    }
+
+    ///Destroying existing database
+    fn db_destroy(location: &Path) -> Result<()> {
+        RocksDBIO::destroy(location).map_err(|err| anyhow!("RocksDBIO error: {}", err))
     }
 
     pub fn get_block_at_id(&self, id: u64) -> Result<Block> {
@@ -28,6 +34,6 @@ impl NodeBlockStore {
     }
 
     pub fn put_block_at_id(&self, block: Block) -> Result<()> {
-        Ok(self.dbio.put_block(block)?)
+        Ok(self.dbio.put_block(block, false)?)
     }
 }
