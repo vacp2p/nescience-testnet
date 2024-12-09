@@ -37,3 +37,50 @@ impl NodeBlockStore {
         Ok(self.dbio.put_block(block, false)?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
+    use storage::block::{Block, BlockHash, BlockId, Data};
+    use storage::transaction::Transaction;
+
+    fn create_genesis_block() -> Block {
+        Block {
+            block_id: 0,
+            prev_block_id: 0,
+            prev_block_hash: [0; 32],
+            hash: [1; 32],
+            transactions: vec![],
+            data: Data::default(),
+        }
+    }
+
+    fn create_sample_block(block_id: u64, prev_block_id: u64) -> Block {
+        Block {
+            block_id: block_id,
+            prev_block_id: prev_block_id,
+            prev_block_hash: [0; 32],
+            hash: [1; 32],
+            transactions: vec![],
+            data: Data::default(),
+        }
+    }
+
+    #[test]
+    fn test_open_db_with_genesis() {
+        let temp_dir: tempfile::TempDir = tempdir().unwrap();
+        let path = temp_dir.path();
+
+        let genesis_block = create_genesis_block();
+        let node_store = NodeBlockStore::open_db_with_genesis(path, Some(genesis_block.clone()))
+            .unwrap();
+
+        // Verify the genesis block is stored
+        let stored_block = node_store.get_block_at_id(0).unwrap();
+        assert_eq!(stored_block.block_id, genesis_block.block_id);
+        assert_eq!(stored_block.hash, genesis_block.hash);
+    }
+
+}
