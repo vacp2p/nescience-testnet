@@ -2674,11 +2674,13 @@ dependencies = [
  "bincode",
  "elliptic-curve",
  "env_logger",
+ "hex",
  "k256",
  "log",
  "monotree",
  "rand 0.8.5",
  "reqwest 0.11.27",
+ "risc0-zkvm",
  "secp256k1-zkp",
  "serde",
  "serde_json",
@@ -2688,6 +2690,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "utxo",
+ "zkvm",
 ]
 
 [[package]]
@@ -4339,6 +4342,7 @@ name = "storage"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "elliptic-curve",
  "env_logger",
  "log",
  "lru",

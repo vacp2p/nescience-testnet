@@ -18,7 +18,7 @@ pub struct AddressKeyHolder {
     //Will be useful in future
     #[allow(dead_code)]
     top_secret_key_holder: TopSecretKeyHolder,
-    utxo_secret_key_holder: UTXOSecretKeyHolder,
+    pub utxo_secret_key_holder: UTXOSecretKeyHolder,
     pub address: TreeHashType,
     pub nullifer_public_key: PublicKey,
     pub viewing_public_key: PublicKey,

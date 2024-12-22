@@ -17,13 +17,17 @@ pub async fn main_runner() -> Result<()> {
         home: PathBuf::new(),
         override_rust_log: None,
         sequencer_addr: "addr".to_string(),
-        seq_poll_timeout_secs: 1
+        seq_poll_timeout_secs: 1,
     };
 
     let node_core = NodeCore::start_from_config_update_chain(node_config.clone()).await?;
     let wrapped_node_core = Arc::new(Mutex::new(node_core));
 
-    let http_server = new_http_server(RpcConfig::default(), node_config.clone(), wrapped_node_core.clone())?;
+    let http_server = new_http_server(
+        RpcConfig::default(),
+        node_config.clone(),
+        wrapped_node_core.clone(),
+    )?;
     info!("HTTP server started");
     let _http_server_handle = http_server.handle();
     tokio::spawn(http_server);
