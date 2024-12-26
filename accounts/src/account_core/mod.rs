@@ -40,6 +40,19 @@ impl Account {
         }
     }
 
+    pub fn new_with_balance(balance: u64) -> Self {
+        let key_holder = AddressKeyHolder::new_os_random();
+        let address = key_holder.address;
+        let utxo_tree = UTXOSparseMerkleTree::new();
+
+        Self {
+            key_holder,
+            address,
+            balance,
+            utxo_tree,
+        }
+    }
+
     pub fn produce_ephemeral_key_holder(&self) -> EphemeralKeyHolder {
         self.key_holder.produce_ephemeral_key_holder()
     }
@@ -107,5 +120,79 @@ impl Account {
 impl Default for Account {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn generate_dummy_utxo_nullifier() -> UTXONullifier {
+        UTXONullifier::default()
+    }
+
+    fn generate_dummy_utxo(address: TreeHashType, amount: u128) -> UTXO {
+        let payload = UTXOPayload {
+            owner: address,
+            asset: vec![],
+            amount,
+            privacy_flag: false,
+        };
+        UTXO::create_utxo_from_payload(payload)
+    }
+
+    #[test]
+    fn test_new_account() {
+        let account = Account::new();
+
+        assert_eq!(account.balance, 0);
+        assert!(account.key_holder.address != [0u8; 32]); // Check if the address is not empty
+    }
+
+    #[test]
+    fn test_mark_spent_utxo() {
+        let mut account = Account::new();
+        let utxo = generate_dummy_utxo(account.address, 100);
+        account.add_new_utxo_outputs(vec![utxo]).unwrap();
+
+        let mut utxo_nullifier_map = HashMap::new();
+        utxo_nullifier_map.insert(account.address, generate_dummy_utxo_nullifier());
+
+        let result = account.mark_spent_utxo(utxo_nullifier_map);
+
+        assert!(result.is_ok());
+        assert!(account.utxo_tree.store.get(&account.address).is_none());
+    }
+
+    #[test]
+    fn test_add_new_utxo_outputs() {
+        let mut account = Account::new();
+        let utxo1 = generate_dummy_utxo(account.address, 100);
+        let utxo2 = generate_dummy_utxo(account.address, 200);
+
+        let result = account.add_new_utxo_outputs(vec![utxo1.clone(), utxo2.clone()]);
+
+        assert!(result.is_ok());
+        assert_eq!(account.utxo_tree.store.len(), 2);
+    }
+
+    #[test]
+    fn test_update_public_balance() {
+        let mut account = Account::new();
+        account.update_public_balance(500);
+
+        assert_eq!(account.balance, 500);
+    }
+
+    #[test]
+    fn test_add_asset() {
+        let mut account = Account::new();
+        let asset = "dummy_asset";
+        let amount = 1000u128;
+
+        let result = account.add_asset(asset, amount, false);
+
+        assert!(result.is_ok());
+        assert_eq!(account.utxo_tree.store.len(), 1);
     }
 }

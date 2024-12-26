@@ -7,7 +7,7 @@ pub type BlockHash = [u8; 32];
 pub type Data = Vec<u8>;
 pub type BlockId = u64;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Block {
     pub block_id: BlockId,
     pub prev_block_id: BlockId,

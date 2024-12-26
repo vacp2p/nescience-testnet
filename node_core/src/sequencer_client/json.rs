@@ -33,6 +33,7 @@ pub struct RegisterAccountResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendTxResponse {
     pub status: String,
+    pub additional_data: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

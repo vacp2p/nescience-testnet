@@ -78,8 +78,11 @@ impl RocksDBIO {
         if is_start_set {
             Ok(dbio)
         } else if let Some(block) = start_block {
+            let block_id = block.block_id;
             dbio.put_meta_first_block_in_db(block)?;
             dbio.put_meta_is_first_block_set()?;
+
+            dbio.put_meta_last_block_in_db(block_id)?;
 
             Ok(dbio)
         } else {
@@ -87,6 +90,20 @@ impl RocksDBIO {
 
             Ok(dbio)
         }
+    }
+
+    pub fn destroy(path: &Path) -> DbResult<()> {
+        let mut cf_opts = Options::default();
+        cf_opts.set_max_write_buffer_number(16);
+        //ToDo: Add more column families for different data
+        let cfb = ColumnFamilyDescriptor::new(CF_BLOCK_NAME, cf_opts.clone());
+        let cfmeta = ColumnFamilyDescriptor::new(CF_META_NAME, cf_opts.clone());
+
+        let mut db_opts = Options::default();
+        db_opts.create_missing_column_families(true);
+        db_opts.create_if_missing(true);
+        DBWithThreadMode::<MultiThreaded>::destroy(&db_opts, path)
+            .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))
     }
 
     pub fn meta_column(&self) -> Arc<BoundColumnFamily> {
@@ -149,7 +166,7 @@ impl RocksDBIO {
             )
             .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))?;
 
-        self.put_block(block)?;
+        self.put_block(block, true)?;
         Ok(())
     }
 
@@ -173,13 +190,15 @@ impl RocksDBIO {
         Ok(())
     }
 
-    pub fn put_block(&self, block: Block) -> DbResult<()> {
+    pub fn put_block(&self, block: Block, first: bool) -> DbResult<()> {
         let cf_block = self.block_column();
 
-        let last_curr_block = self.get_meta_last_block_in_db()?;
+        if !first {
+            let last_curr_block = self.get_meta_last_block_in_db()?;
 
-        if block.block_id > last_curr_block {
-            self.put_meta_last_block_in_db(block.block_id)?;
+            if block.block_id > last_curr_block {
+                self.put_meta_last_block_in_db(block.block_id)?;
+            }
         }
 
         self.db

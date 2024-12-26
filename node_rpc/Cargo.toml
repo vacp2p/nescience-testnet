@@ -12,6 +12,8 @@ serde.workspace = true
 actix.workspace = true
 actix-cors.workspace = true
 futures.workspace = true
+tokio.workspace = true
+hex.workspace = true
 
 actix-web.workspace = true
 

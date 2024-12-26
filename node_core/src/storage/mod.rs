@@ -1,34 +1,38 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use accounts::account_core::{Account, AccountAddress};
 use accounts_store::NodeAccountsStore;
 use anyhow::Result;
 use block_store::NodeBlockStore;
+use elliptic_curve::group::GroupEncoding;
+use k256::AffinePoint;
 use storage::{
     block::Block,
-    merkle_tree_public::merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree},
+    merkle_tree_public::{
+        merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree},
+        TreeHashType,
+    },
     nullifier::UTXONullifier,
     nullifier_sparse_merkle_tree::NullifierSparseMerkleTree,
+    transaction::Transaction,
     utxo_commitment::UTXOCommitment,
 };
+use utxo::utxo_core::UTXO;
 
 pub mod accounts_store;
 pub mod block_store;
 
 pub struct NodeChainStore {
-    pub acc_store: NodeAccountsStore,
+    pub acc_map: HashMap<AccountAddress, Account>,
     pub block_store: NodeBlockStore,
     pub nullifier_store: NullifierSparseMerkleTree,
     pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
     pub pub_tx_store: PublicTransactionMerkleTree,
-    ///For simplicity, we will allow only one account per node.
-    /// ToDo: Change it in future
-    node_main_account_info: Account,
 }
 
 impl NodeChainStore {
     pub fn new_with_genesis(home_dir: &Path, genesis_block: Block) -> Self {
-        let acc_store = NodeAccountsStore::default();
+        let acc_map = HashMap::new();
         let nullifier_store = NullifierSparseMerkleTree::default();
         let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
         let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
@@ -40,17 +44,12 @@ impl NodeChainStore {
                 .unwrap();
 
         Self {
-            acc_store,
+            acc_map,
             block_store,
             nullifier_store,
             utxo_commitments_store,
             pub_tx_store,
-            node_main_account_info: Account::new(),
         }
-    }
-
-    pub fn get_main_account_addr(&self) -> AccountAddress {
-        self.node_main_account_info.address
     }
 
     pub fn dissect_insert_block(&mut self, block: Block) -> Result<()> {
@@ -70,6 +69,43 @@ impl NodeChainStore {
                     .map(|hash| UTXONullifier { utxo_hash: hash })
                     .collect(),
             )?;
+
+            let slice_try: Result<[u8; 33], _> = tx.ephemeral_pub_key.clone().try_into();
+            let eph_key_compressed =
+                slice_try.and_then(|inner| Ok(<AffinePoint as GroupEncoding>::Repr::from(inner)));
+
+            if let Ok(eph_key_compressed) = eph_key_compressed {
+                let ephemeral_public_key_sender = AffinePoint::from_bytes(&eph_key_compressed);
+
+                if ephemeral_public_key_sender.is_some().into() {
+                    let ephemeral_public_key_sender = ephemeral_public_key_sender.unwrap();
+
+                    for (ciphertext, nonce) in tx.encoded_data.clone() {
+                        let slice = nonce.as_slice();
+                        let nonce =
+                            accounts::key_management::constants_types::Nonce::clone_from_slice(
+                                slice,
+                            );
+
+                        for (acc_id, acc) in self.acc_map.iter_mut() {
+                            let decoded_data_curr_acc = acc.decrypt_data(
+                                ephemeral_public_key_sender,
+                                ciphertext.clone(),
+                                nonce,
+                            );
+
+                            let decoded_utxo_try =
+                                serde_json::from_slice::<UTXO>(&decoded_data_curr_acc);
+
+                            if let Ok(utxo) = decoded_utxo_try {
+                                if &utxo.owner == acc_id {
+                                    acc.utxo_tree.insert_item(utxo)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             self.pub_tx_store.add_tx(tx.clone());
         }

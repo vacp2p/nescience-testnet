@@ -1,5 +1,6 @@
 use log::debug;
 
+use node_core::sequencer_client::SequencerClientError;
 use rpc_primitives::errors::{RpcError, RpcParseError};
 
 pub struct RpcErr(pub RpcError);
@@ -44,4 +45,13 @@ impl RpcErrKind for RpcErrInternal {
 pub fn from_rpc_err_into_anyhow_err(rpc_err: RpcError) -> anyhow::Error {
     debug!("Rpc error cast to anyhow error : err {rpc_err:?}");
     anyhow::anyhow!(format!("{rpc_err:#?}"))
+}
+
+pub fn cast_seq_client_error_into_rpc_error(seq_cli_err: SequencerClientError) -> RpcError {
+    let error_string = seq_cli_err.to_string();
+
+    match seq_cli_err {
+        SequencerClientError::SerdeError(_) => RpcError::serialization_error(&error_string),
+        SequencerClientError::HTTPError(_) => RpcError::new_internal_error(None, &error_string),
+    }
 }

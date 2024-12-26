@@ -18,7 +18,7 @@ pub struct UTXO {
     pub privacy_flag: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UTXOPayload {
     pub owner: AccountId,
     pub asset: Asset,

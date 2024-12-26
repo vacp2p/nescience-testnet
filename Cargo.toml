@@ -27,6 +27,7 @@ serde_json = "1.0.81"
 actix = "0.13.0"
 actix-cors = "0.6.1"
 futures = "0.3"
+actix-rt = "*"
 
 env_logger = "0.10"
 log = "0.4"
@@ -40,6 +41,7 @@ aes-gcm = "0.10.3"
 toml = "0.7.4"
 secp256k1-zkp = "0.11.0"
 bincode = "1.3.3"
+tempfile = "3.14.0"
 
 rocksdb = { version = "0.21.0", default-features = false, features = [
   "snappy",

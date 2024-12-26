@@ -9,7 +9,13 @@ use rpc_primitives::{
 
 use crate::{
     rpc_error_responce_inverter,
-    types::rpc_structs::{HelloRequest, HelloResponse},
+    types::{
+        err_rpc::cast_seq_client_error_into_rpc_error,
+        rpc_structs::{
+            ExecuteSubscenarioRequest, ExecuteSubscenarioResponse, RegisterAccountRequest,
+            RegisterAccountResponse, SendTxRequest,
+        },
+    },
 };
 
 use super::{respond, types::err_rpc::RpcErr, JsonHandler};
@@ -31,13 +37,60 @@ impl JsonHandler {
         }
     }
 
-    #[allow(clippy::unused_async)]
-    ///Example of request processing
-    async fn process_temp_hello(&self, request: Request) -> Result<Value, RpcErr> {
-        let _hello_request = HelloRequest::parse(Some(request.params))?;
+    async fn process_request_execute_subscenario(&self, request: Request) -> Result<Value, RpcErr> {
+        let req = ExecuteSubscenarioRequest::parse(Some(request.params))?;
 
-        let helperstruct = HelloResponse {
-            greeting: "HELLO_FROM_NODE".to_string(),
+        {
+            let mut store = self.node_chain_store.lock().await;
+
+            match req.scenario_id {
+                1 => store.subscenario_1().await,
+                2 => store.subscenario_2().await,
+                3 => store.subscenario_3().await,
+                4 => store.subscenario_4().await,
+                5 => store.subscenario_5().await,
+                _ => return Err(RpcErr(RpcError::invalid_params("Scenario id not found"))),
+            }
+        }
+
+        let helperstruct = ExecuteSubscenarioResponse {
+            scenario_result: "success".to_string(),
+        };
+
+        respond(helperstruct)
+    }
+
+    async fn process_register_account(&self, request: Request) -> Result<Value, RpcErr> {
+        let _req = RegisterAccountRequest::parse(Some(request.params))?;
+
+        let acc_addr = {
+            let mut guard = self.node_chain_store.lock().await;
+
+            guard.create_new_account().await
+        };
+
+        let helperstruct = RegisterAccountResponse {
+            status: hex::encode(acc_addr),
+        };
+
+        respond(helperstruct)
+    }
+
+    async fn process_send_tx(&self, request: Request) -> Result<Value, RpcErr> {
+        let req = SendTxRequest::parse(Some(request.params))?;
+
+        {
+            let guard = self.node_chain_store.lock().await;
+
+            guard
+                .sequencer_client
+                .send_tx(req.transaction)
+                .await
+                .map_err(cast_seq_client_error_into_rpc_error)?;
+        }
+
+        let helperstruct = RegisterAccountResponse {
+            status: "success".to_string(),
         };
 
         respond(helperstruct)
@@ -46,7 +99,9 @@ impl JsonHandler {
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             //Todo : Add handling of more JSON RPC methods
-            "hello" => self.process_temp_hello(request).await,
+            "register_account" => self.process_register_account(request).await,
+            "execute_subscenario" => self.process_request_execute_subscenario(request).await,
+            "send_tx" => self.process_send_tx(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }

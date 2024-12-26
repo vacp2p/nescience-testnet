@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_web::{http, middleware, web, App, Error as HttpError, HttpResponse, HttpServer};
@@ -6,8 +7,11 @@ use futures::Future;
 use futures::FutureExt;
 use log::info;
 
+use node_core::config::NodeConfig;
+use node_core::NodeCore;
 use rpc_primitives::message::Message;
 use rpc_primitives::RpcConfig;
+use tokio::sync::Mutex;
 
 use super::JsonHandler;
 
@@ -38,7 +42,11 @@ fn get_cors(cors_allowed_origins: &[String]) -> Cors {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn new_http_server(config: RpcConfig) -> io::Result<actix_web::dev::Server> {
+pub fn new_http_server(
+    config: RpcConfig,
+    node_config: NodeConfig,
+    node_chain_store: Arc<Mutex<NodeCore>>,
+) -> io::Result<actix_web::dev::Server> {
     let RpcConfig {
         addr,
         cors_allowed_origins,
@@ -46,7 +54,11 @@ pub fn new_http_server(config: RpcConfig) -> io::Result<actix_web::dev::Server> 
         limits_config,
     } = config;
     info!(target:"network", "Starting http server at {}", addr);
-    let handler = web::Data::new(JsonHandler { polling_config });
+    let handler = web::Data::new(JsonHandler {
+        polling_config,
+        node_core_config: node_config,
+        node_chain_store,
+    });
 
     // HTTP server
     Ok(HttpServer::new(move || {
