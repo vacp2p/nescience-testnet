@@ -40,8 +40,9 @@ impl EphemeralKeyHolder {
         data: &[u8],
     ) -> (CipherText, Nonce) {
         let key_point = self.calculate_shared_secret_sender(viewing_public_key_receiver);
-        let key_raw = key_point.to_bytes();
-        let key_raw_adjust: [u8; 32] = key_raw.as_slice().try_into().unwrap();
+        let binding = key_point.to_bytes();
+        let key_raw = &binding.as_slice()[..32];
+        let key_raw_adjust: [u8; 32] = key_raw.try_into().unwrap();
 
         let key: Key<Aes256Gcm> = key_raw_adjust.into();
 

@@ -3,7 +3,7 @@ use anyhow::Result;
 use json::{
     GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
     RegisterAccountRequest, RegisterAccountResponse, SendTxRequest, SendTxResponse,
-    SequencerRpcRequest,
+    SequencerRpcRequest, SequencerRpcResponse,
 };
 use k256::elliptic_curve::group::GroupEncoding;
 use reqwest::Client;
@@ -62,9 +62,9 @@ impl SequencerClient {
 
         let call_res = call_builder.json(&request).send().await?;
 
-        let response = call_res.json::<Value>().await?;
+        let response = call_res.json::<SequencerRpcResponse>().await?;
 
-        Ok(response)
+        Ok(response.result)
     }
 
     pub async fn get_block(
@@ -121,11 +121,14 @@ impl SequencerClient {
     pub async fn get_genesis_id(&self) -> Result<GetGenesisIdResponse, SequencerClientError> {
         let genesis_req = GetGenesisIdRequest {};
 
-        let req = serde_json::to_value(genesis_req)?;
+        let req = serde_json::to_value(genesis_req).unwrap();
 
-        let resp = self.call_method_with_payload("get_genesis", req).await?;
+        let resp = self
+            .call_method_with_payload("get_genesis", req)
+            .await
+            .unwrap();
 
-        let resp_deser = serde_json::from_value(resp)?;
+        let resp_deser = serde_json::from_value(resp).unwrap();
 
         Ok(resp_deser)
     }

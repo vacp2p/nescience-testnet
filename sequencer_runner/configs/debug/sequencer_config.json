@@ -4,5 +4,6 @@
     "genesis_id": 1,
     "is_genesis_random": true,
     "max_num_tx_in_block": 20,
-    "block_create_timeout_millis": 10000
+    "block_create_timeout_millis": 10000,
+    "port": 3040
 }

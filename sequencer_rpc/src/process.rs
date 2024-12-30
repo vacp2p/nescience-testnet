@@ -12,8 +12,8 @@ use crate::{
     rpc_error_responce_inverter,
     types::rpc_structs::{
         GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
-        HelloRequest, HelloResponse, RegisterAccountRequest, RegisterAccountResponse,
-        SendTxRequest, SendTxResponse,
+        GetLastBlockRequest, GetLastBlockResponse, HelloRequest, HelloResponse,
+        RegisterAccountRequest, RegisterAccountResponse, SendTxRequest, SendTxResponse,
     },
 };
 
@@ -115,6 +115,20 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
+    async fn process_get_last_block(&self, request: Request) -> Result<Value, RpcErr> {
+        let _get_last_block_req = GetLastBlockRequest::parse(Some(request.params))?;
+
+        let last_block = {
+            let state = self.sequencer_state.lock().await;
+
+            state.chain_height
+        };
+
+        let helperstruct = GetLastBlockResponse { last_block };
+
+        respond(helperstruct)
+    }
+
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             "hello" => self.process_temp_hello(request).await,
@@ -122,6 +136,7 @@ impl JsonHandler {
             "send_tx" => self.process_send_tx(request).await,
             "get_block" => self.process_get_block_data(request).await,
             "get_genesis" => self.process_get_genesis(request).await,
+            "get_last_block" => self.process_get_last_block(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }

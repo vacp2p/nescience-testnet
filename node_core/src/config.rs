@@ -12,4 +12,6 @@ pub struct NodeConfig {
     pub sequencer_addr: String,
     ///Sequencer polling duration for new blocks in seconds
     pub seq_poll_timeout_secs: u64,
+    ///Port to listen
+    pub port: u16,
 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use k256::AffinePoint;
+use log::info;
 use serde::Serialize;
 use storage::{merkle_tree_public::TreeHashType, nullifier::UTXONullifier};
 use utxo::{
@@ -70,7 +71,7 @@ impl Account {
         ephemeral_public_key_sender: AffinePoint,
         ciphertext: CipherText,
         nonce: Nonce,
-    ) -> Vec<u8> {
+    ) -> Result<Vec<u8>, aes_gcm::Error> {
         self.key_holder
             .decrypt_data(ephemeral_public_key_sender, ciphertext, nonce)
     }
@@ -114,6 +115,12 @@ impl Account {
         self.utxo_tree.insert_item(asset_utxo)?;
 
         Ok(())
+    }
+
+    pub fn log(&self) {
+        self.key_holder.log();
+        info!("Account address is {:?}", hex::encode(self.address));
+        info!("Account balance is {:?}", self.balance);
     }
 }
 

@@ -1,31 +1,40 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
+use clap::Parser;
 use consensus::ConsensusManager;
 use log::info;
 use networking::peer_manager::PeerManager;
-use node_core::{config::NodeConfig, NodeCore};
+use node_core::NodeCore;
 use node_rpc::new_http_server;
 use rpc_primitives::RpcConfig;
 use tokio::sync::Mutex;
 
+pub mod config;
+
+#[derive(Parser, Debug)]
+#[clap(version)]
+struct Args {
+    /// Path to configs
+    home_dir: PathBuf,
+}
+
 pub async fn main_runner() -> Result<()> {
     env_logger::init();
 
-    //ToDo: Change it
-    let node_config = NodeConfig {
-        home: PathBuf::new(),
-        override_rust_log: None,
-        sequencer_addr: "addr".to_string(),
-        seq_poll_timeout_secs: 1,
-    };
+    let args = Args::parse();
+    let Args { home_dir } = args;
 
-    let node_core = NodeCore::start_from_config_update_chain(node_config.clone()).await?;
+    let app_config = config::from_file(home_dir.join("node_config.json"))?;
+
+    let port = app_config.port;
+
+    let node_core = NodeCore::start_from_config_update_chain(app_config.clone()).await?;
     let wrapped_node_core = Arc::new(Mutex::new(node_core));
 
     let http_server = new_http_server(
-        RpcConfig::default(),
-        node_config.clone(),
+        RpcConfig::with_port(port),
+        app_config.clone(),
         wrapped_node_core.clone(),
     )?;
     info!("HTTP server started");

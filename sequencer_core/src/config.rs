@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -15,5 +15,7 @@ pub struct SequencerConfig {
     ///Maximum number of transactions in block
     pub max_num_tx_in_block: usize,
     ///Interval in which blocks produced
-    pub block_create_timeout_millis: Duration,
+    pub block_create_timeout_millis: u64,
+    ///Port to listen
+    pub port: u16,
 }

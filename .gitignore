@@ -5,3 +5,4 @@ deps/
 data/
 .idea/
 .vscode/
+rocksdb

@@ -14,6 +14,10 @@ actix.workspace = true
 actix-web.workspace = true
 tokio.workspace = true
 
+[dependencies.clap]
+features = ["derive", "env"]
+workspace = true
+
 [dependencies.accounts]
 path = "../accounts"
 

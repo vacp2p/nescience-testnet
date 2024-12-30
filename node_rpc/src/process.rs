@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use actix_web::Error as HttpError;
 use serde_json::Value;
 
@@ -12,8 +14,9 @@ use crate::{
     types::{
         err_rpc::cast_seq_client_error_into_rpc_error,
         rpc_structs::{
-            ExecuteSubscenarioRequest, ExecuteSubscenarioResponse, RegisterAccountRequest,
-            RegisterAccountResponse, SendTxRequest,
+            ExecuteSubscenarioRequest, ExecuteSubscenarioResponse, GetBlockDataRequest,
+            GetBlockDataResponse, GetLastBlockRequest, GetLastBlockResponse,
+            RegisterAccountRequest, RegisterAccountResponse, SendTxRequest,
         },
     },
 };
@@ -96,12 +99,46 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
+    async fn process_get_block_data(&self, request: Request) -> Result<Value, RpcErr> {
+        let req = GetBlockDataRequest::parse(Some(request.params))?;
+
+        let block = {
+            let guard = self.node_chain_store.lock().await;
+
+            {
+                let read_guard = guard.storage.read().await;
+
+                read_guard.block_store.get_block_at_id(req.block_id)?
+            }
+        };
+
+        let helperstruct = GetBlockDataResponse { block };
+
+        respond(helperstruct)
+    }
+
+    async fn process_get_last_block(&self, request: Request) -> Result<Value, RpcErr> {
+        let _req = GetLastBlockRequest::parse(Some(request.params))?;
+
+        let last_block = {
+            let guard = self.node_chain_store.lock().await;
+
+            guard.curr_height.load(Ordering::Relaxed)
+        };
+
+        let helperstruct = GetLastBlockResponse { last_block };
+
+        respond(helperstruct)
+    }
+
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             //Todo : Add handling of more JSON RPC methods
             "register_account" => self.process_register_account(request).await,
             "execute_subscenario" => self.process_request_execute_subscenario(request).await,
             "send_tx" => self.process_send_tx(request).await,
+            "get_block" => self.process_get_block_data(request).await,
+            "get_last_block" => self.process_get_last_block(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }

@@ -27,8 +27,9 @@ pub fn prove_send_utxo(
     owners_parts: Vec<(u128, AccountAddress)>,
 ) -> (Vec<(UTXO, AccountAddress)>, Receipt) {
     let mut builder = ExecutorEnv::builder();
+    let utxo_payload = spent_utxo.into_payload();
 
-    builder.write(&spent_utxo).unwrap();
+    builder.write(&utxo_payload).unwrap();
     builder.write(&owners_parts).unwrap();
 
     let env = builder.build().unwrap();
@@ -62,10 +63,11 @@ pub fn prove_send_utxo_shielded(
         amount,
         privacy_flag: true,
     });
+    let utxo_payload = temp_utxo_to_spend.into_payload();
 
     let mut builder = ExecutorEnv::builder();
 
-    builder.write(&temp_utxo_to_spend).unwrap();
+    builder.write(&utxo_payload).unwrap();
     builder.write(&owners_parts).unwrap();
 
     let env = builder.build().unwrap();
@@ -93,8 +95,9 @@ pub fn prove_send_utxo_deshielded(
     owners_parts: Vec<(u128, AccountAddress)>,
 ) -> (Vec<(u128, AccountAddress)>, Receipt) {
     let mut builder = ExecutorEnv::builder();
+    let utxo_payload = spent_utxo.into_payload();
 
-    builder.write(&spent_utxo).unwrap();
+    builder.write(&utxo_payload).unwrap();
     builder.write(&owners_parts).unwrap();
 
     let env = builder.build().unwrap();
@@ -140,7 +143,9 @@ pub fn execute_send_utxo(
 ) -> (UTXO, Vec<(UTXO, AccountAddress)>) {
     let mut builder = ExecutorEnv::builder();
 
-    builder.write(&spent_utxo).unwrap();
+    let utxo_payload = spent_utxo.into_payload();
+
+    builder.write(&utxo_payload).unwrap();
     builder.write(&owners_parts).unwrap();
 
     let env = builder.build().unwrap();

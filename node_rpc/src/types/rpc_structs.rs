@@ -28,11 +28,15 @@ pub struct ExecuteSubscenarioRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetGenesisIdRequest {}
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetLastBlockRequest {}
+
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
 parse_request!(GetGenesisIdRequest);
 parse_request!(ExecuteSubscenarioRequest);
+parse_request!(GetLastBlockRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -62,4 +66,9 @@ pub struct ExecuteSubscenarioResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetGenesisIdResponse {
     pub genesis_id: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetLastBlockResponse {
+    pub last_block: u64,
 }

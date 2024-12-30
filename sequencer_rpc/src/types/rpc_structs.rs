@@ -6,6 +6,8 @@ use sequencer_core::transaction_mempool::TransactionMempool;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use storage::block::Block;
+use storage::block::BlockId;
+use storage::transaction::Transaction;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloRequest {}
@@ -30,11 +32,15 @@ pub struct GetBlockDataRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetGenesisIdRequest {}
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetLastBlockRequest {}
+
 parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
 parse_request!(GetGenesisIdRequest);
+parse_request!(GetLastBlockRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -59,4 +65,9 @@ pub struct GetBlockDataResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetGenesisIdResponse {
     pub genesis_id: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetLastBlockResponse {
+    pub last_block: u64,
 }

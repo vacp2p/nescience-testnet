@@ -1,0 +1,7 @@
+{
+    "home": ".",
+    "override_rust_log": null,
+    "sequencer_addr": "http://127.0.0.1:3040",
+    "seq_poll_timeout_secs": 10,
+    "port": 3041
+}

@@ -24,6 +24,7 @@ pub async fn main_runner() -> Result<()> {
     let app_config = config::from_file(home_dir.join("sequencer_config.json"))?;
 
     let block_timeout = app_config.block_create_timeout_millis;
+    let port = app_config.port;
 
     if let Some(ref rust_log) = app_config.override_rust_log {
         info!("RUST_LOG env var set to {rust_log:?}");
@@ -39,7 +40,7 @@ pub async fn main_runner() -> Result<()> {
 
     let seq_core_wrapped = Arc::new(Mutex::new(sequencer_core));
 
-    let http_server = new_http_server(RpcConfig::default(), seq_core_wrapped.clone())?;
+    let http_server = new_http_server(RpcConfig::with_port(port), seq_core_wrapped.clone())?;
     info!("HTTP server started");
     let _http_server_handle = http_server.handle();
     tokio::spawn(http_server);
@@ -48,7 +49,7 @@ pub async fn main_runner() -> Result<()> {
 
     #[allow(clippy::empty_loop)]
     loop {
-        tokio::time::sleep(block_timeout).await;
+        tokio::time::sleep(std::time::Duration::from_millis(block_timeout)).await;
 
         info!("Collecting transactions from mempool, block creation");
 

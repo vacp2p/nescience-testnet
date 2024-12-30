@@ -181,7 +181,7 @@ impl SequencerCore {
             .store
             .block_store
             .get_block_at_id(self.chain_height)?
-            .prev_block_hash;
+            .hash;
 
         let hashable_data = HashableBlockData {
             block_id: self.chain_height + 1,

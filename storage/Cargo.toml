@@ -12,6 +12,7 @@ serde.workspace = true
 lru.workspace = true
 thiserror.workspace = true
 elliptic-curve.workspace = true
+hex.workspace = true
 
 rocksdb.workspace = true
 rs_merkle.workspace = true
