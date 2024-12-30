@@ -109,7 +109,13 @@ impl NodeCore {
                     {
                         let mut storage_guard = wrapped_storage_thread.write().await;
 
-                        storage_guard.dissect_insert_block(block.block)?;
+                        let block_insertion_result = storage_guard.dissect_insert_block(block.block);
+
+                        if block_insertion_result.is_err() {
+                            info!("Block insertion failed due to {block_insertion_result:?}");
+
+                            block_insertion_result?;
+                        }
                         info!("Processed block with id {next_block:?}");
                     }
 
@@ -385,15 +391,18 @@ impl NodeCore {
         utxo: UTXO,
         receivers: Vec<(u128, AccountAddress)>,
     ) -> Transaction {
-        let acc_map_read_guard = self.storage.read().await;
-
-        let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
-
         let commitment_in = {
+            info!("Attempting to get write guard for commitments");
             let guard = self.storage.write().await;
+            info!("Guard got");
 
             guard.utxo_commitments_store.get_tx(utxo.hash).unwrap().hash
         };
+        info!("Commitnment got");
+
+        let acc_map_read_guard = self.storage.read().await;
+
+        let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
 
         let nullifier = generate_nullifiers(
             &utxo,
@@ -405,6 +414,7 @@ impl NodeCore {
                 .to_vec(),
         );
 
+        info!("Starting send proof");
         let (resulting_balances, receipt) = prove_send_utxo_deshielded(utxo, receivers);
 
         TransactionPayload {
@@ -489,6 +499,7 @@ impl NodeCore {
         receivers: Vec<(u128, AccountAddress)>,
     ) -> Result<SendTxResponse> {
         let point_before_prove = std::time::Instant::now();
+        info!("Starting deshielded transfer");
         let tx = self.transfer_utxo_deshielded(utxo, receivers).await;
         let point_after_prove = std::time::Instant::now();
 
@@ -501,6 +512,7 @@ impl NodeCore {
     ///Mint utxo, make it public
     pub async fn subscenario_1(&mut self) {
         let acc_addr = self.create_new_account().await;
+        info!("Account created {acc_addr:?}");
 
         let (resp, new_utxo_hash) = self.send_private_mint_tx(acc_addr, 100).await.unwrap();
         info!("Response for mint private is {resp:?}");
@@ -519,9 +531,7 @@ impl NodeCore {
                 .unwrap()
                 .clone()
         };
-
-        let acc_map_read_guard = self.storage.read().await;
-        let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();
+        
         let resp = self
             .send_deshielded_send_tx(new_utxo, vec![(100, acc_addr)])
             .await
@@ -531,7 +541,15 @@ impl NodeCore {
         info!("Awaiting new blocks");
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
-        info!("New account public balance is {:?}", acc.balance);
+        let new_balance = {
+            let acc_map_read_guard = self.storage.read().await;
+            
+            let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();
+
+            acc.balance
+        };
+
+        info!("New account public balance is {new_balance:?}");
     }
 
     ///Deposit balance, make it private
