@@ -400,19 +400,21 @@ impl NodeCore {
         };
         info!("Commitnment got");
 
-        let acc_map_read_guard = self.storage.read().await;
+        let nullifier = {
+            let acc_map_read_guard = self.storage.read().await;
 
-        let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
+            let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
 
-        let nullifier = generate_nullifiers(
-            &utxo,
-            &accout
-                .key_holder
-                .utxo_secret_key_holder
-                .nullifier_secret_key
-                .to_bytes()
-                .to_vec(),
-        );
+                generate_nullifiers(
+                &utxo,
+                &accout
+                    .key_holder
+                    .utxo_secret_key_holder
+                    .nullifier_secret_key
+                    .to_bytes()
+                    .to_vec(),
+            )
+        };
 
         info!("Starting send proof");
         let (resulting_balances, receipt) = prove_send_utxo_deshielded(utxo, receivers);
@@ -562,10 +564,13 @@ impl NodeCore {
         info!("Awaiting new blocks");
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
-        let acc_map_read_guard = self.storage.read().await;
-        let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();
+        {
+            let acc_map_read_guard = self.storage.read().await;
 
-        info!("New acconut public balance is {:?}", acc.balance);
+            let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();;
+
+            info!("New acconut public balance is {:?}", acc.balance);
+        };
 
         let (resp, new_utxo_hashes) = self
             .send_shielded_send_tx(acc_addr, 100, vec![(100, acc_addr)])
@@ -652,10 +657,12 @@ impl NodeCore {
         info!("Awaiting new blocks");
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
-        let acc_map_read_guard = self.storage.read().await;
-        let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();
-
-        info!("New acconut public balance is {:?}", acc.balance);
+        {
+            let acc_map_read_guard = self.storage.read().await;
+            let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();
+    
+            info!("New acconut public balance is {:?}", acc.balance);
+        }
 
         let (resp, new_utxo_hashes) = self
             .send_shielded_send_tx(acc_addr, 100, vec![(100, acc_addr_rec)])
@@ -715,9 +722,11 @@ impl NodeCore {
         info!("Awaiting new blocks");
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
-        let read_guard = self.storage.read().await;
-        let acc_rec = read_guard.acc_map.get(&acc_addr_rec).unwrap();
-
-        info!("New account public balance is {:?}", acc_rec.balance);
+        {
+            let read_guard = self.storage.read().await;
+            let acc_rec = read_guard.acc_map.get(&acc_addr_rec).unwrap();
+    
+            info!("New account public balance is {:?}", acc_rec.balance);
+        }
     }
 }
