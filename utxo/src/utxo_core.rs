@@ -60,6 +60,15 @@ impl UTXO {
     pub fn interpret_asset<'de, ToInterpret: Deserialize<'de>>(&'de self) -> Result<ToInterpret> {
         Ok(serde_json::from_slice(&self.asset)?)
     }
+
+    pub fn into_payload(&self) -> UTXOPayload {
+        UTXOPayload { 
+            owner: self.owner, 
+            asset: self.asset.clone(), 
+            amount: self.amount, 
+            privacy_flag: self.privacy_flag, 
+        }
+    }
 }
 
 #[cfg(test)]

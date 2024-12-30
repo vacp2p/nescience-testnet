@@ -54,6 +54,8 @@ impl NodeChainStore {
 
     pub fn dissect_insert_block(&mut self, block: Block) -> Result<()> {
         for tx in &block.transactions {
+            // let public_action = serde_json::from_slice(tx.execution_output);
+
             self.utxo_commitments_store.add_tx_multiple(
                 tx.utxo_commitments_created_hashes
                     .clone()

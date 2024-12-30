@@ -93,8 +93,9 @@ pub fn prove_send_utxo_deshielded(
     owners_parts: Vec<(u128, AccountAddress)>,
 ) -> (Vec<(u128, AccountAddress)>, Receipt) {
     let mut builder = ExecutorEnv::builder();
+    let utxo_payload = spent_utxo.into_payload();
 
-    builder.write(&spent_utxo).unwrap();
+    builder.write(&utxo_payload).unwrap();
     builder.write(&owners_parts).unwrap();
 
     let env = builder.build().unwrap();
