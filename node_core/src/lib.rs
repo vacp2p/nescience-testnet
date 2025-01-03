@@ -165,9 +165,9 @@ impl NodeCore {
         let acc_map_read_guard = self.storage.read().await;
 
         let accout = acc_map_read_guard.acc_map.get(&acc).unwrap();
-        accout.log();
 
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
+        ephm_key_holder.log();
 
         let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
 
@@ -190,7 +190,7 @@ impl NodeCore {
                     .map(|hash_data| hash_data.try_into().unwrap())
                     .collect(),
                 nullifier_created_hashes: vec![],
-                execution_proof_private: serde_json::to_string(&receipt).unwrap(),
+                execution_proof_private: hex::encode(serde_json::to_vec(&receipt).unwrap()),
                 encoded_data: vec![(encoded_data.0, encoded_data.1.to_vec())],
                 ephemeral_pub_key: eph_pub_key.to_vec(),
             }
@@ -226,7 +226,6 @@ impl NodeCore {
         let acc_map_read_guard = self.storage.read().await;
 
         let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
-        accout.log();
 
         let nullifier = generate_nullifiers(
             &utxo,
@@ -250,6 +249,7 @@ impl NodeCore {
             .collect();
 
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
+        ephm_key_holder.log();
 
         let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
 
@@ -281,7 +281,7 @@ impl NodeCore {
                     .map(|hash_data| hash_data.try_into().unwrap())
                     .collect(),
                 nullifier_created_hashes: vec![nullifier.try_into().unwrap()],
-                execution_proof_private: serde_json::to_string(&receipt).unwrap(),
+                execution_proof_private: hex::encode(serde_json::to_vec(&receipt).unwrap()),
                 encoded_data,
                 ephemeral_pub_key: eph_pub_key.to_vec(),
             }
@@ -299,7 +299,6 @@ impl NodeCore {
         let acc_map_read_guard = self.storage.read().await;
 
         let accout = acc_map_read_guard.acc_map.get(&acc).unwrap();
-        accout.log();
 
         let commitment_secrets = CommitmentSecrets {
             value: balance,
@@ -340,6 +339,7 @@ impl NodeCore {
             .collect();
 
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
+        ephm_key_holder.log();
 
         let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
 
@@ -377,7 +377,7 @@ impl NodeCore {
                     .map(|hash_data| hash_data.try_into().unwrap())
                     .collect(),
                 nullifier_created_hashes: vec![nullifier.try_into().unwrap()],
-                execution_proof_private: serde_json::to_string(&receipt).unwrap(),
+                execution_proof_private: hex::encode(serde_json::to_vec(&receipt).unwrap()),
                 encoded_data,
                 ephemeral_pub_key: eph_pub_key.to_vec(),
             }
@@ -401,7 +401,6 @@ impl NodeCore {
             .hash;
 
         let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
-        accout.log();
 
         let nullifier = generate_nullifiers(
             &utxo,
@@ -427,7 +426,7 @@ impl NodeCore {
             utxo_commitments_spent_hashes: vec![commitment_in],
             utxo_commitments_created_hashes: vec![],
             nullifier_created_hashes: vec![nullifier.try_into().unwrap()],
-            execution_proof_private: serde_json::to_string(&receipt).unwrap(),
+            execution_proof_private: hex::encode(serde_json::to_vec(&receipt).unwrap()),
             encoded_data: vec![],
             ephemeral_pub_key: vec![],
         }
@@ -461,9 +460,12 @@ impl NodeCore {
         acc: AccountAddress,
         amount: u128,
     ) -> Result<SendTxResponse> {
+        let tx = self.deposit_money_public(acc, amount);
+        tx.log();
+
         Ok(self
             .sequencer_client
-            .send_tx(self.deposit_money_public(acc, amount))
+            .send_tx(tx)
             .await?)
     }
 
@@ -523,7 +525,6 @@ impl NodeCore {
     ///Mint utxo, make it public
     pub async fn subscenario_1(&mut self) {
         let acc_addr = self.create_new_account().await;
-        info!("Account created {acc_addr:?}");
 
         let (resp, new_utxo_hash, comm_gen_hash) =
             self.send_private_mint_tx(acc_addr, 100).await.unwrap();
@@ -536,7 +537,6 @@ impl NodeCore {
             let mut write_guard = self.storage.write().await;
 
             let acc = write_guard.acc_map.get_mut(&acc_addr).unwrap();
-            acc.log();
 
             acc.utxo_tree
                 .get_item(new_utxo_hash)
@@ -560,7 +560,6 @@ impl NodeCore {
             let acc_map_read_guard = self.storage.read().await;
 
             let acc = acc_map_read_guard.acc_map.get(&acc_addr).unwrap();
-            acc.log();
 
             acc.balance
         };
@@ -665,6 +664,7 @@ impl NodeCore {
                 .unwrap()
                 .clone()
         };
+        new_utxo.log();
 
         info!("User {acc_addr_rec:?} received new utxo {new_utxo:?}");
     }
@@ -711,6 +711,7 @@ impl NodeCore {
                 .unwrap()
                 .clone()
         };
+        new_utxo.log();
 
         info!("User {acc_addr_rec:?} received new utxo {new_utxo:?}");
     }

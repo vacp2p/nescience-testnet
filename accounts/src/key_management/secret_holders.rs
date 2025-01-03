@@ -17,7 +17,7 @@ pub struct SeedHolder {
 #[derive(Debug, Clone)]
 ///Secret spending key holder. Produces `UTXOSecretKeyHolder` objects.
 pub struct TopSecretKeyHolder {
-    secret_spending_key: Scalar,
+    pub secret_spending_key: Scalar,
 }
 
 #[derive(Debug, Clone)]

@@ -78,21 +78,24 @@ impl AddressKeyHolder {
 
     pub fn log(&self) {
         info!(
-            "AddressKeyHolder top_secret_key_holder is {:?}",
-            self.top_secret_key_holder
+            "Secret spending key is {:?}",
+            hex::encode(self.top_secret_key_holder.secret_spending_key.to_bytes()),
         );
         info!(
-            "AddressKeyHolder utxo_secret_key_holder is {:?}",
-            self.utxo_secret_key_holder
-        );
-        info!("AddressKeyHolder address is {:?}", self.address);
-        info!(
-            "AddressKeyHolder nullifer_public_key is {:?}",
-            self.nullifer_public_key
+            "Nulifier secret key is {:?}",
+            hex::encode(self.utxo_secret_key_holder.nullifier_secret_key.to_bytes()),
         );
         info!(
-            "AddressKeyHolder viewing_public_key is {:?}",
-            self.viewing_public_key
+            "Viewing secret key is {:?}",
+            hex::encode(self.utxo_secret_key_holder.viewing_secret_key.to_bytes()),
+        );
+        info!(
+            "Nullifier public key is {:?}",
+            hex::encode(self.nullifer_public_key.to_bytes()),
+        );
+        info!(
+            "Viewing public key is {:?}",
+            hex::encode(self.viewing_public_key.to_bytes()),
         );
     }
 }

@@ -2,6 +2,7 @@ use aes_gcm::{aead::Aead, AeadCore, Aes256Gcm, Key, KeyInit};
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::PrimeField;
 use k256::{AffinePoint, FieldBytes, Scalar};
+use log::info;
 use rand::{rngs::OsRng, RngCore};
 
 use super::constants_types::{CipherText, Nonce};
@@ -50,5 +51,9 @@ impl EphemeralKeyHolder {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
 
         (cipher.encrypt(&nonce, data).unwrap(), nonce)
+    }
+
+    pub fn log(&self) {
+        info!("Ephemeral private key is {:?}", hex::encode(self.ephemeral_secret_key.to_bytes()));
     }
 }

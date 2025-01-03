@@ -118,7 +118,7 @@ impl Account {
     }
 
     pub fn log(&self) {
-        self.key_holder.log();
+        info!("Keys generated");
         info!("Account address is {:?}", hex::encode(self.address));
         info!("Account balance is {:?}", self.balance);
     }

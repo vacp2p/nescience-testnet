@@ -108,28 +108,28 @@ impl Transaction {
             self.utxo_commitments_spent_hashes
                 .iter()
                 .map(|val| hex::encode(val.clone()))
+                .collect::<Vec<_>>()
         );
         info!(
             "Transaction utxo_commitments_created_hashes is {:?}",
             self.utxo_commitments_created_hashes
                 .iter()
                 .map(|val| hex::encode(val.clone()))
+                .collect::<Vec<_>>()
         );
         info!(
             "Transaction nullifier_created_hashes is {:?}",
             self.nullifier_created_hashes
                 .iter()
                 .map(|val| hex::encode(val.clone()))
-        );
-        info!(
-            "Transaction execution_proof_private is {:?}",
-            self.execution_proof_private
+                .collect::<Vec<_>>()
         );
         info!(
             "Transaction encoded_data is {:?}",
             self.encoded_data
                 .iter()
                 .map(|val| (hex::encode(val.0.clone()), hex::encode(val.1.clone())))
+                .collect::<Vec<_>>()
         );
         info!(
             "Transaction ephemeral_pub_key is {:?}",

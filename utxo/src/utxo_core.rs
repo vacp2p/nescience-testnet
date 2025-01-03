@@ -73,7 +73,7 @@ impl UTXO {
 
     pub fn log(&self) {
         info!("UTXO hash is {:?}", hex::encode(self.hash));
-        info!("UTXO owner is {:?}", self.owner);
+        info!("UTXO owner is {:?}", hex::encode(self.owner));
         info!(
             "UTXO nullifier is {:?}",
             self.nullifier.clone().map(|val| hex::encode(val.utxo_hash))
