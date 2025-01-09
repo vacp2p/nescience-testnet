@@ -8,6 +8,7 @@ use rpc_primitives::{
     message::{Message, Request},
     parser::RpcRequest,
 };
+use storage::transaction::ActionData;
 
 use crate::{
     rpc_error_responce_inverter,
@@ -18,7 +19,9 @@ use crate::{
             ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
             ExecuteSubscenarioResponse, GetBlockDataRequest, GetBlockDataResponse,
             GetLastBlockRequest, GetLastBlockResponse, RegisterAccountRequest,
-            RegisterAccountResponse, SendTxRequest,
+            RegisterAccountResponse, SendTxRequest, ShowAccountPublicBalanceRequest,
+            ShowAccountPublicBalanceResponse, ShowAccountUTXORequest, ShowAccountUTXOResponse,
+            ShowTransactionRequest, ShowTransactionResponse,
         },
     },
 };
@@ -175,6 +178,161 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
+    async fn process_show_account_public_balance(&self, request: Request) -> Result<Value, RpcErr> {
+        let req = ShowAccountPublicBalanceRequest::parse(Some(request.params))?;
+
+        let acc_addr_hex_dec = hex::decode(req.account_addr.clone()).map_err(|_| {
+            RpcError::parse_error("Failed to decode account address from hex string".to_string())
+        })?;
+
+        let acc_addr: [u8; 32] = acc_addr_hex_dec.try_into().map_err(|_| {
+            RpcError::parse_error("Failed to parse account address from bytes".to_string())
+        })?;
+
+        let balance = {
+            let cover_guard = self.node_chain_store.lock().await;
+
+            {
+                let under_guard = cover_guard.storage.read().await;
+
+                let acc = under_guard
+                    .acc_map
+                    .get(&acc_addr)
+                    .ok_or(RpcError::new_internal_error(None, "Account not found"))?;
+
+                acc.balance
+            }
+        };
+
+        let helperstruct = ShowAccountPublicBalanceResponse {
+            addr: req.account_addr,
+            balance,
+        };
+
+        respond(helperstruct)
+    }
+
+    async fn process_show_account_utxo_request(&self, request: Request) -> Result<Value, RpcErr> {
+        let req = ShowAccountUTXORequest::parse(Some(request.params))?;
+
+        let acc_addr_hex_dec = hex::decode(req.account_addr.clone()).map_err(|_| {
+            RpcError::parse_error("Failed to decode account address from hex string".to_string())
+        })?;
+
+        let acc_addr: [u8; 32] = acc_addr_hex_dec.try_into().map_err(|_| {
+            RpcError::parse_error("Failed to parse account address from bytes".to_string())
+        })?;
+
+        let utxo_hash_hex_dec = hex::decode(req.utxo_hash.clone()).map_err(|_| {
+            RpcError::parse_error("Failed to decode hash from hex string".to_string())
+        })?;
+
+        let utxo_hash: [u8; 32] = utxo_hash_hex_dec
+            .try_into()
+            .map_err(|_| RpcError::parse_error("Failed to parse hash from bytes".to_string()))?;
+
+        let (asset, amount) = {
+            let cover_guard = self.node_chain_store.lock().await;
+
+            {
+                let mut under_guard = cover_guard.storage.write().await;
+
+                let acc = under_guard
+                    .acc_map
+                    .get_mut(&acc_addr)
+                    .ok_or(RpcError::new_internal_error(None, "Account not found"))?;
+
+                let utxo = acc
+                    .utxo_tree
+                    .get_item(utxo_hash)
+                    .map_err(|err| {
+                        RpcError::new_internal_error(None, &format!("DB fetch failure {err:?}"))
+                    })?
+                    .ok_or(RpcError::new_internal_error(
+                        None,
+                        "UTXO does not exist in tree",
+                    ))?;
+
+                (utxo.asset.clone(), utxo.amount)
+            }
+        };
+
+        let helperstruct = ShowAccountUTXOResponse {
+            hash: req.utxo_hash,
+            asset,
+            amount,
+        };
+
+        respond(helperstruct)
+    }
+
+    async fn process_show_transaction(&self, request: Request) -> Result<Value, RpcErr> {
+        let req = ShowTransactionRequest::parse(Some(request.params))?;
+
+        let tx_hash_hex_dec = hex::decode(req.tx_hash.clone()).map_err(|_| {
+            RpcError::parse_error("Failed to decode hash from hex string".to_string())
+        })?;
+
+        let tx_hash: [u8; 32] = tx_hash_hex_dec
+            .try_into()
+            .map_err(|_| RpcError::parse_error("Failed to parse hash from bytes".to_string()))?;
+
+        let helperstruct = {
+            let cover_guard = self.node_chain_store.lock().await;
+
+            {
+                let under_guard = cover_guard.storage.read().await;
+
+                let tx = under_guard
+                    .pub_tx_store
+                    .get_tx(tx_hash)
+                    .ok_or(RpcError::new_internal_error(None, "Transactio not found"))?;
+
+                ShowTransactionResponse {
+                    hash: req.tx_hash,
+                    tx_kind: tx.tx_kind,
+                    public_input: if let Ok(action) =
+                        serde_json::from_slice::<ActionData>(&tx.execution_input)
+                    {
+                        action.into_hexed_print()
+                    } else {
+                        "".to_string()
+                    },
+                    public_output: if let Ok(action) =
+                        serde_json::from_slice::<ActionData>(&tx.execution_output)
+                    {
+                        action.into_hexed_print()
+                    } else {
+                        "".to_string()
+                    },
+                    utxo_commitments_created_hashes: tx
+                        .utxo_commitments_created_hashes
+                        .iter()
+                        .map(|val| hex::encode(val.clone()))
+                        .collect::<Vec<_>>(),
+                    utxo_commitments_spent_hashes: tx
+                        .utxo_commitments_spent_hashes
+                        .iter()
+                        .map(|val| hex::encode(val.clone()))
+                        .collect::<Vec<_>>(),
+                    utxo_nullifiers_created_hashes: tx
+                        .nullifier_created_hashes
+                        .iter()
+                        .map(|val| hex::encode(val.clone()))
+                        .collect::<Vec<_>>(),
+                    encoded_data: tx
+                        .encoded_data
+                        .iter()
+                        .map(|val| (hex::encode(val.0.clone()), hex::encode(val.1.clone())))
+                        .collect::<Vec<_>>(),
+                    ephemeral_pub_key: hex::encode(tx.ephemeral_pub_key.clone()),
+                }
+            }
+        };
+
+        respond(helperstruct)
+    }
+
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             //Todo : Add handling of more JSON RPC methods
@@ -188,6 +346,11 @@ impl JsonHandler {
                 self.process_request_execute_scenario_multiple_send(request)
                     .await
             }
+            "show_account_public_balance" => {
+                self.process_show_account_public_balance(request).await
+            }
+            "show_account_utxo" => self.process_show_account_utxo_request(request).await,
+            "show_trasnaction" => self.process_show_transaction(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }

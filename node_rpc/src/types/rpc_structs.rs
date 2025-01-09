@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use storage::block::Block;
 use storage::transaction::Transaction;
+use storage::transaction::TxKind;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RegisterAccountRequest {}
@@ -43,6 +44,22 @@ pub struct GetGenesisIdRequest {}
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetLastBlockRequest {}
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShowAccountPublicBalanceRequest {
+    pub account_addr: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShowAccountUTXORequest {
+    pub account_addr: String,
+    pub utxo_hash: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShowTransactionRequest {
+    pub tx_hash: String,
+}
+
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
@@ -51,6 +68,9 @@ parse_request!(ExecuteSubscenarioRequest);
 parse_request!(ExecuteScenarioSplitRequest);
 parse_request!(ExecuteScenarioMultipleSendRequest);
 parse_request!(GetLastBlockRequest);
+parse_request!(ShowAccountPublicBalanceRequest);
+parse_request!(ShowAccountUTXORequest);
+parse_request!(ShowTransactionRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -95,4 +115,30 @@ pub struct GetGenesisIdResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetLastBlockResponse {
     pub last_block: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShowAccountPublicBalanceResponse {
+    pub addr: String,
+    pub balance: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShowAccountUTXOResponse {
+    pub hash: String,
+    pub asset: Vec<u8>,
+    pub amount: u128,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShowTransactionResponse {
+    pub hash: String,
+    pub tx_kind: TxKind,
+    pub public_input: String,
+    pub public_output: String,
+    pub utxo_commitments_created_hashes: Vec<String>,
+    pub utxo_commitments_spent_hashes: Vec<String>,
+    pub utxo_nullifiers_created_hashes: Vec<String>,
+    pub encoded_data: Vec<(String, String)>,
+    pub ephemeral_pub_key: String,
 }
