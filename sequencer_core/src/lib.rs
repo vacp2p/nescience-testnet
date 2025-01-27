@@ -335,5 +335,24 @@ mod tests {
         assert_eq!(roots.len(), 3); // Should return three roots
     }
 
+    #[test]
+    fn test_transaction_pre_check_pass() {
+        let config = setup_sequencer_config();
+        let mut sequencer = SequencerCore::start_from_config(config);
+
+        common_setup(&mut sequencer);
+
+        let tx = create_dummy_transaction(
+            [1; 32], 
+            vec![[91; 32]],
+            vec![[71; 32]],
+            vec![[81; 32]],
+        );
+        let tx_roots = sequencer.get_tree_roots();
+        let result = sequencer.transaction_pre_check(&tx, tx_roots);
+
+        assert!(result.is_ok());
+    }
+
 
 }
