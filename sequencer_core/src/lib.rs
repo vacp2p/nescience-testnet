@@ -301,6 +301,17 @@ mod tests {
         }
     }
 
+    fn common_setup(mut sequencer: &mut SequencerCore) {
+        let tx = create_dummy_transaction(
+            [12; 32], 
+            vec![[9; 32]],
+            vec![[7; 32]],
+            vec![[8; 32]],
+        );
+        let tx_mempool = TransactionMempool { tx };
+        sequencer.mempool.push_item(tx_mempool);
 
+        sequencer.produce_new_block_with_mempool_transactions();
+    }
 
 }
