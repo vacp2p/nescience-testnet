@@ -1,22 +1,13 @@
 use bincode;
 use k256::Scalar;
 use monotree::hasher::Blake3;
-use monotree::{Hasher, Monotree, Proof};
-use rand::thread_rng;
-use secp256k1_zkp::{
-    compute_adaptive_blinding_factor, verify_commitments_sum_to_equal, CommitmentSecrets,
-    Generator, PedersenCommitment, Tag, Tweak, SECP256K1,
-};
-use serde::{Deserialize, Serialize};
+use monotree::{Hasher, Monotree};
 use sha2::{Digest, Sha256};
 use storage::{
     commitment::Commitment, commitments_sparse_merkle_tree::CommitmentsSparseMerkleTree,
     nullifier::UTXONullifier, nullifier_sparse_merkle_tree::NullifierSparseMerkleTree,
 };
-use utxo::{
-    utxo_core::{UTXOPayload, UTXO},
-    utxo_tree::UTXOSparseMerkleTree,
-};
+use utxo::utxo_core::UTXO;
 
 fn hash(input: &[u8]) -> Vec<u8> {
     Sha256::digest(input).to_vec()
@@ -106,6 +97,7 @@ pub fn validate_nullifiers_proof(
         .is_none()
 }
 
+#[allow(unused)]
 fn private_kernel(
     root_commitment: &[u8],
     root_nullifier: [u8; 32],
