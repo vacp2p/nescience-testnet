@@ -11,27 +11,19 @@ use rpc_primitives::{
 };
 use storage::transaction::ActionData;
 
-use crate::{
-    rpc_error_responce_inverter,
-    types::{
-        err_rpc::cast_seq_client_error_into_rpc_error,
-        rpc_structs::{
-            ExecuteScenarioMultipleSendRequest, ExecuteScenarioMultipleSendResponse,
-            ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
-            ExecuteSubscenarioResponse, GetBlockDataRequest, GetBlockDataResponse,
-            GetLastBlockRequest, GetLastBlockResponse, RegisterAccountRequest,
-            RegisterAccountResponse, SendTxRequest, ShowAccountPublicBalanceRequest,
-            ShowAccountPublicBalanceResponse, ShowAccountUTXORequest, ShowAccountUTXOResponse,
-            ShowTransactionRequest, ShowTransactionResponse, UTXOShortEssentialStruct,
-            WriteDepositPublicBalanceRequest, WriteDepositPublicBalanceResponse,
-            WriteMintPrivateUTXOMultipleAssetsRequest, WriteMintPrivateUTXOMultipleAssetsResponse,
-            WriteMintPrivateUTXORequest, WriteMintPrivateUTXOResponse,
-            WriteSendDeshieldedBalanceRequest, WriteSendDeshieldedUTXOResponse,
-            WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse,
-            WriteSendShieldedUTXORequest, WriteSendShieldedUTXOResponse,
-            WriteSendSplitUTXOResponse, WriteSplitUTXORequest,
-        },
-    },
+use crate::types::rpc_structs::{
+    ExecuteScenarioMultipleSendRequest, ExecuteScenarioMultipleSendResponse,
+    ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
+    ExecuteSubscenarioResponse, GetBlockDataRequest, GetBlockDataResponse, GetLastBlockRequest,
+    GetLastBlockResponse, RegisterAccountRequest, RegisterAccountResponse,
+    ShowAccountPublicBalanceRequest, ShowAccountPublicBalanceResponse, ShowAccountUTXORequest,
+    ShowAccountUTXOResponse, ShowTransactionRequest, ShowTransactionResponse,
+    UTXOShortEssentialStruct, WriteDepositPublicBalanceRequest, WriteDepositPublicBalanceResponse,
+    WriteMintPrivateUTXOMultipleAssetsRequest, WriteMintPrivateUTXOMultipleAssetsResponse,
+    WriteMintPrivateUTXORequest, WriteMintPrivateUTXOResponse, WriteSendDeshieldedBalanceRequest,
+    WriteSendDeshieldedUTXOResponse, WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse,
+    WriteSendShieldedUTXORequest, WriteSendShieldedUTXOResponse, WriteSendSplitUTXOResponse,
+    WriteSplitUTXORequest,
 };
 
 use super::{respond, types::err_rpc::RpcErr, JsonHandler};
