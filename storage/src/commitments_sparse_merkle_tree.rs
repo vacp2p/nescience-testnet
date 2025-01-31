@@ -4,7 +4,6 @@ use monotree::{Hasher, Monotree, Proof};
 
 use crate::commitment::Commitment;
 use crate::merkle_tree_public::CommitmentHashType;
-use crate::nullifier::UTXONullifier;
 
 pub struct CommitmentsSparseMerkleTree {
     pub curr_root: Option<CommitmentHashType>,
