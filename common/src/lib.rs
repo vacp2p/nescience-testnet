@@ -1,0 +1,67 @@
+use rpc_primitives::errors::RpcError;
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SequencerRpcError {
+    pub jsonrpc: String,
+    pub error: RpcError,
+    pub id: u64,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum SequencerClientError {
+    #[error("HTTP error")]
+    HTTPError(reqwest::Error),
+    #[error("Serde error")]
+    SerdeError(serde_json::Error),
+    #[error("Internal error")]
+    InternalError(SequencerRpcError),
+}
+
+impl From<reqwest::Error> for SequencerClientError {
+    fn from(value: reqwest::Error) -> Self {
+        SequencerClientError::HTTPError(value)
+    }
+}
+
+impl From<serde_json::Error> for SequencerClientError {
+    fn from(value: serde_json::Error) -> Self {
+        SequencerClientError::SerdeError(value)
+    }
+}
+
+impl From<SequencerRpcError> for SequencerClientError {
+    fn from(value: SequencerRpcError) -> Self {
+        SequencerClientError::InternalError(value)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ExecutionFailureKind {
+    #[error("Failed to write into builder err: {0:?}")]
+    WriteError(anyhow::Error),
+    #[error("Failed to build builder err: {0:?}")]
+    BuilderError(anyhow::Error),
+    #[error("Failed prove execution err: {0:?}")]
+    ProveError(anyhow::Error),
+    #[error("Failed to decode data from VM: {0:?}")]
+    DecodeError(#[from] risc0_zkvm::serde::Error),
+    #[error("Inputs amounts does not match outputs")]
+    AmountMismatchError,
+    #[error("Sequencer client error: {0:?}")]
+    SequencerClientError(#[from] SequencerClientError),
+}
+
+impl ExecutionFailureKind {
+    pub fn write_error(err: anyhow::Error) -> Self {
+        Self::WriteError(err)
+    }
+
+    pub fn builder_error(err: anyhow::Error) -> Self {
+        Self::BuilderError(err)
+    }
+
+    pub fn prove_error(err: anyhow::Error) -> Self {
+        Self::ProveError(err)
+    }
+}

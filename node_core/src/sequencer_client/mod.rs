@@ -1,9 +1,10 @@
 use accounts::account_core::Account;
 use anyhow::Result;
+use common::{SequencerClientError, SequencerRpcError};
 use json::{
     GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
     RegisterAccountRequest, RegisterAccountResponse, SendTxRequest, SendTxResponse,
-    SequencerRpcError, SequencerRpcRequest, SequencerRpcResponse,
+    SequencerRpcRequest, SequencerRpcResponse,
 };
 use k256::elliptic_curve::group::GroupEncoding;
 use reqwest::Client;
@@ -18,34 +19,6 @@ pub mod json;
 pub struct SequencerClient {
     pub client: reqwest::Client,
     pub config: NodeConfig,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum SequencerClientError {
-    #[error("HTTP error")]
-    HTTPError(reqwest::Error),
-    #[error("Serde error")]
-    SerdeError(serde_json::Error),
-    #[error("Internal error")]
-    InternalError(SequencerRpcError),
-}
-
-impl From<reqwest::Error> for SequencerClientError {
-    fn from(value: reqwest::Error) -> Self {
-        SequencerClientError::HTTPError(value)
-    }
-}
-
-impl From<serde_json::Error> for SequencerClientError {
-    fn from(value: serde_json::Error) -> Self {
-        SequencerClientError::SerdeError(value)
-    }
-}
-
-impl From<SequencerRpcError> for SequencerClientError {
-    fn from(value: SequencerRpcError) -> Self {
-        SequencerClientError::InternalError(value)
-    }
 }
 
 impl SequencerClient {

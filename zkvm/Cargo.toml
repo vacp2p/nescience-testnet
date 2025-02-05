@@ -23,6 +23,9 @@ path = "../storage"
 [dependencies.utxo]
 path = "../utxo"
 
+[dependencies.common]
+path = "../common"
+
 [features]
 cuda = ["risc0-zkvm/cuda"]
 default = []

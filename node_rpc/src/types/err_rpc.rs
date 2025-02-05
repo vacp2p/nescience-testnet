@@ -1,6 +1,6 @@
+use common::{ExecutionFailureKind, SequencerClientError};
 use log::debug;
 
-use node_core::sequencer_client::SequencerClientError;
 use rpc_primitives::errors::{RpcError, RpcParseError};
 
 pub struct RpcErr(pub RpcError);
@@ -57,5 +57,22 @@ pub fn cast_seq_client_error_into_rpc_error(seq_cli_err: SequencerClientError) -
             err.error.data,
             &serde_json::to_string(&err.error.error_struct).unwrap_or(String::default()),
         ),
+    }
+}
+
+pub fn cast_common_execution_error_into_rpc_error(comm_exec_err: ExecutionFailureKind) -> RpcError {
+    let error_string = comm_exec_err.to_string();
+
+    match comm_exec_err {
+        ExecutionFailureKind::BuilderError(_) => RpcError::new_internal_error(None, &error_string),
+        ExecutionFailureKind::WriteError(_) => RpcError::new_internal_error(None, &error_string),
+        ExecutionFailureKind::DecodeError(_) => RpcError::new_internal_error(None, &error_string),
+        ExecutionFailureKind::ProveError(_) => RpcError::new_internal_error(None, &error_string),
+        ExecutionFailureKind::AmountMismatchError => {
+            RpcError::new_internal_error(None, &error_string)
+        }
+        ExecutionFailureKind::SequencerClientError(seq_cli_err) => {
+            cast_seq_client_error_into_rpc_error(seq_cli_err)
+        }
     }
 }

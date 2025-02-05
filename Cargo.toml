@@ -16,6 +16,7 @@ members = [
   "node_core",
   "sequencer_core",
   "rpc_primitives",
+  "common",
 ]
 
 [workspace.dependencies]

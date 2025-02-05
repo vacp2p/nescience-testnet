@@ -3,6 +3,7 @@ use std::sync::{
     Arc,
 };
 
+use common::ExecutionFailureKind;
 use k256::elliptic_curve::group::GroupEncoding;
 
 use ::storage::transaction::{Transaction, TransactionPayload, TxKind};
@@ -23,7 +24,7 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use utxo::utxo_core::UTXO;
 use zkvm::{
     prove_mint_utxo, prove_mint_utxo_multiple_assets, prove_send_utxo, prove_send_utxo_deshielded,
-    prove_send_utxo_multiple_assets_one_receiver, prove_send_utxo_shielded, ExecutionFailureKind,
+    prove_send_utxo_multiple_assets_one_receiver, prove_send_utxo_shielded,
 };
 
 pub const BLOCK_GEN_DELAY_SECS: u64 = 20;
@@ -145,11 +146,10 @@ impl NodeCore {
 
     pub async fn get_roots(&self) -> [[u8; 32]; 3] {
         let storage = self.storage.read().await;
-        //All roots are non-None after start of node main loop
         [
-            storage.nullifier_store.curr_root.unwrap(),
-            storage.utxo_commitments_store.get_root().unwrap(),
-            storage.pub_tx_store.get_root().unwrap(),
+            storage.nullifier_store.curr_root.unwrap_or([0; 32]),
+            storage.utxo_commitments_store.get_root().unwrap_or([0; 32]),
+            storage.pub_tx_store.get_root().unwrap_or([0; 32]),
         ]
     }
 
@@ -603,7 +603,7 @@ impl NodeCore {
         &self,
         acc: AccountAddress,
         amount: u128,
-    ) -> Result<(SendTxResponse, [u8; 32], [u8; 32])> {
+    ) -> Result<(SendTxResponse, [u8; 32], [u8; 32]), ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -629,7 +629,7 @@ impl NodeCore {
         acc: AccountAddress,
         amount: u128,
         number_of_assets: usize,
-    ) -> Result<(SendTxResponse, Vec<[u8; 32]>, Vec<[u8; 32]>)> {
+    ) -> Result<(SendTxResponse, Vec<[u8; 32]>, Vec<[u8; 32]>), ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -656,7 +656,7 @@ impl NodeCore {
         &self,
         acc: AccountAddress,
         amount: u128,
-    ) -> Result<SendTxResponse> {
+    ) -> Result<SendTxResponse, ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -671,7 +671,7 @@ impl NodeCore {
         utxo: UTXO,
         comm_hash: [u8; 32],
         receivers: Vec<(u128, AccountAddress)>,
-    ) -> Result<(SendTxResponse, Vec<([u8; 32], [u8; 32])>)> {
+    ) -> Result<(SendTxResponse, Vec<([u8; 32], [u8; 32])>), ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -697,7 +697,7 @@ impl NodeCore {
         comm_hashes: Vec<[u8; 32]>,
         number_to_send: usize,
         receiver: AccountAddress,
-    ) -> Result<(SendTxResponse, Vec<[u8; 32]>, Vec<[u8; 32]>)> {
+    ) -> Result<(SendTxResponse, Vec<[u8; 32]>, Vec<[u8; 32]>), ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -723,7 +723,7 @@ impl NodeCore {
         acc: AccountAddress,
         amount: u64,
         receivers: Vec<(u128, AccountAddress)>,
-    ) -> Result<(SendTxResponse, Vec<([u8; 32], [u8; 32])>)> {
+    ) -> Result<(SendTxResponse, Vec<([u8; 32], [u8; 32])>), ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -748,7 +748,7 @@ impl NodeCore {
         utxo: UTXO,
         comm_gen_hash: [u8; 32],
         receivers: Vec<(u128, AccountAddress)>,
-    ) -> Result<SendTxResponse> {
+    ) -> Result<SendTxResponse, ExecutionFailureKind> {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -769,7 +769,7 @@ impl NodeCore {
         &mut self,
         acc_addr: AccountAddress,
         amount: u128,
-    ) -> Result<(UTXO, [u8; 32])> {
+    ) -> Result<(UTXO, [u8; 32]), ExecutionFailureKind> {
         let (resp, new_utxo_hash, comm_gen_hash) =
             self.send_private_mint_tx(acc_addr, amount).await?;
         info!("Response for mint private is {resp:?}");
@@ -808,7 +808,7 @@ impl NodeCore {
         acc_addr: AccountAddress,
         amount: u128,
         number_of_assets: usize,
-    ) -> Result<(Vec<UTXO>, Vec<[u8; 32]>)> {
+    ) -> Result<(Vec<UTXO>, Vec<[u8; 32]>), ExecutionFailureKind> {
         let (resp, new_utxo_hashes, comm_gen_hashes) = self
             .send_private_mint_multiple_assets_tx(acc_addr, amount, number_of_assets)
             .await?;
@@ -858,7 +858,7 @@ impl NodeCore {
         acc_addr_rec: AccountAddress,
         utxo: UTXO,
         comm_gen_hash: [u8; 32],
-    ) -> Result<()> {
+    ) -> Result<(), ExecutionFailureKind> {
         let amount = utxo.amount;
 
         let old_balance = {
@@ -904,7 +904,7 @@ impl NodeCore {
         &mut self,
         acc_addr: AccountAddress,
         amount: u128,
-    ) -> Result<()> {
+    ) -> Result<(), ExecutionFailureKind> {
         let old_balance = {
             let acc_map_read_guard = self.storage.read().await;
 
@@ -946,7 +946,7 @@ impl NodeCore {
         acc_addr_sender: AccountAddress,
         acc_addr_rec: AccountAddress,
         amount: u128,
-    ) -> Result<UTXO> {
+    ) -> Result<UTXO, ExecutionFailureKind> {
         let (resp, new_utxo_hashes) = self
             .send_shielded_send_tx(acc_addr_sender, amount as u64, vec![(amount, acc_addr_rec)])
             .await?;
@@ -988,7 +988,7 @@ impl NodeCore {
         acc_addr_rec: AccountAddress,
         utxo: UTXO,
         comm_gen_hash: [u8; 32],
-    ) -> Result<UTXO> {
+    ) -> Result<UTXO, ExecutionFailureKind> {
         let amount = utxo.amount;
 
         let (resp, new_utxo_hashes) = self
@@ -1035,7 +1035,7 @@ impl NodeCore {
         utxos: Vec<UTXO>,
         comm_gen_hashes: Vec<[u8; 32]>,
         number_to_send: usize,
-    ) -> Result<()> {
+    ) -> Result<(), ExecutionFailureKind> {
         let (resp, new_utxo_hashes_rec, new_utxo_hashes_not_sp) = self
             .send_private_multiple_assets_send_tx(
                 utxos,
@@ -1201,7 +1201,8 @@ impl NodeCore {
         comm_hash: [u8; 32],
         receivers: Vec<(u128, AccountAddress)>,
         visibility_list: [bool; 3],
-    ) -> Result<(SendTxResponse, Vec<([u8; 32], [u8; 32])>, Vec<[u8; 32]>)> {
+    ) -> Result<(SendTxResponse, Vec<([u8; 32], [u8; 32])>, Vec<[u8; 32]>), ExecutionFailureKind>
+    {
         //Considering proof time, needs to be done before proof
         let tx_roots = self.get_roots().await;
 
@@ -1230,7 +1231,7 @@ impl NodeCore {
         utxo: UTXO,
         comm_gen_hash: [u8; 32],
         visibility_list: [bool; 3],
-    ) -> Result<(Vec<UTXO>, Vec<[u8; 32]>)> {
+    ) -> Result<(Vec<UTXO>, Vec<[u8; 32]>), ExecutionFailureKind> {
         let (resp, new_utxo_hashes, commitments_hashes) = self
             .send_split_tx(
                 utxo.clone(),
@@ -1283,7 +1284,7 @@ impl NodeCore {
     }
 
     ///Mint utxo, make it public
-    pub async fn subscenario_1(&mut self) -> Result<()> {
+    pub async fn subscenario_1(&mut self) -> Result<(), ExecutionFailureKind> {
         let acc_addr = self.create_new_account().await;
 
         let (new_utxo, comm_gen_hash) = self.operate_account_mint_private(acc_addr, 100).await?;
@@ -1300,7 +1301,7 @@ impl NodeCore {
     }
 
     ///Deposit balance, make it private
-    pub async fn subscenario_2(&mut self) -> Result<()> {
+    pub async fn subscenario_2(&mut self) -> Result<(), ExecutionFailureKind> {
         let acc_addr = self.create_new_account().await;
 
         self.operate_account_deposit_public(acc_addr, 100).await?;
@@ -1312,7 +1313,7 @@ impl NodeCore {
     }
 
     ///Mint utxo, privately send it to another user
-    pub async fn subscenario_3(&mut self) -> Result<()> {
+    pub async fn subscenario_3(&mut self) -> Result<(), ExecutionFailureKind> {
         let acc_addr = self.create_new_account().await;
         let acc_addr_rec = self.create_new_account().await;
 
@@ -1325,7 +1326,7 @@ impl NodeCore {
     }
 
     ///Deposit balance, shielded send it to another user
-    pub async fn subscenario_4(&mut self) -> Result<()> {
+    pub async fn subscenario_4(&mut self) -> Result<(), ExecutionFailureKind> {
         let acc_addr = self.create_new_account().await;
         let acc_addr_rec = self.create_new_account().await;
 
@@ -1338,7 +1339,7 @@ impl NodeCore {
     }
 
     ///Mint utxo, deshielded send it to another user
-    pub async fn subscenario_5(&mut self) -> Result<()> {
+    pub async fn subscenario_5(&mut self) -> Result<(), ExecutionFailureKind> {
         let acc_addr = self.create_new_account().await;
         let acc_addr_rec = self.create_new_account().await;
 
@@ -1364,7 +1365,7 @@ impl NodeCore {
         &mut self,
         visibility_list: [bool; 3],
         publication_index: usize,
-    ) -> Result<()> {
+    ) -> Result<(), ExecutionFailureKind> {
         let acc_addr_sender = self.create_new_account().await;
 
         let acc_addr_rec_1 = self.create_new_account().await;
@@ -1402,7 +1403,7 @@ impl NodeCore {
         &mut self,
         number_of_assets: usize,
         number_to_send: usize,
-    ) -> Result<()> {
+    ) -> Result<(), ExecutionFailureKind> {
         let acc_addr_sender = self.create_new_account().await;
         let acc_addr_receiver = self.create_new_account().await;
 

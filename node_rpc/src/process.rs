@@ -11,19 +11,23 @@ use rpc_primitives::{
 };
 use storage::transaction::ActionData;
 
-use crate::types::rpc_structs::{
-    ExecuteScenarioMultipleSendRequest, ExecuteScenarioMultipleSendResponse,
-    ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
-    ExecuteSubscenarioResponse, GetBlockDataRequest, GetBlockDataResponse, GetLastBlockRequest,
-    GetLastBlockResponse, RegisterAccountRequest, RegisterAccountResponse,
-    ShowAccountPublicBalanceRequest, ShowAccountPublicBalanceResponse, ShowAccountUTXORequest,
-    ShowAccountUTXOResponse, ShowTransactionRequest, ShowTransactionResponse,
-    UTXOShortEssentialStruct, WriteDepositPublicBalanceRequest, WriteDepositPublicBalanceResponse,
-    WriteMintPrivateUTXOMultipleAssetsRequest, WriteMintPrivateUTXOMultipleAssetsResponse,
-    WriteMintPrivateUTXORequest, WriteMintPrivateUTXOResponse, WriteSendDeshieldedBalanceRequest,
-    WriteSendDeshieldedUTXOResponse, WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse,
-    WriteSendShieldedUTXORequest, WriteSendShieldedUTXOResponse, WriteSendSplitUTXOResponse,
-    WriteSplitUTXORequest,
+use crate::types::{
+    err_rpc::cast_common_execution_error_into_rpc_error,
+    rpc_structs::{
+        ExecuteScenarioMultipleSendRequest, ExecuteScenarioMultipleSendResponse,
+        ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
+        ExecuteSubscenarioResponse, GetBlockDataRequest, GetBlockDataResponse, GetLastBlockRequest,
+        GetLastBlockResponse, RegisterAccountRequest, RegisterAccountResponse,
+        ShowAccountPublicBalanceRequest, ShowAccountPublicBalanceResponse, ShowAccountUTXORequest,
+        ShowAccountUTXOResponse, ShowTransactionRequest, ShowTransactionResponse,
+        UTXOShortEssentialStruct, WriteDepositPublicBalanceRequest,
+        WriteDepositPublicBalanceResponse, WriteMintPrivateUTXOMultipleAssetsRequest,
+        WriteMintPrivateUTXOMultipleAssetsResponse, WriteMintPrivateUTXORequest,
+        WriteMintPrivateUTXOResponse, WriteSendDeshieldedBalanceRequest,
+        WriteSendDeshieldedUTXOResponse, WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse,
+        WriteSendShieldedUTXORequest, WriteSendShieldedUTXOResponse, WriteSendSplitUTXOResponse,
+        WriteSplitUTXORequest,
+    },
 };
 
 use super::{respond, types::err_rpc::RpcErr, JsonHandler};
@@ -51,11 +55,26 @@ impl JsonHandler {
             let mut store = self.node_chain_store.lock().await;
 
             match req.scenario_id {
-                1 => store.subscenario_1().await?,
-                2 => store.subscenario_2().await?,
-                3 => store.subscenario_3().await?,
-                4 => store.subscenario_4().await?,
-                5 => store.subscenario_5().await?,
+                1 => store
+                    .subscenario_1()
+                    .await
+                    .map_err(cast_common_execution_error_into_rpc_error)?,
+                2 => store
+                    .subscenario_2()
+                    .await
+                    .map_err(cast_common_execution_error_into_rpc_error)?,
+                3 => store
+                    .subscenario_3()
+                    .await
+                    .map_err(cast_common_execution_error_into_rpc_error)?,
+                4 => store
+                    .subscenario_4()
+                    .await
+                    .map_err(cast_common_execution_error_into_rpc_error)?,
+                5 => store
+                    .subscenario_5()
+                    .await
+                    .map_err(cast_common_execution_error_into_rpc_error)?,
                 _ => return Err(RpcErr(RpcError::invalid_params("Scenario id not found"))),
             }
         }
@@ -78,7 +97,8 @@ impl JsonHandler {
 
             store
                 .scenario_1(req.visibility_list, req.publication_index)
-                .await?;
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?;
         }
 
         let helperstruct = ExecuteScenarioSplitResponse {
@@ -99,7 +119,8 @@ impl JsonHandler {
 
             store
                 .scenario_2(req.number_of_assets, req.number_to_send)
-                .await?;
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?;
         }
 
         let helperstruct = ExecuteScenarioMultipleSendResponse {
@@ -331,7 +352,8 @@ impl JsonHandler {
 
             cover_guard
                 .operate_account_deposit_public(acc_addr, req.amount as u128)
-                .await?;
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?;
         };
 
         let helperstruct = WriteDepositPublicBalanceResponse {
@@ -357,7 +379,8 @@ impl JsonHandler {
 
             cover_guard
                 .operate_account_mint_private(acc_addr, req.amount as u128)
-                .await?
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?
         };
 
         let helperstruct = WriteMintPrivateUTXOResponse {
@@ -395,7 +418,8 @@ impl JsonHandler {
                     req.amount as u128,
                     req.num_of_assets,
                 )
-                .await?
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?
         };
 
         let helperstruct = WriteMintPrivateUTXOMultipleAssetsResponse {
@@ -477,7 +501,8 @@ impl JsonHandler {
 
             cover_guard
                 .operate_account_send_private_one_receiver(acc_addr, utxo_to_send, comm_hash)
-                .await?
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?
         };
 
         let helperstruct = WriteSendPrivateUTXOResponse {
@@ -529,7 +554,8 @@ impl JsonHandler {
                     acc_addr_rec,
                     req.amount as u128,
                 )
-                .await?
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?
         };
 
         let helperstruct = WriteSendShieldedUTXOResponse {
@@ -615,7 +641,8 @@ impl JsonHandler {
                     utxo_to_send,
                     comm_hash,
                 )
-                .await?
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?
         };
 
         let helperstruct = WriteSendDeshieldedUTXOResponse {
@@ -707,7 +734,8 @@ impl JsonHandler {
                     comm_hash,
                     req.visibility_list,
                 )
-                .await?
+                .await
+                .map_err(cast_common_execution_error_into_rpc_error)?
         };
 
         let helperstruct = WriteSendSplitUTXOResponse {
