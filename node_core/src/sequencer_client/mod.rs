@@ -1,11 +1,7 @@
 use accounts::account_core::Account;
 use anyhow::Result;
 use common::{SequencerClientError, SequencerRpcError};
-use json::{
-    GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
-    RegisterAccountRequest, RegisterAccountResponse, SendTxRequest, SendTxResponse,
-    SequencerRpcRequest, SequencerRpcResponse,
-};
+use json::{SendTxRequest, SendTxResponse, SequencerRpcRequest, SequencerRpcResponse};
 use k256::elliptic_curve::group::GroupEncoding;
 use reqwest::Client;
 use rpc_primitives::requests::{

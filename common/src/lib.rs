@@ -50,6 +50,8 @@ pub enum ExecutionFailureKind {
     AmountMismatchError,
     #[error("Sequencer client error: {0:?}")]
     SequencerClientError(#[from] SequencerClientError),
+    #[error("Datebase returned error : {0:?}")]
+    MonoTreeError(#[from] monotree::Errors),
 }
 
 impl ExecutionFailureKind {

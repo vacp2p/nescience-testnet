@@ -999,6 +999,7 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "monotree",
  "reqwest 0.11.27",
  "risc0-zkvm",
  "rpc_primitives",

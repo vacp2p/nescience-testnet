@@ -16,18 +16,21 @@ use rpc_primitives::requests::{
     RegisterAccountRequest, RegisterAccountResponse,
 };
 
-use crate::types::rpc_structs::{
-    ExecuteScenarioMultipleSendRequest, ExecuteScenarioMultipleSendResponse,
-    ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
-    ExecuteSubscenarioResponse, ShowAccountPublicBalanceRequest, ShowAccountPublicBalanceResponse,
-    ShowAccountUTXORequest, ShowAccountUTXOResponse, ShowTransactionRequest,
-    ShowTransactionResponse, UTXOShortEssentialStruct, WriteDepositPublicBalanceRequest,
-    WriteDepositPublicBalanceResponse, WriteMintPrivateUTXOMultipleAssetsRequest,
-    WriteMintPrivateUTXOMultipleAssetsResponse, WriteMintPrivateUTXORequest,
-    WriteMintPrivateUTXOResponse, WriteSendDeshieldedBalanceRequest,
-    WriteSendDeshieldedUTXOResponse, WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse,
-    WriteSendShieldedUTXORequest, WriteSendShieldedUTXOResponse, WriteSendSplitUTXOResponse,
-    WriteSplitUTXORequest,
+use crate::types::{
+    err_rpc::cast_common_execution_error_into_rpc_error,
+    rpc_structs::{
+        ExecuteScenarioMultipleSendRequest, ExecuteScenarioMultipleSendResponse,
+        ExecuteScenarioSplitRequest, ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest,
+        ExecuteSubscenarioResponse, ShowAccountPublicBalanceRequest,
+        ShowAccountPublicBalanceResponse, ShowAccountUTXORequest, ShowAccountUTXOResponse,
+        ShowTransactionRequest, ShowTransactionResponse, UTXOShortEssentialStruct,
+        WriteDepositPublicBalanceRequest, WriteDepositPublicBalanceResponse,
+        WriteMintPrivateUTXOMultipleAssetsRequest, WriteMintPrivateUTXOMultipleAssetsResponse,
+        WriteMintPrivateUTXORequest, WriteMintPrivateUTXOResponse,
+        WriteSendDeshieldedBalanceRequest, WriteSendDeshieldedUTXOResponse,
+        WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse, WriteSendShieldedUTXORequest,
+        WriteSendShieldedUTXOResponse, WriteSendSplitUTXOResponse, WriteSplitUTXORequest,
+    },
 };
 
 use super::{respond, types::err_rpc::RpcErr, JsonHandler};
