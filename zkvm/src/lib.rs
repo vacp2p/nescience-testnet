@@ -1,34 +1,7 @@
 use accounts::account_core::AccountAddress;
+use common::ExecutionFailureKind;
 use risc0_zkvm::{default_executor, default_prover, sha::Digest, ExecutorEnv, Receipt};
 use utxo::utxo_core::{UTXOPayload, UTXO};
-
-#[derive(Debug, thiserror::Error)]
-pub enum ExecutionFailureKind {
-    #[error("Failed to write into builder err: {0:?}")]
-    WriteError(anyhow::Error),
-    #[error("Failed to build builder err: {0:?}")]
-    BuilderError(anyhow::Error),
-    #[error("Failed prove execution err: {0:?}")]
-    ProveError(anyhow::Error),
-    #[error("Failed to decode data from VM: {0:?}")]
-    DecodeError(#[from] risc0_zkvm::serde::Error),
-    #[error("Inputs amounts does not match outputs")]
-    AmountMismatchError,
-}
-
-impl ExecutionFailureKind {
-    pub fn write_error(err: anyhow::Error) -> Self {
-        Self::WriteError(err)
-    }
-
-    pub fn builder_error(err: anyhow::Error) -> Self {
-        Self::BuilderError(err)
-    }
-
-    pub fn prove_error(err: anyhow::Error) -> Self {
-        Self::ProveError(err)
-    }
-}
 
 pub fn prove_mint_utxo(
     amount_to_mint: u128,

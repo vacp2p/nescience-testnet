@@ -995,6 +995,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "monotree",
+ "reqwest 0.11.27",
+ "risc0-zkvm",
+ "rpc_primitives",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "consensus"
 version = "0.1.0"
 dependencies = [
@@ -2674,6 +2688,7 @@ dependencies = [
  "actix-rt",
  "anyhow",
  "bincode",
+ "common",
  "elliptic-curve",
  "env_logger",
  "hex",
@@ -2705,6 +2720,7 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
+ "common",
  "consensus",
  "env_logger",
  "futures",
@@ -5410,6 +5426,7 @@ version = "0.1.0"
 dependencies = [
  "accounts",
  "anyhow",
+ "common",
  "env_logger",
  "log",
  "risc0-zkvm",
