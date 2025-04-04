@@ -1,6 +1,5 @@
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, KeyInit};
 use constants_types::{CipherText, Nonce};
-use elliptic_curve::group::GroupEncoding;
 use ephemeral_key_holder::EphemeralKeyHolder;
 use k256::AffinePoint;
 use log::info;
@@ -65,7 +64,7 @@ impl AddressKeyHolder {
         nonce: Nonce,
     ) -> Result<Vec<u8>, aes_gcm::Error> {
         let key_point = self.calculate_shared_secret_receiver(ephemeral_public_key_sender);
-        let binding = key_point.to_bytes();
+        let binding = serde_json::to_vec(&key_point).unwrap();
         let key_raw = &binding.as_slice()[..32];
         let key_raw_adjust: [u8; 32] = key_raw.try_into().unwrap();
 
@@ -79,23 +78,23 @@ impl AddressKeyHolder {
     pub fn log(&self) {
         info!(
             "Secret spending key is {:?}",
-            hex::encode(self.top_secret_key_holder.secret_spending_key.to_bytes()),
+            hex::encode(serde_json::to_vec(&self.top_secret_key_holder.secret_spending_key).unwrap()),
         );
         info!(
             "Nulifier secret key is {:?}",
-            hex::encode(self.utxo_secret_key_holder.nullifier_secret_key.to_bytes()),
+            hex::encode(serde_json::to_vec(&self.utxo_secret_key_holder.nullifier_secret_key).unwrap()),
         );
         info!(
             "Viewing secret key is {:?}",
-            hex::encode(self.utxo_secret_key_holder.viewing_secret_key.to_bytes()),
+            hex::encode(serde_json::to_vec(&self.utxo_secret_key_holder.viewing_secret_key).unwrap()),
         );
         info!(
             "Nullifier public key is {:?}",
-            hex::encode(self.nullifer_public_key.to_bytes()),
+            hex::encode(serde_json::to_vec(&self.nullifer_public_key).unwrap()),
         );
         info!(
             "Viewing public key is {:?}",
-            hex::encode(self.viewing_public_key.to_bytes()),
+            hex::encode(serde_json::to_vec(&self.viewing_public_key).unwrap()),
         );
     }
 }
@@ -158,7 +157,7 @@ mod tests {
             address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
 
         // Prepare the encryption key from shared secret
-        let key_raw = shared_secret.to_bytes();
+        let key_raw = serde_json::to_vec(&shared_secret).unwrap();
         let key_raw_adjust_pre = &key_raw.as_slice()[..32];
         let key_raw_adjust: [u8; 32] = key_raw_adjust_pre.try_into().unwrap();
         let key: Key<Aes256Gcm> = key_raw_adjust.into();
@@ -226,7 +225,7 @@ mod tests {
             address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
 
         // Prepare the encryption key from shared secret
-        let key_raw = shared_secret.to_bytes();
+        let key_raw = serde_json::to_vec(&shared_secret).unwrap();
         let key_raw_adjust_pre = &key_raw.as_slice()[..32];
         let key_raw_adjust: [u8; 32] = key_raw_adjust_pre.try_into().unwrap();
         let key: Key<Aes256Gcm> = key_raw_adjust.into();
@@ -266,7 +265,7 @@ mod tests {
             address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
 
         // Prepare the encryption key from shared secret
-        let key_raw = shared_secret.to_bytes();
+        let key_raw = serde_json::to_vec(&shared_secret).unwrap();
         let key_raw_adjust_pre = &key_raw.as_slice()[..32];
         let key_raw_adjust: [u8; 32] = key_raw_adjust_pre.try_into().unwrap();
         let key: Key<Aes256Gcm> = key_raw_adjust.into();
@@ -312,7 +311,7 @@ mod tests {
         let shared_secret =
             address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
         // Prepare the encryption key from shared secret
-        let key_raw = shared_secret.to_bytes();
+        let key_raw = serde_json::to_vec(&shared_secret).unwrap();
         let key_raw_adjust_pre = &key_raw.as_slice()[..32];
         let key_raw_adjust: [u8; 32] = key_raw_adjust_pre.try_into().unwrap();
         let key: Key<Aes256Gcm> = key_raw_adjust.into();
@@ -351,7 +350,7 @@ mod tests {
 
         println!(
             "Group generator {:?}",
-            hex::encode(AffinePoint::GENERATOR.to_bytes())
+            hex::encode(serde_json::to_vec(&AffinePoint::GENERATOR).unwrap())
         );
         println!(
             "Nullifier constant {:?}",
@@ -373,11 +372,11 @@ mod tests {
         println!("Address{:?}", hex::encode(address));
         println!(
             "Nulifier public key {:?}",
-            hex::encode(nullifer_public_key.to_bytes())
+            hex::encode(serde_json::to_vec(&nullifer_public_key).unwrap())
         );
         println!(
             "Viewing public key {:?}",
-            hex::encode(viewing_public_key.to_bytes())
+            hex::encode(serde_json::to_vec(&viewing_public_key).unwrap())
         );
     }
 }
