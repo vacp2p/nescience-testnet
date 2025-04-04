@@ -16,7 +16,8 @@ impl AccountPublicData {
         viewing_public_key: Vec<u8>,
     ) -> Self {
         Self {
-            nullifier_public_key: serde_json::from_slice::<AffinePoint>(&nullifier_public_key).unwrap(),
+            nullifier_public_key: serde_json::from_slice::<AffinePoint>(&nullifier_public_key)
+                .unwrap(),
             viewing_public_key: serde_json::from_slice::<AffinePoint>(&viewing_public_key).unwrap(),
             address,
         }

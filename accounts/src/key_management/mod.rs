@@ -78,15 +78,21 @@ impl AddressKeyHolder {
     pub fn log(&self) {
         info!(
             "Secret spending key is {:?}",
-            hex::encode(serde_json::to_vec(&self.top_secret_key_holder.secret_spending_key).unwrap()),
+            hex::encode(
+                serde_json::to_vec(&self.top_secret_key_holder.secret_spending_key).unwrap()
+            ),
         );
         info!(
             "Nulifier secret key is {:?}",
-            hex::encode(serde_json::to_vec(&self.utxo_secret_key_holder.nullifier_secret_key).unwrap()),
+            hex::encode(
+                serde_json::to_vec(&self.utxo_secret_key_holder.nullifier_secret_key).unwrap()
+            ),
         );
         info!(
             "Viewing secret key is {:?}",
-            hex::encode(serde_json::to_vec(&self.utxo_secret_key_holder.viewing_secret_key).unwrap()),
+            hex::encode(
+                serde_json::to_vec(&self.utxo_secret_key_holder.viewing_secret_key).unwrap()
+            ),
         );
         info!(
             "Nullifier public key is {:?}",
