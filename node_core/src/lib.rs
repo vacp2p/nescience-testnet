@@ -4,7 +4,6 @@ use std::sync::{
 };
 
 use common::ExecutionFailureKind;
-use k256::elliptic_curve::group::GroupEncoding;
 
 use ::storage::transaction::{Transaction, TransactionPayload, TxKind};
 use accounts::account_core::{Account, AccountAddress};
@@ -181,7 +180,8 @@ impl NodeCore {
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
         ephm_key_holder.log();
 
-        let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
+        let eph_pub_key =
+            serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let encoded_data = Account::encrypt_data(
             &ephm_key_holder,
@@ -232,7 +232,8 @@ impl NodeCore {
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
         ephm_key_holder.log();
 
-        let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
+        let eph_pub_key =
+            serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let encoded_data = utxos
             .iter()
@@ -308,7 +309,8 @@ impl NodeCore {
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
         ephm_key_holder.log();
 
-        let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
+        let eph_pub_key =
+            serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let encoded_data: Vec<(Vec<u8>, Vec<u8>, u8)> = utxos
             .iter()
@@ -392,7 +394,8 @@ impl NodeCore {
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
         ephm_key_holder.log();
 
-        let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
+        let eph_pub_key =
+            serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let mut encoded_data: Vec<(Vec<u8>, Vec<u8>, u8)> = resulting_utxos_receiver
             .iter()
@@ -498,7 +501,8 @@ impl NodeCore {
         let ephm_key_holder = &account.produce_ephemeral_key_holder();
         ephm_key_holder.log();
 
-        let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
+        let eph_pub_key =
+            serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let encoded_data: Vec<(Vec<u8>, Vec<u8>, u8)> = utxos
             .iter()
@@ -1124,7 +1128,8 @@ impl NodeCore {
         let ephm_key_holder = &accout.produce_ephemeral_key_holder();
         ephm_key_holder.log();
 
-        let eph_pub_key = ephm_key_holder.generate_ephemeral_public_key().to_bytes();
+        let eph_pub_key =
+            serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let encoded_data: Vec<(Vec<u8>, Vec<u8>, u8)> = utxos
             .iter()

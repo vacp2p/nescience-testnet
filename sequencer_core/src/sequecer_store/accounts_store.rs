@@ -1,5 +1,5 @@
 use accounts::account_core::{AccountAddress, PublicKey};
-use elliptic_curve::group::GroupEncoding;
+use k256::AffinePoint;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -16,10 +16,9 @@ impl AccountPublicData {
         viewing_public_key: Vec<u8>,
     ) -> Self {
         Self {
-            nullifier_public_key: PublicKey::from_bytes(nullifier_public_key.as_slice().into())
+            nullifier_public_key: serde_json::from_slice::<AffinePoint>(&nullifier_public_key)
                 .unwrap(),
-            viewing_public_key: PublicKey::from_bytes(viewing_public_key.as_slice().into())
-                .unwrap(),
+            viewing_public_key: serde_json::from_slice::<AffinePoint>(&viewing_public_key).unwrap(),
             address,
         }
     }

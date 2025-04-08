@@ -1,4 +1,3 @@
-use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::PrimeField;
 use k256::{AffinePoint, FieldBytes, Scalar};
 use rand::{rngs::OsRng, RngCore};
@@ -105,8 +104,8 @@ impl UTXOSecretKeyHolder {
 
         let mut hasher = sha2::Sha256::new();
 
-        hasher.update(npk.to_bytes());
-        hasher.update(vpk.to_bytes());
+        hasher.update(serde_json::to_vec(&npk).unwrap());
+        hasher.update(serde_json::to_vec(&vpk).unwrap());
 
         <TreeHashType>::from(hasher.finalize_fixed())
     }
