@@ -2,13 +2,18 @@ use accounts::account_core::Account;
 use anyhow::Result;
 use rand::thread_rng;
 use risc0_zkvm::Receipt;
-use secp256k1_zkp::{CommitmentSecrets, PedersenCommitment, Tweak};
+use secp256k1_zkp::{CommitmentSecrets, Generator, PedersenCommitment, Tag, Tweak, SECP256K1};
 use storage::transaction::{TransactionPayload, TxKind};
 use utxo::utxo_core::UTXO;
 
 use crate::proofs_circuits::{commit, generate_nullifiers, tag_random};
 
 pub fn create_public_transaction_payload(execution_input: Vec<u8>) -> TransactionPayload {
+    let tag = tag_random();
+    let unblinded_gen = Generator::new_unblinded(SECP256K1, tag);
+
+    let mut rng = rand::thread_rng();
+    
     TransactionPayload {
         tx_kind: TxKind::Public,
         execution_input,
@@ -19,6 +24,9 @@ pub fn create_public_transaction_payload(execution_input: Vec<u8>) -> Transactio
         execution_proof_private: "".to_string(),
         encoded_data: vec![],
         ephemeral_pub_key: vec![],
+        commitment: vec![PedersenCommitment::new_unblinded(SECP256K1, 0, unblinded_gen)],
+        tweak: Tweak::new(&mut rng),
+        secret_r: [0; 32],
     }
 }
 
