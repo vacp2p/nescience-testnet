@@ -702,11 +702,11 @@ impl NodeCore {
             .unwrap()
             .hash;
 
-        let accout = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
+        let account = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
 
         let nullifier = generate_nullifiers(
             &utxo,
-            &accout
+            &account
                 .key_holder
                 .utxo_secret_key_holder
                 .nullifier_secret_key
@@ -715,6 +715,27 @@ impl NodeCore {
         );
 
         let (resulting_balances, receipt) = prove_send_utxo_deshielded(utxo, receivers)?;
+
+        // TODO: fix address when correspoding method will be added
+        let sc_addr = "";
+        let mut rng = rand::thread_rng();
+        let secret_r: [u8; 32] = rng.gen();
+
+        let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
+
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+
+        let context = acc_map_read_guard.produce_context(account.address);
+
+        let serialized_context = serde_json::to_vec(&context).unwrap();
+
+        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+
+        vec_values_u64.push(serialized_context_u64);
+
+        let vec_public_info: Vec<u64> = vec_values_u64.into_iter().flatten().collect();
+
+        let (tweak, secret_r, commitment) = new_commitment_vec(vec_public_info, &secret_r);
 
         Ok(TransactionPayload {
             tx_kind: TxKind::Deshielded,
@@ -732,6 +753,9 @@ impl NodeCore {
                 .unwrap(),
             encoded_data: vec![],
             ephemeral_pub_key: vec![],
+            commitment,
+            tweak,
+            secret_r: secret_r.try_into().unwrap(),
         }
         .into())
     }
