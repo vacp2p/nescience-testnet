@@ -586,6 +586,7 @@ impl NodeCore {
 
         let account = acc_map_read_guard.acc_map.get(&acc).unwrap();
 
+        // TODO: add to transaction structure and do the check. Research has to update the scheme as well.
         let commitment = sc_core::transaction_payloads_tools::generate_secret_random_commitment(
             balance, account,
         )
@@ -637,6 +638,24 @@ impl NodeCore {
 
         let commitments = generate_commitments(&utxos);
 
+        // TODO: fix address when correspoding method will be added
+        let sc_addr = "";
+
+        let mut rng = rand::thread_rng();
+        let secret_r: [u8; 32] = rng.gen();
+
+        let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
+
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+
+        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serde_json::to_vec(&acc_map_read_guard.produce_context(account.address)).unwrap());
+
+        vec_values_u64.push(serialized_context_u64);
+
+        let vec_public_info: Vec<u64> = vec_values_u64.into_iter().flatten().collect();
+
+        let (tweak, secret_r, commitment) = new_commitment_vec(vec_public_info, &secret_r);
+
         Ok((
             TransactionPayload {
                 tx_kind: TxKind::Shielded,
@@ -660,6 +679,9 @@ impl NodeCore {
                 .unwrap(),
                 encoded_data,
                 ephemeral_pub_key: eph_pub_key.to_vec(),
+                commitment,
+                tweak,
+                secret_r: secret_r.try_into().unwrap(),
             }
             .into(),
             utxo_hashes,
