@@ -40,6 +40,8 @@ impl From<SequencerRpcError> for SequencerClientError {
 pub enum ExecutionFailureKind {
     #[error("Failed to write into builder err: {0:?}")]
     WriteError(anyhow::Error),
+    #[error("Failed to interact with a db err: {0:?}")]
+    DBError(anyhow::Error),
     #[error("Failed to build builder err: {0:?}")]
     BuilderError(anyhow::Error),
     #[error("Failed prove execution err: {0:?}")]
@@ -69,5 +71,9 @@ impl ExecutionFailureKind {
 
     pub fn prove_error(err: anyhow::Error) -> Self {
         Self::ProveError(err)
+    }
+
+    pub fn db_error(err: anyhow::Error) -> Self {
+        Self::DBError(err)
     }
 }
