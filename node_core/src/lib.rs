@@ -5,11 +5,12 @@ use std::sync::{
 
 use common::ExecutionFailureKind;
 
+use rand::Rng;
 use ::storage::transaction::{Transaction, TransactionPayload, TxKind};
 use accounts::account_core::{Account, AccountAddress};
 use anyhow::Result;
 use config::NodeConfig;
-use executions::private_exec::{generate_commitments, generate_nullifiers};
+use executions::{de::new_commitment_vec, private_exec::{generate_commitments, generate_nullifiers}};
 use log::info;
 use sequencer_client::{json::SendTxResponse, SequencerClient};
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,23 @@ pub mod config;
 pub mod executions;
 pub mod sequencer_client;
 pub mod storage;
+
+fn vec_u8_to_vec_u64(bytes: Vec<u8>) -> Vec<u64> {
+    // Pad with zeros to make sure it's a multiple of 8
+    let mut padded = bytes.clone();
+    while padded.len() % 8 != 0 {
+        padded.push(0);
+    }
+
+    padded
+        .chunks(8)
+        .map(|chunk| {
+            let mut array = [0u8; 8];
+            array.copy_from_slice(chunk);
+            u64::from_le_bytes(array)
+        })
+        .collect()
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MintMoneyPublicTx {
@@ -200,13 +218,13 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
         let context = acc_map_read_guard.produce_context(account.address);
 
         let serialized_context = serde_json::to_vec(&context).unwrap();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+        let serialized_context_u64 = vec_u8_to_vec_u64(serialized_context);
 
         vec_values_u64.push(serialized_context_u64);
 
@@ -240,24 +258,9 @@ impl NodeCore {
         ))
     }
 
-    fn vec_u8_to_vec_u64(bytes: Vec<u8>) -> Vec<u64> {
-        // Pad with zeros to make sure it's a multiple of 8
-        let mut padded = bytes.clone();
-        while padded.len() % 8 != 0 {
-            padded.push(0);
-        }
+
+
     
-        padded
-            .chunks(8)
-            .map(|chunk| {
-                let mut array = [0u8; 8];
-                array.copy_from_slice(chunk);
-                u64::from_le_bytes(array)
-            })
-            .collect()
-    }
-
-
     pub async fn mint_utxo_multiple_assets_private(
         &self,
         acc: AccountAddress,
@@ -301,13 +304,13 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
         let context = acc_map_read_guard.produce_context(account.address);
 
         let serialized_context = serde_json::to_vec(&context).unwrap();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+        let serialized_context_u64 = vec_u8_to_vec_u64(serialized_context);
 
         vec_values_u64.push(serialized_context_u64);
 
@@ -404,13 +407,13 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
         let context = acc_map_read_guard.produce_context(account.address);
 
         let serialized_context = serde_json::to_vec(&context).unwrap();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+        let serialized_context_u64 = vec_u8_to_vec_u64(serialized_context);
 
         vec_values_u64.push(serialized_context_u64);
 
@@ -535,13 +538,13 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
         let context = acc_map_read_guard.produce_context(account.address);
 
         let serialized_context = serde_json::to_vec(&context).unwrap();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+        let serialized_context_u64 = vec_u8_to_vec_u64(serialized_context);
 
         vec_values_u64.push(serialized_context_u64);
 
@@ -646,9 +649,9 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serde_json::to_vec(&acc_map_read_guard.produce_context(account.address)).unwrap());
+        let serialized_context_u64 = vec_u8_to_vec_u64(serde_json::to_vec(&acc_map_read_guard.produce_context(account.address)).unwrap());
 
         vec_values_u64.push(serialized_context_u64);
 
@@ -723,13 +726,13 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
         let context = acc_map_read_guard.produce_context(account.address);
 
         let serialized_context = serde_json::to_vec(&context).unwrap();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+        let serialized_context_u64 = vec_u8_to_vec_u64(serialized_context);
 
         vec_values_u64.push(serialized_context_u64);
 
@@ -1331,13 +1334,13 @@ impl NodeCore {
 
         let sc_state = acc_map_read_guard.block_store.get_sc_sc_state(sc_addr).map_err(ExecutionFailureKind::db_error)?;
 
-        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| Self::vec_u8_to_vec_u64(slice.to_vec())).collect();
+        let mut vec_values_u64: Vec<Vec<u64>> =  sc_state.into_iter().map(|slice| vec_u8_to_vec_u64(slice.to_vec())).collect();
 
         let context = acc_map_read_guard.produce_context(account.address);
 
         let serialized_context = serde_json::to_vec(&context).unwrap();
 
-        let serialized_context_u64 = Self::vec_u8_to_vec_u64(serialized_context);
+        let serialized_context_u64 = vec_u8_to_vec_u64(serialized_context);
 
         vec_values_u64.push(serialized_context_u64);
 
