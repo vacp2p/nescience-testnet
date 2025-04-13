@@ -124,4 +124,53 @@ mod tests {
 
         assert_eq!(serialization_1, serialization_2);
     }
+
+    #[test]
+    fn correct_u64_production_from_fit_vec() {
+        let le_vec = vec![1, 1, 1, 1, 2, 1, 1, 1];
+
+        let num = PublicSCContext::produce_u64_from_fit_vec(le_vec);
+
+        assert_eq!(num, 72340177133043969);
+    }
+
+    #[test]
+    fn correct_u64_production_from_small_vec() {
+        //7 items instead of 8
+        let le_vec = vec![1, 1, 1, 1, 2, 1, 1];
+
+        let num = PublicSCContext::produce_u64_from_fit_vec(le_vec);
+
+        assert_eq!(num, 282583095116033);
+    }
+
+    #[test]
+    fn correct_u64_production_from_small_vec_le_bytes() {
+        //7 items instead of 8
+        let le_vec = vec![1, 1, 1, 1, 2, 1, 1];
+        let le_vec_res = [1, 1, 1, 1, 2, 1, 1, 0];
+
+        let num = PublicSCContext::produce_u64_from_fit_vec(le_vec);
+
+        assert_eq!(num.to_le_bytes(), le_vec_res);
+    }
+
+    #[test]
+    #[should_panic]
+    fn correct_u64_production_from_unfit_vec_should_panic() {
+        //9 items instead of 8
+        let le_vec = vec![1, 1, 1, 1, 2, 1, 1, 1, 1];
+
+        PublicSCContext::produce_u64_from_fit_vec(le_vec);
+    }
+
+    #[test]
+    fn consistent_len_of_context_commitments() {
+        let test_context = create_test_context();
+
+        let context_num_vec1 = test_context.produce_u64_list_from_context().unwrap();
+        let context_num_vec2 = test_context.produce_u64_list_from_context().unwrap();
+
+        assert_eq!(context_num_vec1.len(), context_num_vec2.len());
+    }
 }
