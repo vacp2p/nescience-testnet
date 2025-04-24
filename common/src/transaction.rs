@@ -50,6 +50,12 @@ pub struct Transaction {
     pub tweak: Tweak,
     ///secret_r
     pub secret_r: [u8; 32],
+    ///Hex-encoded address of a smart contract account called
+    pub sc_addr: String,
+    ///Recorded changes in state of smart contract
+    ///
+    /// First value represents vector of changes, second is new length of a state
+    pub state_changes: (serde_json::Value, usize),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -78,6 +84,12 @@ pub struct TransactionPayload {
     pub tweak: Tweak,
     ///secret_r
     pub secret_r: [u8; 32],
+    ///Hex-encoded address of a smart contract account called
+    pub sc_addr: String,
+    ///Recorded changes in state of smart contract
+    ///
+    /// First value represents vector of changes, second is new length of a state
+    pub state_changes: (serde_json::Value, usize),
 }
 
 impl From<TransactionPayload> for Transaction {
@@ -104,6 +116,8 @@ impl From<TransactionPayload> for Transaction {
             commitment: value.commitment,
             tweak: value.tweak,
             secret_r: value.secret_r,
+            sc_addr: value.sc_addr,
+            state_changes: value.state_changes,
         }
     }
 }

@@ -7,6 +7,7 @@ use common::ExecutionFailureKind;
 
 use accounts::account_core::{Account, AccountAddress};
 use anyhow::Result;
+use chain_storage::NodeChainStore;
 use common::transaction::{Transaction, TransactionPayload, TxKind};
 use config::NodeConfig;
 use executions::private_exec::{generate_commitments, generate_nullifiers};
@@ -14,7 +15,7 @@ use log::info;
 use sc_core::proofs_circuits::pedersen_commitment_vec;
 use sequencer_client::{json::SendTxResponse, SequencerClient};
 use serde::{Deserialize, Serialize};
-use storage::NodeChainStore;
+use storage::sc_db_utils::DataBlobChangeVariant;
 use tokio::{sync::RwLock, task::JoinHandle};
 use utxo::utxo_core::UTXO;
 use zkvm::{
@@ -25,10 +26,12 @@ use zkvm::{
 
 pub const BLOCK_GEN_DELAY_SECS: u64 = 20;
 
+pub mod chain_storage;
 pub mod config;
 pub mod executions;
+///Module, which includes pre start setup helperfunctions  
+pub mod pre_start;
 pub mod sequencer_client;
-pub mod storage;
 
 fn vec_u8_to_vec_u64(bytes: Vec<u8>) -> Vec<u64> {
     // Pad with zeros to make sure it's a multiple of 8
@@ -96,6 +99,8 @@ impl NodeCore {
         let genesis_block = client.get_block(genesis_id.genesis_id).await?.block;
 
         let mut storage = NodeChainStore::new_with_genesis(&config.home, genesis_block);
+
+        pre_start::setup_empty_sc_states(&storage).await?;
 
         let mut chain_height = genesis_id.genesis_id;
 
@@ -211,12 +216,21 @@ impl NodeCore {
 
         let comm = generate_commitments(&vec![utxo]);
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let mint_utxo_addr_bytes: Vec<u8> = zkvm::test_methods::MINT_UTXO_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+        let sc_addr = hex::encode(mint_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -254,6 +268,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             }
             .into(),
             result_hash,
@@ -296,12 +312,22 @@ impl NodeCore {
 
         let comm = generate_commitments(&utxos);
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let mint_multiple_utxo_addr_bytes: Vec<u8> =
+            zkvm::test_methods::MINT_UTXO_MULTIPLE_ASSETS_ID
+                .iter()
+                .map(|num| num.to_le_bytes())
+                .flatten()
+                .collect();
+        let sc_addr = hex::encode(mint_multiple_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -339,6 +365,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             }
             .into(),
             result_hashes,
@@ -401,12 +429,21 @@ impl NodeCore {
 
         let commitments = generate_commitments(&utxos);
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let send_utxo_addr_bytes: Vec<u8> = zkvm::test_methods::SEND_UTXO_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+        let sc_addr = hex::encode(send_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -444,6 +481,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             }
             .into(),
             utxo_hashes,
@@ -534,12 +573,22 @@ impl NodeCore {
 
         commitments.extend(commitments_1);
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let send_multiple_utxo_addr_bytes: Vec<u8> =
+            zkvm::test_methods::SEND_UTXO_MULTIPLE_ASSETS_ID
+                .iter()
+                .map(|num| num.to_le_bytes())
+                .flatten()
+                .collect();
+        let sc_addr = hex::encode(send_multiple_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -577,6 +626,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             }
             .into(),
             utxo_hashes_receiver,
@@ -646,12 +697,21 @@ impl NodeCore {
 
         let commitments = generate_commitments(&utxos);
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let mint_utxo_addr_bytes: Vec<u8> = zkvm::test_methods::SEND_UTXO_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+        let sc_addr = hex::encode(mint_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -695,6 +755,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             }
             .into(),
             utxo_hashes,
@@ -729,12 +791,21 @@ impl NodeCore {
 
         let (resulting_balances, receipt) = prove_send_utxo_deshielded(utxo, receivers)?;
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let send_utxo_addr_bytes: Vec<u8> = zkvm::test_methods::SEND_UTXO_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+        let sc_addr = hex::encode(send_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -771,6 +842,8 @@ impl NodeCore {
             commitment,
             tweak,
             secret_r,
+            sc_addr,
+            state_changes,
         }
         .into())
     }
@@ -847,6 +920,13 @@ impl NodeCore {
             public_context.produce_u64_list_from_context().unwrap(),
         );
 
+        let sc_addr = hex::encode([0; 32]);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
+
         let tx: Transaction =
             sc_core::transaction_payloads_tools::create_public_transaction_payload(
                 serde_json::to_vec(&ActionData::MintMoneyPublicTx(MintMoneyPublicTx {
@@ -857,6 +937,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             )
             .into();
         tx.log();
@@ -1079,7 +1161,7 @@ impl NodeCore {
         let new_balance = {
             let acc_map_read_guard = self.storage.read().await;
 
-            let acc = acc_map_read_guard.acc_map.get(&acc_addr_sender).unwrap();
+            let acc = acc_map_read_guard.acc_map.get(&acc_addr_rec).unwrap();
 
             acc.balance
         };
@@ -1353,12 +1435,21 @@ impl NodeCore {
                 .collect(),
         });
 
-        // TODO: fix address when correspoding method will be added
-        let sc_addr = "";
+        let send_utxo_addr_bytes: Vec<u8> = zkvm::test_methods::SEND_UTXO_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+        let sc_addr = hex::encode(send_utxo_addr_bytes);
+
+        //Sc does not change its state
+        let state_changes: Vec<DataBlobChangeVariant> = vec![];
+        let new_len = 0;
+        let state_changes = (serde_json::to_value(state_changes).unwrap(), new_len);
 
         let sc_state = acc_map_read_guard
             .block_store
-            .get_sc_sc_state(sc_addr)
+            .get_sc_sc_state(&sc_addr)
             .map_err(ExecutionFailureKind::db_error)?;
 
         let mut vec_values_u64: Vec<Vec<u64>> = sc_state
@@ -1397,6 +1488,8 @@ impl NodeCore {
                 commitment,
                 tweak,
                 secret_r,
+                sc_addr,
+                state_changes,
             }
             .into(),
             utxo_hashes,

@@ -3150,6 +3150,7 @@ dependencies = [
  "common",
  "consensus",
  "env_logger",
+ "hex",
  "log",
  "networking",
  "node_core",

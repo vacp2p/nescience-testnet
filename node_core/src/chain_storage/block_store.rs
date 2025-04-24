@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, Result};
 use common::block::Block;
-use storage::sc_db_utils::DataBlob;
+use storage::sc_db_utils::{DataBlob, DataBlobChangeVariant};
 use storage::RocksDBIO;
 
 pub struct NodeBlockStore {
@@ -42,6 +42,15 @@ impl NodeBlockStore {
 
     pub fn put_block_at_id(&self, block: Block) -> Result<()> {
         Ok(self.dbio.put_block(block, false)?)
+    }
+
+    pub fn put_sc_sc_state(
+        &self,
+        sc_addr: &str,
+        length: usize,
+        modifications: Vec<DataBlobChangeVariant>,
+    ) -> Result<()> {
+        Ok(self.dbio.put_sc_sc_state(sc_addr, length, modifications)?)
     }
 
     pub fn get_sc_sc_state(&self, sc_addr: &str) -> Result<Vec<DataBlob>> {

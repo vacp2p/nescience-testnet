@@ -6,6 +6,8 @@ use utxo::utxo_core::{UTXOPayload, UTXO};
 
 pub mod gas_calculator;
 
+pub use test_methods;
+
 pub fn gas_limits_check<INP: Serialize>(
     input_buffer: INP,
     elf: &[u8],

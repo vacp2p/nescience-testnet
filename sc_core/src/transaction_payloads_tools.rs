@@ -13,6 +13,8 @@ pub fn create_public_transaction_payload(
     commitment: Vec<PedersenCommitment>,
     tweak: Tweak,
     secret_r: [u8; 32],
+    sc_addr: String,
+    state_changes: (serde_json::Value, usize),
 ) -> TransactionPayload {
     TransactionPayload {
         tx_kind: TxKind::Public,
@@ -27,6 +29,8 @@ pub fn create_public_transaction_payload(
         commitment,
         tweak,
         secret_r,
+        sc_addr,
+        state_changes,
     }
 }
 

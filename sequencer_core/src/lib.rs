@@ -306,6 +306,8 @@ mod tests {
             commitment: vec![],
             tweak: Tweak::new(&mut rng),
             secret_r: [0; 32],
+            sc_addr: "sc_addr".to_string(),
+            state_changes: (serde_json::Value::Null, 0),
         }
     }
 

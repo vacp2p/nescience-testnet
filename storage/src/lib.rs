@@ -280,7 +280,9 @@ impl RocksDBIO {
     ///Push additional contract into list of known contracts in a DB
     pub fn put_meta_sc(&self, sc_addr: String) -> DbResult<()> {
         let mut sc_list = self.get_meta_sc_list()?;
-        sc_list.push(sc_addr);
+        if !sc_list.contains(&sc_addr) {
+            sc_list.push(sc_addr);
+        }
         self.put_meta_sc_list(sc_list)?;
         Ok(())
     }
