@@ -4541,6 +4541,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "storage",
+ "thiserror 1.0.69",
  "utxo",
 ]
 

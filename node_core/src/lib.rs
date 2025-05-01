@@ -101,6 +101,7 @@ impl NodeCore {
         let mut storage = NodeChainStore::new_with_genesis(&config.home, genesis_block);
 
         pre_start::setup_empty_sc_states(&storage).await?;
+        pre_start::setup_empty_private_sc_states(&mut storage);
 
         let mut chain_height = genesis_id.genesis_id;
 

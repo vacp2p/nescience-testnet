@@ -15,6 +15,7 @@ use common::{
 };
 use k256::AffinePoint;
 use public_context::PublicSCContext;
+use sc_core::private_state::PrivateSCState;
 use utxo::utxo_core::UTXO;
 
 use crate::ActionData;
@@ -29,6 +30,10 @@ pub struct NodeChainStore {
     pub nullifier_store: NullifierSparseMerkleTree,
     pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
     pub pub_tx_store: PublicTransactionMerkleTree,
+    /// Contract private state
+    ///
+    /// ToDo: Replace regualar BTreeMap with weighted binary tree
+    pub contracts_private_state: HashMap<String, PrivateSCState>,
 }
 
 impl NodeChainStore {
@@ -37,6 +42,7 @@ impl NodeChainStore {
         let nullifier_store = NullifierSparseMerkleTree::default();
         let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
         let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
+        let contracts_private_state = HashMap::new();
 
         //Sequencer should panic if unable to open db,
         //as fixing this issue may require actions non-native to program scope
@@ -50,6 +56,7 @@ impl NodeChainStore {
             nullifier_store,
             utxo_commitments_store,
             pub_tx_store,
+            contracts_private_state,
         }
     }
 

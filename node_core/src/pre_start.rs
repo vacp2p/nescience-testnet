@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::Result;
 use log::info;
 
@@ -72,4 +74,58 @@ pub async fn setup_empty_sc_states(node: &NodeChainStore) -> Result<()> {
     info!("Multiple_assets UTXO transfer state set");
 
     Ok(())
+}
+
+///Setups private states of default smart conracts as empty
+pub fn setup_empty_private_sc_states(node: &mut NodeChainStore) {
+    info!("Filling up private states of default smart contracts");
+
+    let empty_mmap = BTreeMap::new();
+
+    let public_deposit_addr = hex::encode(PUBLIC_DEPOSIT_ID);
+    node.contracts_private_state
+        .insert(public_deposit_addr, empty_mmap.clone());
+    info!("Public transfer state set");
+
+    let mint_utxo_addr_bytes: Vec<u8> = zkvm::test_methods::MINT_UTXO_ID
+        .iter()
+        .map(|num| num.to_le_bytes())
+        .flatten()
+        .collect();
+    let mint_utxo_addr = hex::encode(mint_utxo_addr_bytes);
+    node.contracts_private_state
+        .insert(mint_utxo_addr, empty_mmap.clone());
+    info!("Mint UTXO state set");
+
+    let single_utxo_transfer_addr_bytes: Vec<u8> = zkvm::test_methods::SEND_UTXO_ID
+        .iter()
+        .map(|num| num.to_le_bytes())
+        .flatten()
+        .collect();
+    let single_utxo_transfer_addr = hex::encode(single_utxo_transfer_addr_bytes);
+    node.contracts_private_state
+        .insert(single_utxo_transfer_addr, empty_mmap.clone());
+    info!("Single UTXO transfer state set");
+
+    let mint_utxo_multiple_assets_addr_bytes: Vec<u8> =
+        zkvm::test_methods::MINT_UTXO_MULTIPLE_ASSETS_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+    let mint_utxo_multiple_assets_addr = hex::encode(mint_utxo_multiple_assets_addr_bytes);
+    node.contracts_private_state
+        .insert(mint_utxo_multiple_assets_addr, empty_mmap.clone());
+    info!("Mint UTXO multiple assets state set");
+
+    let multiple_assets_utxo_transfer_addr_bytes: Vec<u8> =
+        zkvm::test_methods::SEND_UTXO_MULTIPLE_ASSETS_ID
+            .iter()
+            .map(|num| num.to_le_bytes())
+            .flatten()
+            .collect();
+    let multiple_assets_utxo_transfer_addr = hex::encode(multiple_assets_utxo_transfer_addr_bytes);
+    node.contracts_private_state
+        .insert(multiple_assets_utxo_transfer_addr, empty_mmap.clone());
+    info!("Multiple_assets UTXO transfer state set");
 }
