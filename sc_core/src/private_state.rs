@@ -238,4 +238,11 @@ mod tests {
         let _ = produce_blob_from_fit_vec(data);
     }
 
+    #[test]
+    #[should_panic]
+    fn test_blob_from_fit_slice_panic() {
+        let data = vec![1u8; PRIVATE_BLOB_SIZE + 1];
+        let _ = produce_blob_from_fit_slice(&data);
+    }
+
 }
