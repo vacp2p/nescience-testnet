@@ -245,4 +245,15 @@ mod tests {
         let _ = produce_blob_from_fit_slice(&data);
     }
 
+    #[test]
+    fn test_serialization_roundtrip() {
+        let data = [42u8; PRIVATE_BLOB_SIZE];
+        let blob = PrivateDataBlob::from(data);
+
+        let serialized = serde_json::to_string(&blob).unwrap();
+        let deserialized: PrivateDataBlob = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(blob, deserialized);
+    }
+
 }
