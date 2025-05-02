@@ -275,4 +275,16 @@ mod tests {
         assert_eq!(max_slot(&state), 5);
     }
 
+    #[test]
+    fn test_write_append_and_read() {
+        let mut state = PrivateSCState::new();
+        let data = vec![1u8; PRIVATE_BLOB_SIZE * 2 + 10];
+
+        let last_slot = write_num_bytes_append(&mut state, data.clone()).unwrap();
+        assert_eq!(last_slot, 3);
+
+        let read = read_num_bytes_start(&state, last_slot).unwrap();
+        assert_eq!(read.len(), 0);
+    }
+
 }
