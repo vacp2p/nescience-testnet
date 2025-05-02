@@ -263,4 +263,16 @@ mod tests {
         assert_eq!(calculate_offset_slot(PRIVATE_BLOB_SIZE * 2 - 1), 1);
     }
 
+    #[test]
+    fn test_max_slot_empty_and_nonempty() {
+        let empty: PrivateSCState = BTreeMap::new();
+        assert_eq!(max_slot(&empty), 0);
+
+        let mut state = BTreeMap::new();
+        state.insert(3, produce_blob_from_fit_vec(vec![1, 2, 3]));
+        state.insert(5, produce_blob_from_fit_vec(vec![4, 5, 6]));
+
+        assert_eq!(max_slot(&state), 5);
+    }
+
 }
