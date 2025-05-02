@@ -311,5 +311,11 @@ mod tests {
         assert!(matches!(rewrite_result, Err(PrivateStateError::EmptyWrite)));
     }
 
+    #[test]
+    fn test_read_size_mismatch_error() {
+        let state = PrivateSCState::new();
 
+        let result = read_num_bytes_start(&state, PRIVATE_BLOB_SIZE * 2);
+        assert!(matches!(result, Err(PrivateStateError::ReadSizeMismatch(_, _))));
+    }
 }
