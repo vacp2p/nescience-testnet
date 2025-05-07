@@ -10,11 +10,19 @@ pub struct PrivateDataBlob(pub [u8; PRIVATE_BLOB_SIZE]);
 pub type PrivateSCState = BTreeMap<usize, PrivateDataBlob>;
 
 #[derive(thiserror::Error, Debug)]
+pub enum PrivateDataBlobError {
+    #[error("Given data len: {0} does not fit into {PRIVATE_BLOB_SIZE}")]
+    DataDoesNotFit(usize),
+}
+
+#[derive(thiserror::Error, Debug)]
 pub enum PrivateStateError {
     #[error("Trying to read from slot too big: Read slot {0}, max_slot {1}")]
     ReadSizeMismatch(usize, usize),
     #[error("Can not write empty bytes into state")]
     EmptyWrite,
+    #[error("Error occured while interacting ith PrivateDataBlob {0}")]
+    PrivateDataBlobError(#[from] PrivateDataBlobError),
 }
 
 impl From<[u8; PRIVATE_BLOB_SIZE]> for PrivateDataBlob {
@@ -56,45 +64,51 @@ impl<'de> Deserialize<'de> for PrivateDataBlob {
 }
 
 impl PrivateDataBlob {
+    ///Produce `DataBlob` from vector of size <= `PRIVATE_BLOB_SIZE`
+    ///
+    ///Extends to `PRIVATE_BLOB_SIZE`, if necessary.
+    ///
+    /// Returns an error, if size > `PRIVATE_BLOB_SIZE`
+    pub fn try_produce_blob_from_fit_vec(data: Vec<u8>) -> Result<Self, PrivateDataBlobError> {
+        let data_len = data.len();
+
+        if data_len <= PRIVATE_BLOB_SIZE {
+            return Err(PrivateDataBlobError::DataDoesNotFit(data_len));
+        }
+
+        let mut blob: PrivateDataBlob = [0; PRIVATE_BLOB_SIZE].into();
+
+        for (idx, item) in data.into_iter().enumerate() {
+            blob.0[idx] = item
+        }
+
+        Ok(blob)
+    }
+
+    ///Produce `DataBlob` from slice of size <= `PRIVATE_BLOB_SIZE`
+    ///
+    ///Extends to `PRIVATE_BLOB_SIZE`, if necessary.
+    ///
+    /// Returns an error, if size > `PRIVATE_BLOB_SIZE`
+    pub fn try_produce_blob_from_fit_slice(data: &[u8]) -> Result<Self, PrivateDataBlobError> {
+        let data_len = data.len();
+
+        if data_len <= PRIVATE_BLOB_SIZE {
+            return Err(PrivateDataBlobError::DataDoesNotFit(data_len));
+        }
+
+        let mut blob: PrivateDataBlob = [0; PRIVATE_BLOB_SIZE].into();
+
+        for (idx, item) in data.into_iter().enumerate() {
+            blob.0[idx] = *item
+        }
+
+        Ok(blob)
+    }
+
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }
-}
-
-///Produce `DataBlob` from vector of size <= `PRIVATE_BLOB_SIZE`
-///
-///Extends to `PRIVATE_BLOB_SIZE`, if necessary.
-///
-///Panics, if size > `PRIVATE_BLOB_SIZE`
-pub fn produce_blob_from_fit_vec(data: Vec<u8>) -> PrivateDataBlob {
-    let data_len = data.len();
-
-    assert!(data_len <= PRIVATE_BLOB_SIZE);
-    let mut blob: PrivateDataBlob = [0; PRIVATE_BLOB_SIZE].into();
-
-    for (idx, item) in data.into_iter().enumerate() {
-        blob.0[idx] = item
-    }
-
-    blob
-}
-
-///Produce `DataBlob` from slice of size <= `PRIVATE_BLOB_SIZE`
-///
-///Extends to `PRIVATE_BLOB_SIZE`, if necessary.
-///
-///Panics, if size > `PRIVATE_BLOB_SIZE`
-pub fn produce_blob_from_fit_slice(data: &[u8]) -> PrivateDataBlob {
-    let data_len = data.len();
-
-    assert!(data_len <= PRIVATE_BLOB_SIZE);
-    let mut blob: PrivateDataBlob = [0; PRIVATE_BLOB_SIZE].into();
-
-    for (idx, item) in data.into_iter().enumerate() {
-        blob.0[idx] = *item
-    }
-
-    blob
 }
 
 pub fn calculate_offset_slot(offset: usize) -> usize {
@@ -168,7 +182,9 @@ pub fn write_num_bytes_append(
     let mut curr = 0;
 
     while (curr + PRIVATE_BLOB_SIZE) < bytes.len() {
-        let data_blob = produce_blob_from_fit_slice(&bytes[curr..(curr + PRIVATE_BLOB_SIZE)]);
+        let data_blob = PrivateDataBlob::try_produce_blob_from_fit_slice(
+            &bytes[curr..(curr + PRIVATE_BLOB_SIZE)],
+        )?;
 
         state.insert(max_slot_state, data_blob);
 
@@ -176,7 +192,7 @@ pub fn write_num_bytes_append(
         max_slot_state += 1;
     }
 
-    let data_blob = produce_blob_from_fit_slice(&bytes[curr..(bytes.len())]);
+    let data_blob = PrivateDataBlob::try_produce_blob_from_fit_slice(&bytes[curr..(bytes.len())])?;
 
     state.insert(max_slot_state, data_blob);
 
@@ -200,7 +216,9 @@ pub fn write_num_bytes_rewrite(
     let mut curr = 0;
 
     while (curr + PRIVATE_BLOB_SIZE) < bytes.len() {
-        let data_blob = produce_blob_from_fit_slice(&bytes[curr..(curr + PRIVATE_BLOB_SIZE)]);
+        let data_blob = PrivateDataBlob::try_produce_blob_from_fit_slice(
+            &bytes[curr..(curr + PRIVATE_BLOB_SIZE)],
+        )?;
 
         state.insert(curr_slot, data_blob);
 
@@ -208,7 +226,7 @@ pub fn write_num_bytes_rewrite(
         curr_slot += 1;
     }
 
-    let data_blob = produce_blob_from_fit_slice(&bytes[curr..(bytes.len())]);
+    let data_blob = PrivateDataBlob::try_produce_blob_from_fit_slice(&bytes[curr..(bytes.len())])?;
 
     state.insert(curr_slot, data_blob);
 
