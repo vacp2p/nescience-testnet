@@ -138,7 +138,7 @@ mod tests {
 
         // Generate a random ephemeral public key sender
         let scalar = Scalar::random(&mut OsRng);
-        let ephemeral_public_key_sender = (ProjectivePoint::generator() * scalar).to_affine();
+        let ephemeral_public_key_sender = (ProjectivePoint::GENERATOR * scalar).to_affine();
 
         // Calculate shared secret
         let shared_secret =
@@ -216,7 +216,7 @@ mod tests {
 
         // Generate ephemeral public key and shared secret
         let scalar = Scalar::random(OsRng);
-        let ephemeral_public_key_sender = (ProjectivePoint::generator() * scalar).to_affine();
+        let ephemeral_public_key_sender = (ProjectivePoint::GENERATOR * scalar).to_affine();
         let shared_secret =
             address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
 
@@ -256,7 +256,7 @@ mod tests {
 
         // Generate ephemeral public key and shared secret
         let scalar = Scalar::random(OsRng);
-        let ephemeral_public_key_sender = (ProjectivePoint::generator() * scalar).to_affine();
+        let ephemeral_public_key_sender = (ProjectivePoint::GENERATOR * scalar).to_affine();
         let shared_secret =
             address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
 
@@ -298,7 +298,7 @@ mod tests {
 
         // Generate ephemeral key and shared secret
         let scalar = Scalar::random(OsRng);
-        let ephemeral_public_key_sender = (ProjectivePoint::generator() * scalar).to_affine();
+        let ephemeral_public_key_sender = (ProjectivePoint::GENERATOR * scalar).to_affine();
 
         // Encrypt sample data
         let plaintext = b"Round-trip test data";
