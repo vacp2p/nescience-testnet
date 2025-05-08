@@ -15,7 +15,7 @@ use common::{
 };
 use k256::AffinePoint;
 use public_context::PublicSCContext;
-use sc_core::private_state::PrivateSCState;
+use sc_core::private_state::private_state_storage::PrivateSCState;
 use utxo::utxo_core::UTXO;
 
 use crate::ActionData;
