@@ -1058,11 +1058,15 @@ impl NodeCore {
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
         let new_utxo = {
-            let mut write_guard = self.storage.write().await;
+            let read_guard = self.storage.read().await;
 
-            let acc = write_guard.acc_map.get_mut(&acc_addr).unwrap();
+            let acc = read_guard.acc_map.get(&acc_addr).unwrap();
 
-            acc.utxo_tree.get_item(new_utxo_hash)?.unwrap().clone()
+            acc.get_utxo_by_hash(new_utxo_hash)
+                .ok_or(ExecutionFailureKind::DBError(anyhow::anyhow!(
+                    "Minted UTXO did not land"
+                )))?
+                .clone()
         };
 
         new_utxo.log();
@@ -1077,55 +1081,6 @@ impl NodeCore {
         );
 
         Ok((new_utxo, comm_gen_hash))
-    }
-
-    pub async fn operate_account_mint_multiple_assets_private(
-        &mut self,
-        acc_addr: AccountAddress,
-        amount: u128,
-        number_of_assets: usize,
-    ) -> Result<(Vec<UTXO>, Vec<[u8; 32]>), ExecutionFailureKind> {
-        let (resp, new_utxo_hashes, comm_gen_hashes) = self
-            .send_private_mint_multiple_assets_tx(acc_addr, amount, number_of_assets)
-            .await?;
-        info!("Response for mint multiple assets private is {resp:?}");
-
-        info!("Awaiting new blocks");
-        tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
-
-        let new_utxos = {
-            let mut write_guard = self.storage.write().await;
-
-            new_utxo_hashes
-                .into_iter()
-                .map(|new_utxo_hash| {
-                    let acc = write_guard.acc_map.get_mut(&acc_addr).unwrap();
-
-                    let new_utxo = acc
-                        .utxo_tree
-                        .get_item(new_utxo_hash)
-                        .unwrap()
-                        .unwrap()
-                        .clone();
-
-                    new_utxo.log();
-                    info!(
-                        "Account address is {:?} ,new utxo owner address is {:?}",
-                        hex::encode(acc_addr),
-                        hex::encode(new_utxo.owner)
-                    );
-                    info!(
-                        "Account {:?} got new utxo with amount {amount:?} and asset {:?}",
-                        hex::encode(acc_addr),
-                        new_utxo.asset
-                    );
-
-                    new_utxo
-                })
-                .collect()
-        };
-
-        Ok((new_utxos, comm_gen_hashes))
     }
 
     pub async fn operate_account_send_deshielded_one_receiver(
@@ -1233,12 +1188,16 @@ impl NodeCore {
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
         let new_utxo = {
-            let mut write_guard = self.storage.write().await;
+            let read_guard = self.storage.read().await;
 
-            let acc = write_guard.acc_map.get_mut(&acc_addr_rec).unwrap();
+            let acc = read_guard.acc_map.get(&acc_addr_rec).unwrap();
             acc.log();
 
-            acc.utxo_tree.get_item(new_utxo_hash)?.unwrap().clone()
+            acc.get_utxo_by_hash(new_utxo_hash)
+                .ok_or(ExecutionFailureKind::DBError(anyhow::anyhow!(
+                    "Minted UTXO did not land"
+                )))?
+                .clone()
         };
         new_utxo.log();
         info!(
@@ -1273,12 +1232,16 @@ impl NodeCore {
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
         let new_utxo = {
-            let mut write_guard = self.storage.write().await;
+            let read_guard = self.storage.read().await;
 
-            let acc = write_guard.acc_map.get_mut(&acc_addr_rec).unwrap();
+            let acc = read_guard.acc_map.get(&acc_addr_rec).unwrap();
             acc.log();
 
-            acc.utxo_tree.get_item(new_utxo_hash)?.unwrap().clone()
+            acc.get_utxo_by_hash(new_utxo_hash)
+                .ok_or(ExecutionFailureKind::DBError(anyhow::anyhow!(
+                    "Minted UTXO did not land"
+                )))?
+                .clone()
         };
         new_utxo.log();
         info!(
@@ -1317,13 +1280,18 @@ impl NodeCore {
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
         {
-            let mut write_guard = self.storage.write().await;
+            let read_guard = self.storage.read().await;
 
             for new_utxo_hash in new_utxo_hashes_rec {
-                let acc = write_guard.acc_map.get_mut(&acc_addr_rec).unwrap();
+                let acc = read_guard.acc_map.get(&acc_addr_rec).unwrap();
                 acc.log();
 
-                let new_utxo = acc.utxo_tree.get_item(new_utxo_hash)?.unwrap().clone();
+                let new_utxo = acc
+                    .get_utxo_by_hash(new_utxo_hash)
+                    .ok_or(ExecutionFailureKind::DBError(anyhow::anyhow!(
+                        "Minted UTXO did not land"
+                    )))?
+                    .clone();
 
                 new_utxo.log();
                 info!(
@@ -1340,10 +1308,15 @@ impl NodeCore {
             }
 
             for new_utxo_hash in new_utxo_hashes_not_sp {
-                let acc = write_guard.acc_map.get_mut(&acc_addr).unwrap();
+                let acc = read_guard.acc_map.get(&acc_addr).unwrap();
                 acc.log();
 
-                let new_utxo = acc.utxo_tree.get_item(new_utxo_hash)?.unwrap().clone();
+                let new_utxo = acc
+                    .get_utxo_by_hash(new_utxo_hash)
+                    .ok_or(ExecutionFailureKind::DBError(anyhow::anyhow!(
+                        "Minted UTXO did not land"
+                    )))?
+                    .clone();
 
                 new_utxo.log();
                 info!(
@@ -1549,19 +1522,14 @@ impl NodeCore {
         tokio::time::sleep(std::time::Duration::from_secs(BLOCK_GEN_DELAY_SECS)).await;
 
         let new_utxos: Vec<UTXO> = {
-            let mut write_guard = self.storage.write().await;
+            let read_guard = self.storage.read().await;
 
             new_utxo_hashes
                 .into_iter()
                 .map(|(acc_addr_rec, new_utxo_hash)| {
-                    let acc = write_guard.acc_map.get_mut(&acc_addr_rec).unwrap();
+                    let acc = read_guard.acc_map.get(&acc_addr_rec).unwrap();
 
-                    let new_utxo = acc
-                        .utxo_tree
-                        .get_item(new_utxo_hash)
-                        .unwrap()
-                        .unwrap()
-                        .clone();
+                    let new_utxo = acc.get_utxo_by_hash(new_utxo_hash).unwrap().clone();
                     new_utxo.log();
 
                     info!(
@@ -1681,31 +1649,6 @@ impl NodeCore {
             addrs_receivers[publication_index],
             new_utxos[publication_index].clone(),
             comm_gen_hashes[publication_index],
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    ///Mint number of different assets with same amount for account
-    pub async fn scenario_2(
-        &mut self,
-        number_of_assets: usize,
-        number_to_send: usize,
-    ) -> Result<(), ExecutionFailureKind> {
-        let acc_addr_sender = self.create_new_account().await;
-        let acc_addr_receiver = self.create_new_account().await;
-
-        let (utxos, comm_gen_hashes) = self
-            .operate_account_mint_multiple_assets_private(acc_addr_sender, 100, number_of_assets)
-            .await?;
-
-        self.operate_account_send_private_multiple_assets_one_receiver(
-            acc_addr_sender,
-            acc_addr_receiver,
-            utxos,
-            comm_gen_hashes,
-            number_to_send,
         )
         .await?;
 

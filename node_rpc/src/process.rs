@@ -18,14 +18,12 @@ use common::rpc_primitives::requests::{
 use crate::types::{
     err_rpc::cast_common_execution_error_into_rpc_error,
     rpc_structs::{
-        CreateAccountRequest, CreateAccountResponse, ExecuteScenarioMultipleSendRequest,
-        ExecuteScenarioMultipleSendResponse, ExecuteScenarioSplitRequest,
+        CreateAccountRequest, CreateAccountResponse, ExecuteScenarioSplitRequest,
         ExecuteScenarioSplitResponse, ExecuteSubscenarioRequest, ExecuteSubscenarioResponse,
         ShowAccountPublicBalanceRequest, ShowAccountPublicBalanceResponse, ShowAccountUTXORequest,
         ShowAccountUTXOResponse, ShowTransactionRequest, ShowTransactionResponse,
         UTXOShortEssentialStruct, WriteDepositPublicBalanceRequest,
-        WriteDepositPublicBalanceResponse, WriteMintPrivateUTXOMultipleAssetsRequest,
-        WriteMintPrivateUTXOMultipleAssetsResponse, WriteMintPrivateUTXORequest,
+        WriteDepositPublicBalanceResponse, WriteMintPrivateUTXORequest,
         WriteMintPrivateUTXOResponse, WriteSendDeshieldedBalanceRequest,
         WriteSendDeshieldedUTXOResponse, WriteSendPrivateUTXORequest, WriteSendPrivateUTXOResponse,
         WriteSendShieldedUTXORequest, WriteSendShieldedUTXOResponse, WriteSendSplitUTXOResponse,
@@ -127,28 +125,6 @@ impl JsonHandler {
         }
 
         let helperstruct = ExecuteScenarioSplitResponse {
-            scenario_result: SUCCESS.to_string(),
-        };
-
-        respond(helperstruct)
-    }
-
-    async fn process_request_execute_scenario_multiple_send(
-        &self,
-        request: Request,
-    ) -> Result<Value, RpcErr> {
-        let req = ExecuteScenarioMultipleSendRequest::parse(Some(request.params))?;
-
-        {
-            let mut store = self.node_chain_store.lock().await;
-
-            store
-                .scenario_2(req.number_of_assets, req.number_to_send)
-                .await
-                .map_err(cast_common_execution_error_into_rpc_error)?;
-        }
-
-        let helperstruct = ExecuteScenarioMultipleSendResponse {
             scenario_result: SUCCESS.to_string(),
         };
 
@@ -268,15 +244,8 @@ impl JsonHandler {
                     .ok_or(RpcError::new_internal_error(None, ACCOUNT_NOT_FOUND))?;
 
                 let utxo = acc
-                    .utxo_tree
-                    .get_item(utxo_hash)
-                    .map_err(|err| {
-                        RpcError::new_internal_error(None, &format!("DB fetch failure {err:?}"))
-                    })?
-                    .ok_or(RpcError::new_internal_error(
-                        None,
-                        "UTXO does not exist in the tree",
-                    ))?;
+                    .get_utxo_by_hash(utxo_hash)
+                    .ok_or(RpcError::new_internal_error(None, "UTXO does not exist"))?;
 
                 (utxo.asset.clone(), utxo.amount)
             }
@@ -420,49 +389,6 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
-    pub async fn process_write_mint_utxo_multiple_assets(
-        &self,
-        request: Request,
-    ) -> Result<Value, RpcErr> {
-        let req = WriteMintPrivateUTXOMultipleAssetsRequest::parse(Some(request.params))?;
-
-        let acc_addr_hex_dec = hex::decode(req.account_addr.clone()).map_err(|_| {
-            RpcError::parse_error("Failed to decode account address from hex string".to_string())
-        })?;
-
-        let acc_addr: [u8; 32] = acc_addr_hex_dec.try_into().map_err(|_| {
-            RpcError::parse_error("Failed to parse account address from bytes".to_string())
-        })?;
-
-        let (utxos, commitment_hashes) = {
-            let mut cover_guard = self.node_chain_store.lock().await;
-
-            cover_guard
-                .operate_account_mint_multiple_assets_private(
-                    acc_addr,
-                    req.amount as u128,
-                    req.num_of_assets,
-                )
-                .await
-                .map_err(cast_common_execution_error_into_rpc_error)?
-        };
-
-        let helperstruct = WriteMintPrivateUTXOMultipleAssetsResponse {
-            status: SUCCESS.to_string(),
-            utxos: utxos
-                .into_iter()
-                .zip(commitment_hashes)
-                .map(|(utxo, comm_hash)| UTXOShortEssentialStruct {
-                    hash: hex::encode(utxo.hash),
-                    commitment_hash: hex::encode(comm_hash),
-                    asset: utxo.asset,
-                })
-                .collect(),
-        };
-
-        respond(helperstruct)
-    }
-
     pub async fn process_write_send_private_utxo(&self, request: Request) -> Result<Value, RpcErr> {
         let req = WriteSendPrivateUTXORequest::parse(Some(request.params))?;
 
@@ -512,11 +438,7 @@ impl JsonHandler {
                     .get_mut(&acc_addr_sender)
                     .ok_or(RpcError::new_internal_error(None, ACCOUNT_NOT_FOUND))?;
 
-                acc.utxo_tree
-                    .get_item(utxo_hash)
-                    .map_err(|err| {
-                        RpcError::new_internal_error(None, &format!("DB fetch failure {err:?}"))
-                    })?
+                acc.get_utxo_by_hash(utxo_hash)
                     .ok_or(RpcError::new_internal_error(
                         None,
                         "UTXO does not exist in tree",
@@ -647,11 +569,7 @@ impl JsonHandler {
                     .get_mut(&acc_addr_sender)
                     .ok_or(RpcError::new_internal_error(None, ACCOUNT_NOT_FOUND))?;
 
-                acc.utxo_tree
-                    .get_item(utxo_hash)
-                    .map_err(|err| {
-                        RpcError::new_internal_error(None, &format!("DB fetch failure {err:?}"))
-                    })?
+                acc.get_utxo_by_hash(utxo_hash)
                     .ok_or(RpcError::new_internal_error(
                         None,
                         "UTXO does not exist in tree",
@@ -735,11 +653,7 @@ impl JsonHandler {
                     .get_mut(&acc_addr_sender)
                     .ok_or(RpcError::new_internal_error(None, ACCOUNT_NOT_FOUND))?;
 
-                acc.utxo_tree
-                    .get_item(utxo_hash)
-                    .map_err(|err| {
-                        RpcError::new_internal_error(None, &format!("DB fetch failure {err:?}"))
-                    })?
+                acc.get_utxo_by_hash(utxo_hash)
                     .ok_or(RpcError::new_internal_error(
                         None,
                         "UTXO does not exist in tree",
@@ -782,10 +696,6 @@ impl JsonHandler {
             GET_BLOCK => self.process_get_block_data(request).await,
             GET_LAST_BLOCK => self.process_get_last_block(request).await,
             EXECUTE_SCENARIO_SPLIT => self.process_request_execute_scenario_split(request).await,
-            EXECUTE_SCENARIO_MULTIPLE_SEND => {
-                self.process_request_execute_scenario_multiple_send(request)
-                    .await
-            }
             SHOW_ACCOUNT_PUBLIC_BALANCE => self.process_show_account_public_balance(request).await,
             SHOW_ACCOUNT_UTXO => self.process_show_account_utxo_request(request).await,
             SHOW_TRANSACTION => self.process_show_transaction(request).await,
@@ -793,9 +703,6 @@ impl JsonHandler {
                 self.process_write_deposit_public_balance(request).await
             }
             WRITE_MINT_UTXO => self.process_write_mint_utxo(request).await,
-            WRITE_MINT_UTXO_MULTIPLE_ASSETS => {
-                self.process_write_mint_utxo_multiple_assets(request).await
-            }
             WRITE_SEND_UTXO_PRIVATE => self.process_write_send_private_utxo(request).await,
             WRITE_SEND_UTXO_SHIELDED => self.process_write_send_shielded_utxo(request).await,
             WRITE_SEND_UTXO_DESHIELDED => self.process_write_send_deshielded_utxo(request).await,

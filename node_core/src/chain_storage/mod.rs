@@ -125,7 +125,7 @@ impl NodeChainStore {
                                     serde_json::from_slice::<UTXO>(&decoded_data_curr_acc);
                                 if let Ok(utxo) = decoded_utxo_try {
                                     if &utxo.owner == acc_id {
-                                        acc.utxo_tree.insert_item(utxo)?;
+                                        acc.utxos.insert(utxo.hash, utxo);
                                     }
                                 }
                             }
