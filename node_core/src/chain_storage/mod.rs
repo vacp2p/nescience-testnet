@@ -10,12 +10,12 @@ use common::{
     block::Block,
     merkle_tree_public::merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree},
     nullifier::UTXONullifier,
-    nullifier_sparse_merkle_tree::NullifierSparseMerkleTree,
+    nullifier_sparse_merkle_tree::{NullifierSparseMerkleTree, NullifierTreeInput},
     utxo_commitment::UTXOCommitment,
 };
 use k256::AffinePoint;
 use public_context::PublicSCContext;
-use utxo::utxo_core::UTXO;
+use utxo::{utxo_core::UTXO, utxo_tree::UTXOTreeInput};
 
 use crate::ActionData;
 
@@ -54,7 +54,7 @@ impl NodeChainStore {
     }
 
     pub fn dissect_insert_block(&mut self, block: Block) -> Result<()> {
-        for tx in &block.transactions {
+        for (tx_id, tx) in block.transactions.iter().enumerate() {
             if !tx.execution_input.is_empty() {
                 let public_action = serde_json::from_slice::<ActionData>(&tx.execution_input);
 
@@ -101,7 +101,13 @@ impl NodeChainStore {
                 tx.nullifier_created_hashes
                     .clone()
                     .into_iter()
-                    .map(|hash| UTXONullifier { utxo_hash: hash })
+                    .enumerate()
+                    .map(|(idx, hash)| NullifierTreeInput {
+                        nullifier_id: idx as u64,
+                        tx_id: tx_id as u64,
+                        block_id: block.block_id,
+                        nullifier: UTXONullifier { utxo_hash: hash },
+                    })
                     .collect(),
             )?;
 
@@ -109,7 +115,9 @@ impl NodeChainStore {
                 let ephemeral_public_key_sender =
                     serde_json::from_slice::<AffinePoint>(&tx.ephemeral_pub_key)?;
 
-                for (ciphertext, nonce, tag) in tx.encoded_data.clone() {
+                for (utxo_id, (ciphertext, nonce, tag)) in
+                    tx.encoded_data.clone().into_iter().enumerate()
+                {
                     let slice = nonce.as_slice();
                     let nonce =
                         accounts::key_management::constants_types::Nonce::clone_from_slice(slice);
@@ -125,7 +133,13 @@ impl NodeChainStore {
                                     serde_json::from_slice::<UTXO>(&decoded_data_curr_acc);
                                 if let Ok(utxo) = decoded_utxo_try {
                                     if &utxo.owner == acc_id {
-                                        acc.utxo_tree.insert_item(utxo)?;
+                                        let input_utxo = UTXOTreeInput {
+                                            utxo_id: utxo_id as u64,
+                                            tx_id: tx_id as u64,
+                                            block_id: block.block_id,
+                                            utxo,
+                                        };
+                                        acc.utxo_tree.insert_item(input_utxo)?;
                                     }
                                 }
                             }

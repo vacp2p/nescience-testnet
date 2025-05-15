@@ -5,6 +5,7 @@ use common::{
     block::{Block, HashableBlockData},
     merkle_tree_public::TreeHashType,
     nullifier::UTXONullifier,
+    nullifier_sparse_merkle_tree::NullifierTreeInput,
     transaction::{Transaction, TxKind},
     utxo_commitment::UTXOCommitment,
 };
@@ -185,6 +186,8 @@ impl SequencerCore {
     fn execute_check_transaction_on_state(
         &mut self,
         tx: TransactionMempool,
+        tx_id: u64,
+        block_id: u64,
     ) -> Result<(), TransactionMalformationErrorKind> {
         let Transaction {
             hash,
@@ -199,11 +202,16 @@ impl SequencerCore {
                 .add_tx(UTXOCommitment { hash: *utxo_comm });
         }
 
-        for nullifier in nullifier_created_hashes {
+        for (idx, nullifier) in nullifier_created_hashes.iter().enumerate() {
             self.store
                 .nullifier_store
-                .insert_item(UTXONullifier {
-                    utxo_hash: *nullifier,
+                .insert_item(NullifierTreeInput {
+                    nullifier_id: idx as u64,
+                    tx_id,
+                    block_id,
+                    nullifier: UTXONullifier {
+                        utxo_hash: *nullifier,
+                    },
                 })
                 .map_err(|err| TransactionMalformationErrorKind::FailedToInsert {
                     tx: hash,
@@ -225,12 +233,14 @@ impl SequencerCore {
 
     ///Produces new block from transactions in mempool
     pub fn produce_new_block_with_mempool_transactions(&mut self) -> Result<u64> {
+        let new_block_height = self.chain_height + 1;
+
         let transactions = self
             .mempool
             .pop_size(self.sequencer_config.max_num_tx_in_block);
 
-        for tx in transactions.clone() {
-            self.execute_check_transaction_on_state(tx)?;
+        for (idx, tx) in transactions.clone().into_iter().enumerate() {
+            self.execute_check_transaction_on_state(tx, idx as u64, new_block_height)?;
         }
 
         let prev_block_hash = self
@@ -240,7 +250,7 @@ impl SequencerCore {
             .hash;
 
         let hashable_data = HashableBlockData {
-            block_id: self.chain_height + 1,
+            block_id: new_block_height,
             prev_block_id: self.chain_height,
             transactions: transactions.into_iter().map(|tx_mem| tx_mem.tx).collect(),
             data: vec![],

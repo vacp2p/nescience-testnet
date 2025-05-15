@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use monotree::database::MemoryDB;
 use monotree::hasher::Blake3;
 use monotree::{Hasher, Monotree, Proof};
@@ -5,10 +7,31 @@ use monotree::{Hasher, Monotree, Proof};
 use crate::merkle_tree_public::TreeHashType;
 use crate::nullifier::UTXONullifier;
 
+#[derive(Debug, Clone)]
+pub struct NullifierTreeInput {
+    pub nullifier_id: u64,
+    pub tx_id: u64,
+    pub block_id: u64,
+    pub nullifier: UTXONullifier,
+}
+
+#[derive(Debug, Clone)]
+pub struct TreeTxWithNullifierId {
+    pub id: u64,
+    pub nullifiers: BTreeMap<u64, UTXONullifier>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TreeBlockWithTxId {
+    pub id: u64,
+    pub txs: BTreeMap<u64, TreeTxWithNullifierId>,
+}
+
 pub struct NullifierSparseMerkleTree {
     pub curr_root: Option<TreeHashType>,
     pub tree: Monotree<MemoryDB, Blake3>,
     pub hasher: Blake3,
+    pub leafs: BTreeMap<u64, TreeBlockWithTxId>,
 }
 
 impl NullifierSparseMerkleTree {
@@ -17,29 +40,70 @@ impl NullifierSparseMerkleTree {
             curr_root: None,
             tree: Monotree::default(),
             hasher: Blake3::new(),
+            leafs: BTreeMap::new(),
         }
     }
 
-    pub fn insert_item(&mut self, nullifier: UTXONullifier) -> Result<(), monotree::Errors> {
+    pub fn modify_leavs_with_nullifier_input(&mut self, tree_nullifier: NullifierTreeInput) {
+        self.leafs
+            .entry(tree_nullifier.block_id)
+            .and_modify(|tree_block| {
+                tree_block
+                    .txs
+                    .entry(tree_nullifier.tx_id)
+                    .and_modify(|tree_tx| {
+                        tree_tx
+                            .nullifiers
+                            .insert(tree_nullifier.nullifier_id, tree_nullifier.nullifier);
+                    })
+                    .or_insert(TreeTxWithNullifierId {
+                        id: tree_nullifier.tx_id,
+                        nullifiers: BTreeMap::new(),
+                    });
+            })
+            .or_insert(TreeBlockWithTxId {
+                id: tree_nullifier.block_id,
+                txs: BTreeMap::new(),
+            });
+    }
+
+    pub fn insert_item(
+        &mut self,
+        tree_nullifier: NullifierTreeInput,
+    ) -> Result<(), monotree::Errors> {
         let root = self.curr_root.as_ref();
 
-        let new_root = self
-            .tree
-            .insert(root, &nullifier.utxo_hash, &nullifier.utxo_hash)?;
+        let new_root = self.tree.insert(
+            root,
+            &tree_nullifier.nullifier.utxo_hash,
+            &tree_nullifier.nullifier.utxo_hash,
+        )?;
 
         self.curr_root = new_root;
+
+        self.modify_leavs_with_nullifier_input(tree_nullifier);
 
         Ok(())
     }
 
-    pub fn insert_items(&mut self, nullifiers: Vec<UTXONullifier>) -> Result<(), monotree::Errors> {
+    pub fn insert_items(
+        &mut self,
+        tree_nullifiers: Vec<NullifierTreeInput>,
+    ) -> Result<(), monotree::Errors> {
         let root = self.curr_root.as_ref();
 
-        let hashes: Vec<TreeHashType> = nullifiers.iter().map(|nu| nu.utxo_hash).collect();
+        let hashes: Vec<TreeHashType> = tree_nullifiers
+            .iter()
+            .map(|nu| nu.nullifier.utxo_hash)
+            .collect();
 
         let new_root = self.tree.inserts(root, &hashes, &hashes)?;
 
         self.curr_root = new_root;
+
+        for tree_nullifier in tree_nullifiers {
+            self.modify_leavs_with_nullifier_input(tree_nullifier);
+        }
 
         Ok(())
     }
@@ -130,6 +194,20 @@ mod tests {
         UTXONullifier { utxo_hash: hash }
     }
 
+    fn create_nullifier_input(
+        hash: TreeHashType,
+        nullifier_id: u64,
+        tx_id: u64,
+        block_id: u64,
+    ) -> NullifierTreeInput {
+        NullifierTreeInput {
+            nullifier_id,
+            tx_id,
+            block_id,
+            nullifier: create_nullifier(hash),
+        }
+    }
+
     #[test]
     fn test_new_tree_initialization() {
         let tree = NullifierSparseMerkleTree::new();
@@ -139,9 +217,9 @@ mod tests {
     #[test]
     fn test_insert_single_item() {
         let mut tree = NullifierSparseMerkleTree::new();
-        let nullifier = create_nullifier([1u8; 32]); // Sample 32-byte hash
+        let tree_nullifier = create_nullifier_input([1u8; 32], 1, 1, 1); // Sample 32-byte hash
 
-        let result = tree.insert_item(nullifier);
+        let result = tree.insert_item(tree_nullifier);
         assert!(result.is_ok());
         assert!(tree.curr_root.is_some());
     }
@@ -149,13 +227,13 @@ mod tests {
     #[test]
     fn test_insert_multiple_items() {
         let mut tree = NullifierSparseMerkleTree::new();
-        let nullifiers = vec![
-            create_nullifier([1u8; 32]),
-            create_nullifier([2u8; 32]),
-            create_nullifier([3u8; 32]),
+        let tree_nullifiers = vec![
+            create_nullifier_input([1u8; 32], 1, 1, 1),
+            create_nullifier_input([2u8; 32], 2, 1, 1),
+            create_nullifier_input([3u8; 32], 3, 1, 1),
         ];
 
-        let result = tree.insert_items(nullifiers);
+        let result = tree.insert_items(tree_nullifiers);
         assert!(result.is_ok());
         assert!(tree.curr_root.is_some());
     }
@@ -163,9 +241,9 @@ mod tests {
     #[test]
     fn test_search_item_inclusion() {
         let mut tree = NullifierSparseMerkleTree::new();
-        let nullifier = create_nullifier([1u8; 32]);
+        let tree_nullifier = create_nullifier_input([1u8; 32], 1, 1, 1);
 
-        tree.insert_item(nullifier.clone()).unwrap();
+        tree.insert_item(tree_nullifier.clone()).unwrap();
 
         let result = tree.search_item_inclusion([1u8; 32]);
         assert!(result.is_ok());
@@ -179,13 +257,13 @@ mod tests {
     #[test]
     fn test_search_multiple_item_inclusions() {
         let mut tree = NullifierSparseMerkleTree::new();
-        let nullifiers = vec![
-            create_nullifier([1u8; 32]),
-            create_nullifier([2u8; 32]),
-            create_nullifier([3u8; 32]),
+        let tree_nullifiers = vec![
+            create_nullifier_input([1u8; 32], 1, 1, 1),
+            create_nullifier_input([2u8; 32], 2, 1, 1),
+            create_nullifier_input([3u8; 32], 3, 1, 1),
         ];
 
-        tree.insert_items(nullifiers).unwrap();
+        tree.insert_items(tree_nullifiers).unwrap();
 
         let search_hashes = vec![[1u8; 32], [2u8; 32], [99u8; 32]];
         let result = tree.search_item_inclusions(&search_hashes);
@@ -224,9 +302,9 @@ mod tests {
     #[test]
     fn test_insert_and_get_proof_of_existing_item() {
         let mut tree = NullifierSparseMerkleTree::new();
-        let nullifier = create_nullifier([1u8; 32]);
+        let tree_nullifier = create_nullifier_input([1u8; 32], 1, 1, 1);
 
-        tree.insert_item(nullifier.clone()).unwrap();
+        tree.insert_item(tree_nullifier.clone()).unwrap();
 
         let proof_result = tree.get_non_membership_proof([1u8; 32]);
         assert!(proof_result.is_err());
@@ -235,9 +313,12 @@ mod tests {
     #[test]
     fn test_insert_and_get_proofs_of_existing_items() {
         let mut tree = NullifierSparseMerkleTree::new();
-        let nullifiers = vec![create_nullifier([1u8; 32]), create_nullifier([2u8; 32])];
+        let tree_nullifiers = vec![
+            create_nullifier_input([1u8; 32], 1, 1, 1),
+            create_nullifier_input([2u8; 32], 2, 1, 1),
+        ];
 
-        tree.insert_items(nullifiers).unwrap();
+        tree.insert_items(tree_nullifiers).unwrap();
 
         let proof_result = tree.get_non_membership_proofs(&[[1u8; 32], [2u8; 32]]);
         assert!(proof_result.is_err());

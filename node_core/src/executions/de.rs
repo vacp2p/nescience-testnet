@@ -1,4 +1,7 @@
+use std::collections::BTreeMap;
+
 use bincode;
+use common::nullifier_sparse_merkle_tree::NullifierTreeInput;
 use common::{
     commitment::Commitment, commitments_sparse_merkle_tree::CommitmentsSparseMerkleTree,
     nullifier::UTXONullifier, nullifier_sparse_merkle_tree::NullifierSparseMerkleTree,
@@ -106,15 +109,25 @@ pub fn validate_nullifiers_proof(
     root_nullifier: [u8; 32],
     nullifiers_proof: &[[u8; 32]],
 ) -> bool {
+    //There is no need for storage, so ids can be default there
+    let id = 1;
+
     let mut nsmt = NullifierSparseMerkleTree {
         curr_root: Option::Some(root_nullifier),
         tree: Monotree::default(),
         hasher: Blake3::new(),
+        leafs: BTreeMap::new(),
     };
 
     let nullifiers: Vec<_> = nullifiers_proof
         .into_iter()
-        .map(|n_p| UTXONullifier { utxo_hash: *n_p })
+        .enumerate()
+        .map(|(idx, n_p)| NullifierTreeInput {
+            nullifier_id: idx as u64,
+            tx_id: id,
+            block_id: id,
+            nullifier: UTXONullifier { utxo_hash: *n_p },
+        })
         .collect();
     nsmt.insert_items(nullifiers).unwrap();
 

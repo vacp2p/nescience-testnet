@@ -7,7 +7,7 @@ use log::info;
 use serde::Serialize;
 use utxo::{
     utxo_core::{UTXOPayload, UTXO},
-    utxo_tree::UTXOSparseMerkleTree,
+    utxo_tree::{UTXOSparseMerkleTree, UTXOTreeInput},
 };
 
 use crate::key_management::{
@@ -100,7 +100,7 @@ impl Account {
         Ok(())
     }
 
-    pub fn add_new_utxo_outputs(&mut self, utxos: Vec<UTXO>) -> Result<()> {
+    pub fn add_new_utxo_outputs(&mut self, utxos: Vec<UTXOTreeInput>) -> Result<()> {
         Ok(self.utxo_tree.insert_items(utxos)?)
     }
 
@@ -113,6 +113,9 @@ impl Account {
         asset: Asset,
         amount: u128,
         privacy_flag: bool,
+        utxo_id: u64,
+        tx_id: u64,
+        block_id: u64,
     ) -> Result<()> {
         let payload_with_asset = UTXOPayload {
             owner: self.address,
@@ -123,7 +126,14 @@ impl Account {
 
         let asset_utxo = UTXO::create_utxo_from_payload(payload_with_asset)?;
 
-        self.utxo_tree.insert_item(asset_utxo)?;
+        let input_utxo = UTXOTreeInput {
+            utxo_id,
+            tx_id,
+            block_id,
+            utxo: asset_utxo,
+        };
+
+        self.utxo_tree.insert_item(input_utxo)?;
 
         Ok(())
     }
@@ -163,14 +173,24 @@ mod tests {
         UTXONullifier::default()
     }
 
-    fn generate_dummy_utxo(address: TreeHashType, amount: u128) -> anyhow::Result<UTXO> {
+    fn generate_dummy_utxo(
+        address: TreeHashType,
+        amount: u128,
+        utxo_id: u64,
+    ) -> anyhow::Result<UTXOTreeInput> {
         let payload = UTXOPayload {
             owner: address,
             asset: vec![],
             amount,
             privacy_flag: false,
         };
-        UTXO::create_utxo_from_payload(payload)
+        let utxo = UTXO::create_utxo_from_payload(payload);
+        utxo.map(|utxo| UTXOTreeInput {
+            utxo_id,
+            tx_id: 1,
+            block_id: 1,
+            utxo,
+        })
     }
 
     #[test]
@@ -184,7 +204,7 @@ mod tests {
     #[test]
     fn test_mark_spent_utxo() {
         let mut account = Account::new();
-        let utxo = generate_dummy_utxo(account.address, 100).unwrap();
+        let utxo = generate_dummy_utxo(account.address, 100, 1).unwrap();
         account.add_new_utxo_outputs(vec![utxo]).unwrap();
 
         let mut utxo_nullifier_map = HashMap::new();
@@ -199,8 +219,8 @@ mod tests {
     #[test]
     fn test_add_new_utxo_outputs() {
         let mut account = Account::new();
-        let utxo1 = generate_dummy_utxo(account.address, 100).unwrap();
-        let utxo2 = generate_dummy_utxo(account.address, 200).unwrap();
+        let utxo1 = generate_dummy_utxo(account.address, 100, 1).unwrap();
+        let utxo2 = generate_dummy_utxo(account.address, 200, 2).unwrap();
 
         let result = account.add_new_utxo_outputs(vec![utxo1.clone(), utxo2.clone()]);
 
@@ -222,7 +242,7 @@ mod tests {
         let asset = "dummy_asset";
         let amount = 1000u128;
 
-        let result = account.add_asset(asset, amount, false);
+        let result = account.add_asset(asset, amount, false, 1, 1, 1);
 
         assert!(result.is_ok());
         assert_eq!(account.utxo_tree.store.len(), 1);
