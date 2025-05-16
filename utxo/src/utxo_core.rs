@@ -12,7 +12,6 @@ pub type Asset = Vec<u8>;
 pub struct UTXO {
     pub hash: TreeHashType,
     pub owner: AccountId,
-    pub nullifier: Option<UTXONullifier>,
     pub asset: Asset,
     // TODO: change to u256
     pub amount: u128,
@@ -41,21 +40,10 @@ impl UTXO {
         Ok(Self {
             hash,
             owner: payload_with_asset.owner,
-            nullifier: None,
             asset: payload_with_asset.asset,
             amount: payload_with_asset.amount,
             privacy_flag: payload_with_asset.privacy_flag,
         })
-    }
-
-    pub fn consume_utxo(&mut self, nullifier: UTXONullifier) -> Result<()> {
-        if self.nullifier.is_some() {
-            anyhow::bail!("UTXO already consumed");
-        } else {
-            self.nullifier = Some(nullifier);
-        }
-
-        Ok(())
     }
 
     pub fn interpret_asset<'de, ToInterpret: Deserialize<'de>>(&'de self) -> Result<ToInterpret> {
@@ -74,10 +62,6 @@ impl UTXO {
     pub fn log(&self) {
         info!("UTXO hash is {:?}", hex::encode(self.hash));
         info!("UTXO owner is {:?}", hex::encode(self.owner));
-        info!(
-            "UTXO nullifier is {:?}",
-            self.nullifier.clone().map(|val| hex::encode(val.utxo_hash))
-        );
         info!("UTXO asset is {:?}", hex::encode(self.asset.clone()));
         info!("UTXO amount is {:?}", self.amount);
         info!("UTXO privacy_flag is {:?}", self.privacy_flag);
@@ -127,23 +111,6 @@ mod tests {
         // Ensure hash is created and the UTXO fields are correctly assigned
         assert_eq!(utxo.owner, payload.owner);
         assert_eq!(utxo.asset, payload.asset);
-        assert!(utxo.nullifier.is_none());
-    }
-
-    #[test]
-    fn test_consume_utxo() {
-        let payload = sample_payload();
-        let mut utxo = UTXO::create_utxo_from_payload(payload).unwrap();
-
-        let nullifier = sample_nullifier();
-
-        // First consumption should succeed
-        assert!(utxo.consume_utxo(nullifier.clone()).is_ok());
-        assert_eq!(utxo.nullifier, Some(nullifier));
-
-        // Second consumption should fail
-        let result = utxo.consume_utxo(sample_nullifier());
-        assert!(result.is_err());
     }
 
     #[test]
