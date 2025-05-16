@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common::{merkle_tree_public::TreeHashType, nullifier::UTXONullifier, AccountId};
+use common::{merkle_tree_public::TreeHashType, AccountId};
 use log::info;
 use serde::{Deserialize, Serialize};
 use sha2::{digest::FixedOutput, Digest};
@@ -80,14 +80,6 @@ mod tests {
 
     fn sample_account() -> AccountId {
         AccountId::default()
-    }
-
-    fn sample_nullifier() -> UTXONullifier {
-        UTXONullifier::default()
-    }
-
-    fn sample_tree_hash() -> TreeHashType {
-        TreeHashType::default()
     }
 
     fn sample_payload() -> UTXOPayload {

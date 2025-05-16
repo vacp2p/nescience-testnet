@@ -1,7 +1,11 @@
 use std::{collections::HashMap, hash::Hash};
 
 use anyhow::Result;
-use common::{merkle_tree_public::TreeHashType, nullifier::{self, UTXONullifier}, transaction::Tag};
+use common::{
+    merkle_tree_public::TreeHashType,
+    nullifier::{self, UTXONullifier},
+    transaction::Tag,
+};
 use k256::AffinePoint;
 use log::info;
 use serde::Serialize;
