@@ -1,5 +1,3 @@
-use std::hash::RandomState;
-
 use anyhow::Result;
 use common::{merkle_tree_public::TreeHashType, AccountId};
 use log::info;
