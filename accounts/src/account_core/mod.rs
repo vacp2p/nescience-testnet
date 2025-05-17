@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use common::{merkle_tree_public::TreeHashType, nullifier::UTXONullifier, transaction::Tag};
