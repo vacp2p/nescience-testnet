@@ -116,9 +116,6 @@ impl Account {
         asset: Asset,
         amount: u128,
         privacy_flag: bool,
-        utxo_id: u64,
-        tx_id: u64,
-        block_id: u64,
     ) -> Result<()> {
         let payload_with_asset = UTXOPayload {
             owner: self.address,
@@ -169,24 +166,14 @@ mod tests {
         UTXONullifier::default()
     }
 
-    fn generate_dummy_utxo(
-        address: TreeHashType,
-        amount: u128,
-        utxo_id: u64,
-    ) -> anyhow::Result<UTXOTreeInput> {
+    fn generate_dummy_utxo(address: TreeHashType, amount: u128) -> anyhow::Result<UTXO> {
         let payload = UTXOPayload {
             owner: address,
             asset: vec![],
             amount,
             privacy_flag: false,
         };
-        let utxo = UTXO::create_utxo_from_payload(payload);
-        utxo.map(|utxo| UTXOTreeInput {
-            utxo_id,
-            tx_id: 1,
-            block_id: 1,
-            utxo,
-        })
+        UTXO::create_utxo_from_payload(payload)
     }
 
     #[test]
@@ -200,7 +187,7 @@ mod tests {
     #[test]
     fn test_mark_spent_utxo() {
         let mut account = Account::new();
-        let utxo = generate_dummy_utxo(account.address, 100, 1).unwrap();
+        let utxo = generate_dummy_utxo(account.address, 100).unwrap();
         account.add_new_utxo_outputs(vec![utxo]).unwrap();
 
         let mut utxo_nullifier_map = HashMap::new();
@@ -214,8 +201,8 @@ mod tests {
     #[test]
     fn test_add_new_utxo_outputs() {
         let mut account = Account::new();
-        let utxo1 = generate_dummy_utxo(account.address, 100, 1).unwrap();
-        let utxo2 = generate_dummy_utxo(account.address, 200, 2).unwrap();
+        let utxo1 = generate_dummy_utxo(account.address, 100).unwrap();
+        let utxo2 = generate_dummy_utxo(account.address, 200).unwrap();
 
         let result = account.add_new_utxo_outputs(vec![utxo1.clone(), utxo2.clone()]);
 
@@ -237,7 +224,7 @@ mod tests {
         let asset = "dummy_asset";
         let amount = 1000u128;
 
-        let result = account.add_asset(asset, amount, false, 1, 1, 1);
+        let result = account.add_asset(asset, amount, false);
 
         assert!(result.is_ok());
         assert_eq!(account.utxos.len(), 1);

@@ -15,7 +15,7 @@ use common::{
 };
 use k256::AffinePoint;
 use public_context::PublicSCContext;
-use utxo::{utxo_core::UTXO, utxo_tree::UTXOTreeInput};
+use utxo::utxo_core::UTXO;
 
 use crate::ActionData;
 
@@ -115,9 +115,7 @@ impl NodeChainStore {
                 let ephemeral_public_key_sender =
                     serde_json::from_slice::<AffinePoint>(&tx.ephemeral_pub_key)?;
 
-                for (utxo_id, (ciphertext, nonce, tag)) in
-                    tx.encoded_data.clone().into_iter().enumerate()
-                {
+                for (ciphertext, nonce, tag) in tx.encoded_data.clone() {
                     let slice = nonce.as_slice();
                     let nonce =
                         accounts::key_management::constants_types::Nonce::clone_from_slice(slice);
