@@ -72,6 +72,7 @@ impl RocksDBIO {
         let cfb = ColumnFamilyDescriptor::new(CF_BLOCK_NAME, cf_opts.clone());
         let cfmeta = ColumnFamilyDescriptor::new(CF_META_NAME, cf_opts.clone());
         let cfsc = ColumnFamilyDescriptor::new(CF_SC_NAME, cf_opts.clone());
+        let cfsnapshot = ColumnFamilyDescriptor::new(CF_SNAPSHOT_NAME, cf_opts.clone());
 
         let mut db_opts = Options::default();
         db_opts.create_missing_column_families(true);
@@ -79,7 +80,7 @@ impl RocksDBIO {
         let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
             &db_opts,
             path,
-            vec![cfb, cfmeta, cfsc],
+            vec![cfb, cfmeta, cfsc, cfsnapshot],
         );
 
         let dbio = Self {
