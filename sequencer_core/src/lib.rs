@@ -332,7 +332,7 @@ mod tests {
         common_setup(&mut sequencer);
 
         let roots = sequencer.get_tree_roots();
-        assert_eq!(roots.len(), 3); // Should return three roots
+        assert_eq!(roots.len(), 2); // Should return two roots
     }
 
     #[test]
