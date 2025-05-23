@@ -41,6 +41,8 @@ pub const CF_BLOCK_NAME: &str = "cf_block";
 pub const CF_META_NAME: &str = "cf_meta";
 ///Name of smart contract column family
 pub const CF_SC_NAME: &str = "cf_sc";
+///Name of snapshot column family
+pub const CF_SNAPSHOT_NAME: &str = "cf_snapshot";
 
 ///Suffix, used to mark field, which contain length of smart contract
 pub const SC_LEN_SUFFIX: &str = "sc_len";
