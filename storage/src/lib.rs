@@ -484,6 +484,31 @@ impl RocksDBIO {
         }
     }
 
+    pub fn put_snapshot_block_id_db(&self, block_id: u64) -> DbResult<()> {
+        let cf_snapshot = self.snapshot_column();
+        self.db
+            .put_cf(
+                &cf_snapshot,
+                DB_SNAPSHOT_BLOCK_ID_KEY.as_bytes(),
+                block_id.to_be_bytes(),
+            )
+            .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))?;
+        Ok(())
+    }
+
+    pub fn put_snapshot_commitement_db(&self, commitment: Vec<u8>) -> DbResult<()> {
+        let cf_snapshot = self.snapshot_column();
+        self.db
+            .put_cf(
+                &cf_snapshot,
+                DB_SNAPSHOT_COMMITMENT_KEY.as_bytes(),
+                commitment,
+            )
+            .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))?;
+        Ok(())
+    }
+
+
 }
 
 ///Creates address for sc data blob at corresponding id
