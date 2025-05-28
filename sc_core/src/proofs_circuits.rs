@@ -38,25 +38,21 @@ pub fn generate_commitments(input_utxos: &[UTXO]) -> Vec<Vec<u8>> {
 // takes the in_commitments[i] as a leaf, the root hash root_commitment and the path in_commitments_proofs[i][],
 // returns True if the in_commitments[i] is in the tree with root hash root_commitment otherwise returns False, as membership proof.
 pub fn validate_in_commitments_proof(
-    in_commitment: &Vec<u8>,
+    _in_commitment: &Vec<u8>,
     _root_commitment: Vec<u8>,
-    in_commitments_proof: &[Vec<u8>],
+    _in_commitments_proof: &[Vec<u8>],
 ) -> bool {
-    // Placeholder implementation.
+    // ToDo: Implement correct check
 
-    in_commitments_proof.contains(in_commitment)
+    todo!()
 }
 
-// Validate non-membership proof for nullifiers
-
-// takes the nullifiers[i], path nullifiers_proof[i][] and the root hash root_nullifier,
-// returns True if the nullifiers[i] is not in the tree with root hash root_nullifier otherwise returns False, as non-membership proof.
-pub fn validate_nullifiers_proof(
+// Validate that `nullifier` has not been present in set items before
+pub fn validate_nullifier_not_present_in_set_items(
     nullifier: [u8; 32],
-    _root_nullifier: [u8; 32],
-    nullifiers_proof: &[[u8; 32]],
+    nullifiers_items: &[[u8; 32]],
 ) -> bool {
-    !nullifiers_proof.contains(&nullifier)
+    !nullifiers_items.contains(&nullifier)
 }
 
 #[allow(unused)]
@@ -84,9 +80,8 @@ fn private_kernel(
     }
 
     for nullifier in nullifiers.iter() {
-        validate_nullifiers_proof(
+        validate_nullifier_not_present_in_set_items(
             nullifier[0..32].try_into().unwrap(),
-            root_nullifier,
             nullifiers_proof,
         );
     }
@@ -203,9 +198,8 @@ fn de_kernel(
     }
 
     for nullifier in nullifiers.iter() {
-        validate_nullifiers_proof(
+        validate_nullifier_not_present_in_set_items(
             nullifier[0..32].try_into().unwrap(),
-            root_nullifier,
             nullifiers_proof,
         );
     }
@@ -220,11 +214,13 @@ fn de_kernel(
 // otherwise
 // returns False, as membership proof.
 pub fn validate_in_commitments_proof_se(
-    pedersen_commitment: &PedersenCommitment,
+    _pedersen_commitment: &PedersenCommitment,
     _root_commitment: Vec<u8>,
-    in_commitments_proof: &[Vec<u8>],
+    _in_commitments_proof: &[Vec<u8>],
 ) -> bool {
-    in_commitments_proof.contains(&pedersen_commitment.serialize().to_vec())
+    // ToDo: Implement correct check
+
+    todo!()
 }
 
 // Generate nullifiers SE
