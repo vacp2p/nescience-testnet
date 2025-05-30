@@ -4,7 +4,7 @@ use anyhow::Result;
 use common::{merkle_tree_public::TreeHashType, transaction::Tag};
 use k256::AffinePoint;
 use log::info;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utxo::utxo_core::{UTXOPayload, UTXO};
 
 use crate::key_management::{
@@ -16,6 +16,7 @@ use crate::key_management::{
 pub type PublicKey = AffinePoint;
 pub type AccountAddress = TreeHashType;
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Account {
     pub key_holder: AddressKeyHolder,
     pub address: AccountAddress,
