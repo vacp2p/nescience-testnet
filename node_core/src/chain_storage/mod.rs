@@ -7,13 +7,11 @@ use accounts::account_core::{Account, AccountAddress};
 use anyhow::Result;
 use block_store::NodeBlockStore;
 use common::{
-    block::Block,
-    merkle_tree_public::merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree},
-    nullifier::UTXONullifier,
-    utxo_commitment::UTXOCommitment,
+    block::Block, commitment, merkle_tree_public::merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree}, nullifier::{self, UTXONullifier}, utxo_commitment::UTXOCommitment
 };
-use k256::AffinePoint;
+use k256::{pkcs8::der::asn1::Null, AffinePoint};
 use public_context::PublicSCContext;
+use sc_core::transaction_payloads_tools;
 use utxo::utxo_core::UTXO;
 
 use crate::ActionData;
@@ -31,11 +29,12 @@ pub struct NodeChainStore {
 }
 
 impl NodeChainStore {
-    pub fn new_with_genesis(home_dir: &Path, genesis_block: Block) -> Self {
-        let acc_map = HashMap::new();
-        let nullifier_store = HashSet::new();
-        let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
-        let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
+    pub fn new(home_dir: &Path, genesis_block: Block) -> Result<(Self, u64)> {
+        let mut acc_map = HashMap::new();
+        let mut nullifier_store = HashSet::new();
+        let mut utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
+        let mut pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
+        let mut block_id = genesis_block.block_id;
 
         //Sequencer should panic if unable to open db,
         //as fixing this issue may require actions non-native to program scope
@@ -43,13 +42,21 @@ impl NodeChainStore {
             NodeBlockStore::open_db_with_genesis(&home_dir.join("rocksdb"), Some(genesis_block))
                 .unwrap();
 
-        Self {
+        if let Ok(temp_block_id) = block_store.get_snapshot_block_id() {
+            utxo_commitments_store = block_store.get_snapshot_commitment()?;
+            nullifier_store = block_store.get_snapshot_nullifier()?;
+            acc_map = block_store.get_snapshot_account()?;
+            pub_tx_store = block_store.get_snapshot_transaction()?;
+            block_id = temp_block_id;
+        }
+
+        Ok((Self {
             acc_map,
             block_store,
             nullifier_store,
             utxo_commitments_store,
             pub_tx_store,
-        }
+        }, block_id))
     }
 
     pub fn dissect_insert_block(&mut self, block: Block) -> Result<()> {
