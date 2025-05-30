@@ -75,7 +75,9 @@ impl NodeBlockStore {
             .inspect_err(|err| error!("Failed to store snapshot accounts with error {err:#?}"))?;
         self.dbio
             .put_snapshot_commitement_db(comm_ser)
-            .inspect_err(|err| error!("Failed to store snapshot commitments with error {err:#?}"))?;
+            .inspect_err(|err| {
+                error!("Failed to store snapshot commitments with error {err:#?}")
+            })?;
         self.dbio
             .put_snapshot_transaction_db(txs_ser)
             .inspect_err(|err| {
