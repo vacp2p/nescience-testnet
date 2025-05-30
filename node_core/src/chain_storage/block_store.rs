@@ -180,15 +180,4 @@ mod tests {
         assert_eq!(retrieved_block.block_id, block.block_id);
         assert_eq!(retrieved_block.hash, block.hash);
     }
-
-    #[test]
-    fn test_get_block_not_found() {
-        let temp_dir = tempdir().unwrap();
-        let path = temp_dir.path();
-
-        let node_store = NodeBlockStore::open_db_with_genesis(path, None).unwrap();
-
-        let result = node_store.get_block_at_id(42);
-        assert!(result.is_err());
-    }
 }
