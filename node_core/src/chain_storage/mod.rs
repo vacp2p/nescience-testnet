@@ -8,14 +8,12 @@ use anyhow::Result;
 use block_store::NodeBlockStore;
 use common::{
     block::Block,
-    commitment,
     merkle_tree_public::merkle_tree::{PublicTransactionMerkleTree, UTXOCommitmentsMerkleTree},
-    nullifier::{self, UTXONullifier},
+    nullifier::UTXONullifier,
     utxo_commitment::UTXOCommitment,
 };
-use k256::{pkcs8::der::asn1::Null, AffinePoint};
+use k256::AffinePoint;
 use public_context::PublicSCContext;
-use sc_core::transaction_payloads_tools;
 use utxo::utxo_core::UTXO;
 
 use crate::ActionData;

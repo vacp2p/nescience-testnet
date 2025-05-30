@@ -2,7 +2,6 @@ use std::{path::Path, sync::Arc};
 
 use common::block::Block;
 use error::DbError;
-use log::warn;
 use rocksdb::{
     BoundColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode, MultiThreaded, Options,
 };
