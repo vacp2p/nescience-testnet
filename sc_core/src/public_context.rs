@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
+use crate::traits::IPrivateOutput;
 use accounts::account_core::{AccountAddress, AccountPublicMask};
 use common::merkle_tree_public::TreeHashType;
 use serde::{ser::SerializeStruct, Serialize};
-use crate::traits::IPrivateOutput;
 
 pub const PUBLIC_SC_CONTEXT: &str = "PublicSCContext";
 pub const CALLER_ADDRESS: &str = "caller_address";
@@ -89,7 +89,10 @@ impl PublicSCContext {
         Ok(u64_list)
     }
 
-    pub fn encode_utxo_for_owners<IPO: IPrivateOutput>(&self, private_outputs: IPO) -> Vec<(Vec<u8>, Vec<u8>, u8)> {
+    pub fn encode_utxo_for_owners<IPO: IPrivateOutput>(
+        &self,
+        private_outputs: IPO,
+    ) -> Vec<(Vec<u8>, Vec<u8>, u8)> {
         let utxos = private_outputs.make_utxo_list();
 
         // ToDo: when errorhandling is implemented this `unwrap()` call has to be removed
@@ -105,7 +108,7 @@ impl PublicSCContext {
                 (
                     AccountPublicMask::encrypt_data(
                         &ephm_key_holder,
-                    account_mask.viewing_public_key,
+                        account_mask.viewing_public_key,
                         &serde_json::to_vec(&utxo).unwrap(),
                     ),
                     account_mask.make_tag(),
