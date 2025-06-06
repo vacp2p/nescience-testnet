@@ -124,19 +124,19 @@ impl RocksDBIO {
             .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))
     }
 
-    pub fn meta_column(&self) -> Arc<BoundColumnFamily> {
+    pub fn meta_column(&self) -> Arc<BoundColumnFamily<'_>> {
         self.db.cf_handle(CF_META_NAME).unwrap()
     }
 
-    pub fn block_column(&self) -> Arc<BoundColumnFamily> {
+    pub fn block_column(&self) -> Arc<BoundColumnFamily<'_>> {
         self.db.cf_handle(CF_BLOCK_NAME).unwrap()
     }
 
-    pub fn sc_column(&self) -> Arc<BoundColumnFamily> {
+    pub fn sc_column(&self) -> Arc<BoundColumnFamily<'_>> {
         self.db.cf_handle(CF_SC_NAME).unwrap()
     }
 
-    pub fn snapshot_column(&self) -> Arc<BoundColumnFamily> {
+    pub fn snapshot_column(&self) -> Arc<BoundColumnFamily<'_>> {
         self.db.cf_handle(CF_SNAPSHOT_NAME).unwrap()
     }
 
