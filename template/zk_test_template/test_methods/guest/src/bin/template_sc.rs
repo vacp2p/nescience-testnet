@@ -6,9 +6,6 @@ use {sc_name}::{SmartContract, InputParameters, PublicOutputs, PrivateOutputs};
 use sc_core::traits::{IContract, IInputParameters, IPublicOutput, IPrivateOutput};
 use sc_core::{{execution_type_trait}};
 
-//Not sure, how path will look like, so
-//ToDo: Make it available from sc_core
-//Curently in node_core
 use sc_core::PublicSCContext;
 
 //Not sure, how path will look like, so
