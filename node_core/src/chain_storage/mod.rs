@@ -13,14 +13,13 @@ use common::{
     utxo_commitment::UTXOCommitment,
 };
 use k256::AffinePoint;
-use public_context::PublicSCContext;
+use sc_core::public_context::PublicSCContext;
 use utxo::utxo_core::UTXO;
 
 use crate::ActionData;
 
 pub mod accounts_store;
 pub mod block_store;
-pub mod public_context;
 
 pub struct NodeChainStore {
     pub acc_map: HashMap<AccountAddress, Account>,
