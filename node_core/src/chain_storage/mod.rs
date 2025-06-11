@@ -381,5 +381,62 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_new_recovers_from_snapshot() {
+        let temp_dir = tempdir().unwrap();
+        let path = temp_dir.path().to_path_buf();
 
+        let config = create_sample_node_config(path);
+
+        let nullifier_secret_const =
+            "261d61d294ac4bdc24f91b6f490efa263757a4a95f65871cd4f16b2ea23c3b5d";
+        std::env::set_var("NULLIFIER_SECRET_CONST", nullifier_secret_const);
+
+        let viewing_secret_const =
+            "6117af750b30d7a296672ec3b3b25d3489beca3cfe5770fa39f275cec395d5ce";
+        std::env::set_var("VIEWING_SECRET_CONST", viewing_secret_const);
+
+        let genesis_block = create_genesis_block();
+
+        // Initialize once to create DB and store fake snapshot
+        {
+            let (mut store, _) =
+                NodeChainStore::new(config.clone(), genesis_block.clone()).unwrap();
+
+            // Insert state
+            let mut account = Account::new();
+            account
+                .add_new_utxo_outputs(vec![generate_dummy_utxo(account.address, 100)])
+                .unwrap();
+            store.acc_map.insert(account.address, account);
+            store.nullifier_store.insert(UTXONullifier {
+                utxo_hash: [2u8; 32],
+            });
+            store
+                .utxo_commitments_store
+                .add_tx_multiple(vec![UTXOCommitment { hash: [3u8; 32] }]);
+            store.pub_tx_store.add_tx(create_dummy_transaction(
+                [12; 32],
+                vec![[9; 32]],
+                vec![[7; 32]],
+                vec![[8; 32]],
+            ));
+
+            // Put block snapshot to trigger snapshot recovery on next load
+            let dummy_block = create_sample_block(1, 0);
+
+            store.dissect_insert_block(dummy_block).unwrap();
+        }
+
+        // Now reload and verify snapshot is used
+        let (recovered_store, block_id) =
+            NodeChainStore::new_after_restart(config.clone(), genesis_block).unwrap();
+
+        assert_eq!(block_id, 1);
+        assert_eq!(recovered_store.acc_map.len(), 1);
+        assert_eq!(
+            recovered_store.utxo_commitments_store.get_root().is_some(),
+            true
+        );
+    }
 }
