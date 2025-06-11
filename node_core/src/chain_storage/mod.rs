@@ -273,15 +273,15 @@ impl NodeChainStore {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use crate::config::GasConfig;
     use super::*;
-    use common::merkle_tree_public::TreeHashType;
-    use secp256k1_zkp::Tweak;
-    use tempfile::tempdir;
+    use crate::config::GasConfig;
     use accounts::account_core::Account;
     use common::block::{Block, Data};
+    use common::merkle_tree_public::TreeHashType;
     use common::transaction::{Transaction, TxKind};
+    use secp256k1_zkp::Tweak;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
 
     fn create_genesis_block() -> Block {
         Block {
