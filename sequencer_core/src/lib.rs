@@ -263,7 +263,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let random_u8: u8 = rng.gen();
 
-        let path_str = format!("/tmp/sequencer_{:?}", random_u8);
+        let path_str = format!("/tmp/sequencer_{random_u8:?}");
 
         SequencerConfig {
             home: PathBuf::from(path_str),
