@@ -12,7 +12,6 @@ use common::{
 use k256::AffinePoint;
 use sc_core::public_context::PublicSCContext;
 use log::{info, warn};
-use public_context::PublicSCContext;
 use serde::{Deserialize, Serialize};
 use utxo::utxo_core::UTXO;
 
