@@ -1,3 +1,1 @@
 include = ["Cargo.toml", "**/*.toml"]
-
-exclude = ["template/*"]
