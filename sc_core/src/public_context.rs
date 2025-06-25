@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::traits::IPrivateOutput;
-use accounts::account_core::{AccountAddress, AccountPublicMask};
+use accounts::{
+    account_core::{AccountAddress, AccountPublicMask},
+    key_management::ephemeral_key_holder::EphemeralKeyHolder,
+};
 use common::merkle_tree_public::TreeHashType;
 use serde::{ser::SerializeStruct, Serialize};
 
@@ -92,7 +95,7 @@ impl PublicSCContext {
     pub fn encode_utxo_for_owners<IPO: IPrivateOutput>(
         &self,
         private_outputs: IPO,
-    ) -> Vec<(Vec<u8>, Vec<u8>, u8)> {
+    ) -> (Vec<(Vec<u8>, Vec<u8>, u8)>, EphemeralKeyHolder) {
         let utxos = private_outputs.make_utxo_list();
 
         // ToDo: when errorhandling is implemented this `unwrap()` call has to be removed
@@ -117,18 +120,18 @@ impl PublicSCContext {
             .map(|((ciphertext, nonce), tag)| (ciphertext, nonce.to_vec(), tag))
             .collect();
 
-        encoded_data
+        (encoded_data, ephm_key_holder)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use accounts::account_core::Account;
+    use utxo::utxo_core::UTXO;
 
     use super::*;
 
     fn create_test_context() -> PublicSCContext {
-        let caller_address = [1; 32];
         let comitment_store_root = [3; 32];
         let pub_tx_store_root = [4; 32];
 
@@ -137,6 +140,8 @@ mod tests {
         let acc_1 = Account::new();
         let acc_2 = Account::new();
         let acc_3 = Account::new();
+
+        let caller_address = acc_1.address;
 
         account_masks.insert(acc_1.address, acc_1.make_account_public_mask());
         account_masks.insert(acc_2.address, acc_2.make_account_public_mask());
@@ -208,5 +213,74 @@ mod tests {
         let context_num_vec2 = test_context.produce_u64_list_from_context().unwrap();
 
         assert_eq!(context_num_vec1.len(), context_num_vec2.len());
+    }
+
+    struct DummyPrivateOutput {
+        utxos: Vec<UTXO>,
+    }
+
+    impl DummyPrivateOutput {
+        pub fn new(utxos: Vec<UTXO>) -> Self {
+            Self { utxos }
+        }
+    }
+
+    impl IPrivateOutput for DummyPrivateOutput {
+        fn make_utxo_list(&self) -> Vec<UTXO> {
+            self.utxos.clone()
+        }
+    }
+
+    #[test]
+    fn encode_utxo_for_owners_test() {
+        let mut test_context = create_test_context();
+
+        let account = Account::new();
+        let public_mask = account.make_account_public_mask();
+        let utxo_1 = UTXO::new(public_mask.address, vec![2; 10], 10, false);
+
+        test_context
+            .account_masks
+            .insert(public_mask.address, public_mask);
+
+        let utxos = vec![utxo_1];
+
+        let dummy_private_output = DummyPrivateOutput::new(utxos.clone());
+
+        let (encoded_data_from_fn, ephm_key_holder) =
+            test_context.encode_utxo_for_owners(dummy_private_output);
+
+        let encoded_data: Vec<_> = utxos
+            .iter()
+            .map(|utxo| {
+                let account_mask = test_context.account_masks.get(&utxo.owner).unwrap();
+                (
+                    AccountPublicMask::encrypt_data(
+                        &ephm_key_holder,
+                        account_mask.viewing_public_key,
+                        &serde_json::to_vec(&utxo).unwrap(),
+                    ),
+                    account_mask.make_tag(),
+                )
+            })
+            .map(|((ciphertext, nonce), tag)| (ciphertext, nonce.to_vec(), tag))
+            .collect();
+
+        assert_eq!(
+            account.decrypt_data(
+                ephm_key_holder.generate_ephemeral_public_key(),
+                encoded_data_from_fn[0].0.clone(),
+                accounts::key_management::constants_types::Nonce::clone_from_slice(
+                    &encoded_data_from_fn[0].1[0..]
+                )
+            ),
+            account.decrypt_data(
+                ephm_key_holder.generate_ephemeral_public_key(),
+                encoded_data[0].0.clone(),
+                accounts::key_management::constants_types::Nonce::clone_from_slice(
+                    &encoded_data[0].1[0..]
+                )
+            )
+        );
     }
 }
