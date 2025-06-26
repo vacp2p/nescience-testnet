@@ -99,7 +99,7 @@ impl AccountPublicMask {
         viewing_public_key_receiver: AffinePoint,
         data: &[u8],
     ) -> (CipherText, Nonce) {
-        ephemeral_key_holder.encrypt_data(viewing_public_key_receiver, data)
+        Account::encrypt_data(ephemeral_key_holder, viewing_public_key_receiver, data)
     }
 
     pub fn make_tag(&self) -> Tag {
@@ -234,6 +234,17 @@ mod tests {
 
         assert_eq!(account.balance, 0);
         assert!(account.key_holder.address != [0u8; 32]); // Check if the address is not empty
+    }
+
+    #[test]
+    fn test_new_mask_account() {
+        let account = Account::new();
+
+        let mask = account.make_account_public_mask();
+
+        assert_eq!(mask.balance, 0);
+        assert_eq!(mask.address, account.key_holder.address);
+        assert_eq!(mask.make_tag(), account.make_tag());
     }
 
     #[test]
