@@ -420,6 +420,8 @@ pub fn verify(receipt: Receipt, image_id: impl Into<Digest>) -> anyhow::Result<(
 
 #[cfg(test)]
 mod tests {
+    use crate::gas_calculator::GasCalculator;
+
     use super::*;
     use test_methods::BIG_CALCULATION_ELF;
     use test_methods::{MULTIPLICATION_ELF, MULTIPLICATION_ID};
@@ -514,4 +516,15 @@ mod tests {
 
         res
     }
+
+    #[test]
+    fn test_gas_limits_check_sufficient_funds() {
+        let message = 1;
+        let message_2 = 2;
+        let gas_calc = GasCalculator::new(1, 1, 1, 1, 1, 1000000, 1000000);
+
+        let result = gas_limits_check(vec![message, message_2], SUMMATION_ELF, &gas_calc, 1000000);
+        assert!(result.is_ok());
+    }
+
 }
