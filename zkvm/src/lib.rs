@@ -317,11 +317,12 @@ pub fn prove_mint_utxo_multiple_assets(
     ))
 }
 
-pub fn execute_mint_utxo(amount_to_mint: u128, owner: AccountAddress) -> anyhow::Result<UTXO> {
+pub fn execute_mint_utxo(amount_to_mint: u128, owner: AccountAddress, randomness: [u8; 32]) -> anyhow::Result<UTXO> {
     let mut builder = ExecutorEnv::builder();
 
     builder.write(&amount_to_mint)?;
     builder.write(&owner)?;
+    builder.write(&randomness)?;
 
     let env = builder.build()?;
 
@@ -535,6 +536,18 @@ mod tests {
 
         let result = gas_limits_check(vec![message, message_2], SUMMATION_ELF, &gas_calc, 1);
         assert!(matches!(result, Err(ExecutionFailureKind::InsufficientFundsError)));
+    }
+
+    #[test]
+    fn test_execute_mint_utxo() {
+        let owner = AccountAddress::default();
+        let amount = 123456789;
+        let mut randomness = [0u8; 32];
+        OsRng.fill_bytes(&mut randomness);
+
+        let utxo_exec = execute_mint_utxo(amount, owner, randomness).expect("execution failed");
+        assert_eq!(utxo_exec.amount, amount);
+        assert_eq!(utxo_exec.owner, owner);
     }
 
 }
