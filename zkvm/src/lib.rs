@@ -422,12 +422,8 @@ pub fn verify(receipt: Receipt, image_id: impl Into<Digest>) -> anyhow::Result<(
 
 #[cfg(test)]
 mod tests {
-    use std::primitive;
-
     use super::*;
-    use risc0_zkvm::serde::from_slice;
-    use risc0_zkvm::DeserializeOwned;
-    use test_methods::{BIG_CALCULATION_ELF, VAR_PUB_INPUTS_ID};
+    use test_methods::BIG_CALCULATION_ELF;
     use test_methods::{MULTIPLICATION_ELF, MULTIPLICATION_ID};
     use test_methods::{SUMMATION_ELF, SUMMATION_ID};
 
@@ -565,6 +561,29 @@ mod tests {
 
         // Assert
         assert_eq!(result.0, expected_public_values);
+        assert_eq!(result.1, expected_sum);
+
+    }
+
+    #[test]
+    fn test_public_execution() {
+        // Arrange
+        let inputs: Vec<TestInput<u64>> = [9, 10, 11, 150, 1, 2, 3, 4, 5, 6, 7, 8, 100].into_iter().map(TestInput::new_public).collect();
+        let values: Vec<u64> = inputs.iter().map(|x| x.value()).collect();
+        let expected_sum: u64 = values.iter().sum();
+
+        // Act
+        let mut builder = ExecutorEnv::builder();
+        let num_inputs: u64 = inputs.len() as u64;
+        builder.write(&num_inputs).unwrap();
+        inputs.iter().for_each(|x| {builder.write(x).unwrap();});
+        let env = builder.build().unwrap();
+        let executor = default_executor();
+        let journal = executor.execute(env, test_methods::VAR_PUB_INPUTS_ELF).unwrap().journal;
+        let result: (Vec<u64>, u64) = journal.decode().unwrap();
+
+        // Assert
+        assert_eq!(result.0, values);
         assert_eq!(result.1, expected_sum);
     }
 }
