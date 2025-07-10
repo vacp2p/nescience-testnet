@@ -149,7 +149,9 @@ impl SequencerCore {
             .any(|check| check);
 
         if tx_tree_check {
-            return Err(TransactionMalformationErrorKind::TxHashAlreadyPresentInTree { tx: tx.hash() });
+            return Err(
+                TransactionMalformationErrorKind::TxHashAlreadyPresentInTree { tx: tx.hash() },
+            );
         }
 
         if nullifier_tree_check {
@@ -160,7 +162,9 @@ impl SequencerCore {
 
         if utxo_commitments_check {
             return Err(
-                TransactionMalformationErrorKind::UTXOCommitmentAlreadyPresentInTree { tx: tx.hash() },
+                TransactionMalformationErrorKind::UTXOCommitmentAlreadyPresentInTree {
+                    tx: tx.hash(),
+                },
             );
         }
 

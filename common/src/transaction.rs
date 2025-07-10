@@ -215,7 +215,10 @@ mod tests {
     use secp256k1_zkp::{constants::SECRET_KEY_SIZE, Tweak};
     use sha2::{digest::FixedOutput, Digest};
 
-    use crate::{merkle_tree_public::TreeHashType, transaction::{Transaction, TxKind}};
+    use crate::{
+        merkle_tree_public::TreeHashType,
+        transaction::{Transaction, TxKind},
+    };
 
     #[test]
     fn test_transaction_hash_is_sha256_of_json_bytes() {
@@ -227,7 +230,7 @@ mod tests {
             utxo_commitments_created_hashes: vec![[13; 32]],
             nullifier_created_hashes: vec![[0; 32], [1; 32], [2; 32], [3; 32]],
             execution_proof_private: "loremipsum".to_string(),
-            encoded_data: vec![(vec![255,255,255], vec![254, 254, 254], 1)],
+            encoded_data: vec![(vec![255, 255, 255], vec![254, 254, 254], 1)],
             ephemeral_pub_key: vec![5; 32],
             commitment: vec![],
             tweak: Tweak::from_slice(&[7; SECRET_KEY_SIZE]).unwrap(),
