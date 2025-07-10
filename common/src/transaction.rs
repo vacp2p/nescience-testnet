@@ -151,6 +151,7 @@ impl ActionData {
 }
 
 impl Transaction {
+    /// Computes and returns the SHA-256 hash of the JSON-serialized representation of `self`.
     pub fn hash(&self) -> TreeHashType {
         let raw_data = serde_json::to_vec(&self).unwrap();
         let mut hasher = sha2::Sha256::new();
