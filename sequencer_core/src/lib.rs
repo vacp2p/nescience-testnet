@@ -82,11 +82,12 @@ impl SequencerCore {
             ref nullifier_created_hashes,
             ..
         } = tx;
+        let tx_hash = tx.hash();
 
         let mempool_size = self.mempool.len();
 
         if mempool_size >= self.sequencer_config.max_num_tx_in_block {
-            return Err(TransactionMalformationErrorKind::MempoolFullForRound { tx: tx.hash() });
+            return Err(TransactionMalformationErrorKind::MempoolFullForRound { tx: tx_hash });
         }
 
         let curr_sequencer_roots = self.get_tree_roots();
@@ -94,7 +95,7 @@ impl SequencerCore {
         if tx_roots != curr_sequencer_roots {
             return Err(
                 TransactionMalformationErrorKind::ChainStateFurtherThanTransactionState {
-                    tx: tx.hash(),
+                    tx: tx_hash,
                 },
             );
         }
@@ -108,7 +109,7 @@ impl SequencerCore {
                     //Public transactions can not make private operations.
                     return Err(
                         TransactionMalformationErrorKind::PublicTransactionChangedPrivateData {
-                            tx: tx.hash(),
+                            tx: tx_hash,
                         },
                     );
                 }
@@ -120,7 +121,7 @@ impl SequencerCore {
                     //between public and private state.
                     return Err(
                         TransactionMalformationErrorKind::PrivateTransactionChangedPublicData {
-                            tx: tx.hash(),
+                            tx: tx_hash,
                         },
                     );
                 }
@@ -129,7 +130,7 @@ impl SequencerCore {
         };
 
         //Tree checks
-        let tx_tree_check = self.store.pub_tx_store.get_tx(tx.hash()).is_some();
+        let tx_tree_check = self.store.pub_tx_store.get_tx(tx_hash).is_some();
         let nullifier_tree_check = nullifier_created_hashes
             .iter()
             .map(|nullifier_hash| {
