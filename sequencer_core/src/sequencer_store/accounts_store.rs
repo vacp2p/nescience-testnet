@@ -15,6 +15,10 @@ impl AccountPublicData {
             address,
         }
     }
+
+    pub fn new_with_balance(address: AccountAddress, balance: u64) -> Self {
+        Self { balance, address }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -23,15 +27,30 @@ pub struct SequencerAccountsStore {
 }
 
 impl SequencerAccountsStore {
-    pub fn new() -> Self {
-        Self {
-            accounts: HashMap::new(),
+    pub fn new(initial_accounts: &[(AccountAddress, u64)]) -> Self {
+        let mut accounts = HashMap::new();
+
+        for (account_addr, balance) in initial_accounts {
+            accounts.insert(
+                *account_addr,
+                AccountPublicData::new_with_balance(*account_addr, *balance),
+            );
         }
+
+        Self { accounts }
     }
 
     pub fn register_account(&mut self, account_addr: AccountAddress) {
         self.accounts
             .insert(account_addr, AccountPublicData::new(account_addr));
+    }
+
+    pub fn contains_account(&self, account_addr: &AccountAddress) -> bool {
+        self.accounts.contains_key(account_addr)
+    }
+
+    pub fn get_account_balance(&self, account_addr: &AccountAddress) -> Option<u64> {
+        self.accounts.get(account_addr).map(|acc| acc.balance)
     }
 
     pub fn unregister_account(&mut self, account_addr: AccountAddress) {
@@ -41,6 +60,98 @@ impl SequencerAccountsStore {
 
 impl Default for SequencerAccountsStore {
     fn default() -> Self {
-        Self::new()
+        Self::new(&[])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zero_balance_account_data_creation() {
+        let new_acc = AccountPublicData::new([1; 32]);
+
+        assert_eq!(new_acc.balance, 0);
+        assert_eq!(new_acc.address, [1; 32]);
+    }
+
+    #[test]
+    fn test_non_zero_balance_account_data_creation() {
+        let new_acc = AccountPublicData::new_with_balance([1; 32], 10);
+
+        assert_eq!(new_acc.balance, 10);
+        assert_eq!(new_acc.address, [1; 32]);
+    }
+
+    #[test]
+    fn default_account_sequencer_store() {
+        let seq_acc_store = SequencerAccountsStore::default();
+
+        assert!(seq_acc_store.accounts.is_empty());
+    }
+
+    #[test]
+    fn account_sequencer_store_register_acc() {
+        let mut seq_acc_store = SequencerAccountsStore::default();
+
+        seq_acc_store.register_account([1; 32]);
+
+        assert!(seq_acc_store.contains_account(&[1; 32]));
+
+        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]).unwrap();
+
+        assert_eq!(acc_balance, 0);
+    }
+
+    #[test]
+    fn account_sequencer_store_unregister_acc() {
+        let mut seq_acc_store = SequencerAccountsStore::default();
+
+        seq_acc_store.register_account([1; 32]);
+
+        assert!(seq_acc_store.contains_account(&[1; 32]));
+
+        seq_acc_store.unregister_account([1; 32]);
+
+        assert!(!seq_acc_store.contains_account(&[1; 32]));
+    }
+
+    #[test]
+    fn account_sequencer_store_with_preset_accounts_1() {
+        let seq_acc_store = SequencerAccountsStore::new(&[([1; 32], 12), ([2; 32], 100)]);
+
+        assert!(seq_acc_store.contains_account(&[1; 32]));
+        assert!(seq_acc_store.contains_account(&[2; 32]));
+
+        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]).unwrap();
+
+        assert_eq!(acc_balance, 12);
+
+        let acc_balance = seq_acc_store.get_account_balance(&[2; 32]).unwrap();
+
+        assert_eq!(acc_balance, 100);
+    }
+
+    #[test]
+    fn account_sequencer_store_with_preset_accounts_2() {
+        let seq_acc_store =
+            SequencerAccountsStore::new(&[([6; 32], 120), ([7; 32], 15), ([8; 32], 10)]);
+
+        assert!(seq_acc_store.contains_account(&[6; 32]));
+        assert!(seq_acc_store.contains_account(&[7; 32]));
+        assert!(seq_acc_store.contains_account(&[8; 32]));
+
+        let acc_balance = seq_acc_store.get_account_balance(&[6; 32]).unwrap();
+
+        assert_eq!(acc_balance, 120);
+
+        let acc_balance = seq_acc_store.get_account_balance(&[7; 32]).unwrap();
+
+        assert_eq!(acc_balance, 15);
+
+        let acc_balance = seq_acc_store.get_account_balance(&[8; 32]).unwrap();
+
+        assert_eq!(acc_balance, 10);
     }
 }
