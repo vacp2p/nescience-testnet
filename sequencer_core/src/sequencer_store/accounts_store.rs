@@ -40,19 +40,27 @@ impl SequencerAccountsStore {
         Self { accounts }
     }
 
+    ///Register new account in accounts store
+    ///
+    ///Starts with zero public balance
     pub fn register_account(&mut self, account_addr: AccountAddress) {
         self.accounts
             .insert(account_addr, AccountPublicData::new(account_addr));
     }
 
+    ///Check, if `account_addr` present in account store
     pub fn contains_account(&self, account_addr: &AccountAddress) -> bool {
         self.accounts.contains_key(account_addr)
     }
 
+    ///Check `account_addr` balance,
+    ///
+    ///returns `None`, if account address not found
     pub fn get_account_balance(&self, account_addr: &AccountAddress) -> Option<u64> {
         self.accounts.get(account_addr).map(|acc| acc.balance)
     }
 
+    ///Remove account from storage
     pub fn unregister_account(&mut self, account_addr: AccountAddress) {
         self.accounts.remove(&account_addr);
     }
