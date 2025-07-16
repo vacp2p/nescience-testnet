@@ -8,7 +8,7 @@ use serde::{
 };
 
 use crate::{
-    transaction::{AuthenticatedTransaction, SignedTransaction, TransactionBody},
+    transaction::{AuthenticatedTransaction, Transaction, TransactionBody},
     utxo_commitment::UTXOCommitment,
 };
 
@@ -84,7 +84,7 @@ impl<'de, Leav: TreeLeavItem + Clone + Deserialize<'de>> serde::Deserialize<'de>
     }
 }
 
-pub type PublicTransactionMerkleTree = HashStorageMerkleTree<SignedTransaction>;
+pub type PublicTransactionMerkleTree = HashStorageMerkleTree<Transaction>;
 
 pub type UTXOCommitmentsMerkleTree = HashStorageMerkleTree<UTXOCommitment>;
 

@@ -1,4 +1,4 @@
-use crate::{transaction::SignedTransaction, utxo_commitment::UTXOCommitment};
+use crate::{transaction::Transaction, utxo_commitment::UTXOCommitment};
 
 use super::TreeHashType;
 
@@ -6,7 +6,7 @@ pub trait TreeLeavItem {
     fn hash(&self) -> TreeHashType;
 }
 
-impl TreeLeavItem for SignedTransaction {
+impl TreeLeavItem for Transaction {
     fn hash(&self) -> TreeHashType {
         self.body.hash()
     }

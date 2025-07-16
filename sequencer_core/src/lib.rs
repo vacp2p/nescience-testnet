@@ -5,7 +5,7 @@ use common::{
     block::{Block, HashableBlockData},
     merkle_tree_public::TreeHashType,
     nullifier::UTXONullifier,
-    transaction::{AuthenticatedTransaction, SignedTransaction, TransactionBody, TxKind},
+    transaction::{AuthenticatedTransaction, Transaction, TransactionBody, TxKind},
     utxo_commitment::UTXOCommitment,
 };
 use config::SequencerConfig;
@@ -72,7 +72,7 @@ impl SequencerCore {
 
     pub fn transaction_pre_check(
         &mut self,
-        tx: SignedTransaction,
+        tx: Transaction,
         tx_roots: [[u8; 32]; 2],
     ) -> Result<AuthenticatedTransaction, TransactionMalformationErrorKind> {
         let tx = tx
@@ -174,17 +174,17 @@ impl SequencerCore {
 
     pub fn push_tx_into_mempool_pre_check(
         &mut self,
-        signed_tx: SignedTransaction,
+        transaction: Transaction,
         tx_roots: [[u8; 32]; 2],
     ) -> Result<(), TransactionMalformationErrorKind> {
         let mempool_size = self.mempool.len();
         if mempool_size >= self.sequencer_config.max_num_tx_in_block {
             return Err(TransactionMalformationErrorKind::MempoolFullForRound {
-                tx: signed_tx.body.hash(),
+                tx: transaction.body.hash(),
             });
         }
 
-        let authenticated_tx = self.transaction_pre_check(signed_tx, tx_roots)?;
+        let authenticated_tx = self.transaction_pre_check(transaction, tx_roots)?;
 
         self.mempool.push_item(authenticated_tx.into());
 
@@ -213,7 +213,7 @@ impl SequencerCore {
             });
         }
 
-        self.store.pub_tx_store.add_tx(tx.tx.as_signed());
+        self.store.pub_tx_store.add_tx(tx.tx.as_transaction());
 
         Ok(())
     }
@@ -248,7 +248,7 @@ impl SequencerCore {
             prev_block_id: self.chain_height,
             transactions: transactions
                 .into_iter()
-                .map(|tx_mem| tx_mem.tx.as_signed().clone())
+                .map(|tx_mem| tx_mem.tx.as_transaction().clone())
                 .collect(),
             data: vec![],
             prev_block_hash,
@@ -269,7 +269,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    use common::transaction::{SignaturePrivateKey, SignedTransaction, TransactionBody, TxKind};
+    use common::transaction::{SignaturePrivateKey, Transaction, TransactionBody, TxKind};
     use rand::Rng;
     use secp256k1_zkp::Tweak;
     use transaction_mempool::MempoolTransaction;
@@ -295,7 +295,7 @@ mod tests {
         nullifier_created_hashes: Vec<[u8; 32]>,
         utxo_commitments_spent_hashes: Vec<[u8; 32]>,
         utxo_commitments_created_hashes: Vec<[u8; 32]>,
-    ) -> SignedTransaction {
+    ) -> Transaction {
         let mut rng = rand::thread_rng();
 
         let body = TransactionBody {
@@ -314,7 +314,7 @@ mod tests {
             sc_addr: "sc_addr".to_string(),
             state_changes: (serde_json::Value::Null, 0),
         };
-        SignedTransaction::from_transaction_body(body, SignaturePrivateKey::random(&mut rng))
+        Transaction::new(body, SignaturePrivateKey::random(&mut rng))
     }
 
     fn common_setup(sequencer: &mut SequencerCore) {

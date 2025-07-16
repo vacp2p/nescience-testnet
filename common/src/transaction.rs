@@ -27,7 +27,7 @@ pub type CipherText = Vec<u8>;
 pub type Nonce = GenericArray<u8, UInt<UInt<UInt<UInt<UTerm, B1>, B1>, B0>, B0>>;
 pub type Tag = u8;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum TxKind {
     Public,
     Private,
@@ -35,7 +35,7 @@ pub enum TxKind {
     Deshielded,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 ///General transaction object
 pub struct TransactionBody {
     pub tx_kind: TxKind,
@@ -233,18 +233,15 @@ pub type SignaturePrivateKey = SigningKey;
 
 /// A transaction with a signature.
 /// Meant to be sent through the network to the sequencer
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SignedTransaction {
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct Transaction {
     pub body: TransactionBody,
     signature: TransactionSignature,
     public_key: VerifyingKey,
 }
 
-impl SignedTransaction {
-    pub fn from_transaction_body(
-        body: TransactionBody,
-        private_key: SigningKey,
-    ) -> SignedTransaction {
+impl Transaction {
+    pub fn new(body: TransactionBody, private_key: SigningKey) -> Transaction {
         let hash = body.hash();
         let signature: TransactionSignature = private_key.sign(&hash);
         let public_key = VerifyingKey::from(&private_key);
@@ -264,27 +261,27 @@ impl SignedTransaction {
 
         Ok(AuthenticatedTransaction {
             hash,
-            signed_tx: self,
+            transaction: self,
         })
     }
 }
 
 /// A transaction with a valid signature over the hash of its body.
-/// Can only be constructed from an `SignedTransaction`
+/// Can only be constructed from an `Transaction`
 /// if the signature is valid
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AuthenticatedTransaction {
     hash: TransactionHash,
-    signed_tx: SignedTransaction,
+    transaction: Transaction,
 }
 
 impl AuthenticatedTransaction {
-    pub fn as_signed(&self) -> &SignedTransaction {
-        &self.signed_tx
+    pub fn as_transaction(&self) -> &Transaction {
+        &self.transaction
     }
 
     pub fn body(&self) -> &TransactionBody {
-        &self.signed_tx.body
+        &self.transaction.body
     }
 
     pub fn hash(&self) -> &TransactionHash {
@@ -294,17 +291,18 @@ impl AuthenticatedTransaction {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use k256::FieldBytes;
     use secp256k1_zkp::{constants::SECRET_KEY_SIZE, Tweak};
     use sha2::{digest::FixedOutput, Digest};
 
     use crate::{
         merkle_tree_public::TreeHashType,
-        transaction::{TransactionBody, TxKind},
+        transaction::{Transaction, TransactionBody, TxKind},
     };
 
-    #[test]
-    fn test_transaction_hash_is_sha256_of_json_bytes() {
-        let tx = TransactionBody {
+    fn test_transaction_body() -> TransactionBody {
+        TransactionBody {
             tx_kind: TxKind::Public,
             execution_input: vec![1, 2, 3, 4],
             execution_output: vec![5, 6, 7, 8],
@@ -319,16 +317,72 @@ mod tests {
             secret_r: [8; 32],
             sc_addr: "someAddress".to_string(),
             state_changes: (serde_json::Value::Null, 10),
-        };
+        }
+    }
+
+    #[test]
+    fn test_transaction_hash_is_sha256_of_json_bytes() {
+        let body = test_transaction_body();
         let expected_hash = {
-            let data = serde_json::to_vec(&tx).unwrap();
+            let data = serde_json::to_vec(&body).unwrap();
             let mut hasher = sha2::Sha256::new();
             hasher.update(&data);
             TreeHashType::from(hasher.finalize_fixed())
         };
 
-        let hash = tx.hash();
+        let hash = body.hash();
 
         assert_eq!(expected_hash, hash);
+    }
+
+    #[test]
+    fn test_transaction_constructor() {
+        let body = test_transaction_body();
+        let key_bytes = FieldBytes::from_slice(&[37; 32]);
+        let private_key: SigningKey = SigningKey::from_bytes(key_bytes).unwrap();
+        let transaction = Transaction::new(body.clone(), private_key.clone());
+        assert_eq!(
+            transaction.public_key,
+            SignaturePublicKey::from(&private_key)
+        );
+        assert_eq!(transaction.body, body);
+    }
+
+    #[test]
+    fn test_into_authenticated_succeeds_for_valid_signature() {
+        let body = test_transaction_body();
+        let key_bytes = FieldBytes::from_slice(&[37; 32]);
+        let private_key: SigningKey = SigningKey::from_bytes(key_bytes).unwrap();
+        let transaction = Transaction::new(body, private_key.clone());
+        let authenticated_tx = transaction.clone().into_authenticated().unwrap();
+
+        let signature = authenticated_tx.as_transaction().signature;
+        let hash = authenticated_tx.hash();
+        assert_eq!(authenticated_tx.as_transaction(), &transaction);
+        assert_eq!(hash, &transaction.body.hash());
+
+        assert!(authenticated_tx
+            .as_transaction()
+            .public_key
+            .verify(hash, &signature)
+            .is_ok());
+    }
+
+    #[test]
+    fn test_into_authenticated_fails_for_invalid_signature() {
+        let body = test_transaction_body();
+        let key_bytes = FieldBytes::from_slice(&[37; 32]);
+        let private_key: SigningKey = SigningKey::from_bytes(key_bytes).unwrap();
+        let transaction = {
+            let mut this = Transaction::new(body, private_key.clone());
+            // Modify the signature to make it invalid
+            // We do this by changing it to the signature of something else
+            this.signature = private_key.sign(b"deadbeef");
+            this
+        };
+        matches!(
+            transaction.into_authenticated(),
+            Err(TransactionSignatureError::InvalidSignature)
+        );
     }
 }

@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
 };
 
-use common::{transaction::SignedTransaction, ExecutionFailureKind};
+use common::{transaction::Transaction, ExecutionFailureKind};
 
 use accounts::account_core::{Account, AccountAddress};
 use anyhow::Result;
@@ -189,7 +189,7 @@ impl NodeCore {
         &self,
         acc: AccountAddress,
         amount: u128,
-    ) -> Result<(SignedTransaction, [u8; 32]), ExecutionFailureKind> {
+    ) -> Result<(Transaction, [u8; 32]), ExecutionFailureKind> {
         let (utxo, receipt) = prove_mint_utxo(amount, acc)?;
         let result_hash = utxo.hash;
 
@@ -267,7 +267,7 @@ impl NodeCore {
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
         Ok((
-            SignedTransaction::from_transaction_body(transaction_body, key_to_sign_transaction),
+            Transaction::new(transaction_body, key_to_sign_transaction),
             result_hash,
         ))
     }
@@ -277,7 +277,7 @@ impl NodeCore {
         acc: AccountAddress,
         amount: u128,
         number_of_assets: usize,
-    ) -> Result<(SignedTransaction, Vec<[u8; 32]>), ExecutionFailureKind> {
+    ) -> Result<(Transaction, Vec<[u8; 32]>), ExecutionFailureKind> {
         let (utxos, receipt) = prove_mint_utxo_multiple_assets(amount, number_of_assets, acc)?;
         let result_hashes = utxos.iter().map(|utxo| utxo.hash).collect();
 
@@ -364,7 +364,7 @@ impl NodeCore {
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
         Ok((
-            SignedTransaction::from_transaction_body(transaction_body, key_to_sign_transaction),
+            Transaction::new(transaction_body, key_to_sign_transaction),
             result_hashes,
         ))
     }
@@ -374,7 +374,7 @@ impl NodeCore {
         utxo: UTXO,
         commitment_in: [u8; 32],
         receivers: Vec<(u128, AccountAddress)>,
-    ) -> Result<(SignedTransaction, Vec<(AccountAddress, [u8; 32])>), ExecutionFailureKind> {
+    ) -> Result<(Transaction, Vec<(AccountAddress, [u8; 32])>), ExecutionFailureKind> {
         let acc_map_read_guard = self.storage.read().await;
 
         let account = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
@@ -481,7 +481,7 @@ impl NodeCore {
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
         Ok((
-            SignedTransaction::from_transaction_body(transaction_body, key_to_sign_transaction),
+            Transaction::new(transaction_body, key_to_sign_transaction),
             utxo_hashes,
         ))
     }
@@ -492,7 +492,7 @@ impl NodeCore {
         commitments_in: Vec<[u8; 32]>,
         number_to_send: usize,
         receiver: AccountAddress,
-    ) -> Result<(SignedTransaction, Vec<[u8; 32]>, Vec<[u8; 32]>), ExecutionFailureKind> {
+    ) -> Result<(Transaction, Vec<[u8; 32]>, Vec<[u8; 32]>), ExecutionFailureKind> {
         let acc_map_read_guard = self.storage.read().await;
 
         let account = acc_map_read_guard.acc_map.get(&utxos[0].owner).unwrap();
@@ -627,7 +627,7 @@ impl NodeCore {
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
         Ok((
-            SignedTransaction::from_transaction_body(transaction_body, key_to_sign_transaction),
+            Transaction::new(transaction_body, key_to_sign_transaction),
             utxo_hashes_receiver,
             utxo_hashes_not_spent,
         ))
@@ -638,7 +638,7 @@ impl NodeCore {
         acc: AccountAddress,
         balance: u64,
         receivers: Vec<(u128, AccountAddress)>,
-    ) -> Result<(SignedTransaction, Vec<(AccountAddress, [u8; 32])>), ExecutionFailureKind> {
+    ) -> Result<(Transaction, Vec<(AccountAddress, [u8; 32])>), ExecutionFailureKind> {
         let acc_map_read_guard = self.storage.read().await;
 
         let account = acc_map_read_guard.acc_map.get(&acc).unwrap();
@@ -757,7 +757,7 @@ impl NodeCore {
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
         Ok((
-            SignedTransaction::from_transaction_body(transaction_body, key_to_sign_transaction),
+            Transaction::new(transaction_body, key_to_sign_transaction),
             utxo_hashes,
         ))
     }
@@ -767,7 +767,7 @@ impl NodeCore {
         utxo: UTXO,
         comm_gen_hash: [u8; 32],
         receivers: Vec<(u128, AccountAddress)>,
-    ) -> Result<SignedTransaction, ExecutionFailureKind> {
+    ) -> Result<Transaction, ExecutionFailureKind> {
         let acc_map_read_guard = self.storage.read().await;
 
         let commitment_in = acc_map_read_guard
@@ -847,10 +847,7 @@ impl NodeCore {
 
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
-        Ok(SignedTransaction::from_transaction_body(
-            transaction_body,
-            key_to_sign_transaction,
-        ))
+        Ok(Transaction::new(transaction_body, key_to_sign_transaction))
     }
 
     pub async fn send_private_mint_tx(
@@ -1369,7 +1366,7 @@ impl NodeCore {
         commitment_in: [u8; 32],
         receivers: Vec<(u128, AccountAddress)>,
         visibility_list: [bool; 3],
-    ) -> Result<(SignedTransaction, Vec<(AccountAddress, [u8; 32])>), ExecutionFailureKind> {
+    ) -> Result<(Transaction, Vec<(AccountAddress, [u8; 32])>), ExecutionFailureKind> {
         let acc_map_read_guard = self.storage.read().await;
 
         let account = acc_map_read_guard.acc_map.get(&utxo.owner).unwrap();
@@ -1490,7 +1487,7 @@ impl NodeCore {
         let key_to_sign_transaction = account.key_holder.get_pub_account_signing_key();
 
         Ok((
-            SignedTransaction::from_transaction_body(transaction_body, key_to_sign_transaction),
+            Transaction::new(transaction_body, key_to_sign_transaction),
             utxo_hashes,
         ))
     }
