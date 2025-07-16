@@ -326,6 +326,16 @@ mod tests {
     }
 
     #[test]
+    fn test_get_public_account_signing_key() {
+        let address_key_holder = AddressKeyHolder::new_os_random();
+        let signing_key = address_key_holder.get_pub_account_signing_key();
+        assert_eq!(
+            signing_key.to_bytes().as_slice(),
+            address_key_holder.pub_account_signing_key
+        );
+    }
+
+    #[test]
     fn key_generation_test() {
         let seed_holder = SeedHolder::new_os_random();
         let top_secret_key_holder = seed_holder.produce_top_secret_key_holder();
