@@ -263,35 +263,6 @@ mod tests {
     use secp256k1_zkp::Tweak;
     use transaction_mempool::TransactionMempool;
 
-    fn setup_sequencer_config() -> SequencerConfig {
-        let mut rng = rand::thread_rng();
-        let random_u8: u8 = rng.gen();
-
-        let path_str = format!("/tmp/sequencer_{:?}", random_u8);
-
-        SequencerConfig {
-            home: PathBuf::from(path_str),
-            override_rust_log: Some("info".to_string()),
-            genesis_id: 1,
-            is_genesis_random: false,
-            max_num_tx_in_block: 10,
-            block_create_timeout_millis: 1000,
-            port: 8080,
-            initial_accounts: vec![
-                AccountInitialData {
-                    addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c"
-                        .to_string(),
-                    balance: 10,
-                },
-                AccountInitialData {
-                    addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31"
-                        .to_string(),
-                    balance: 100,
-                },
-            ],
-        }
-    }
-
     fn setup_sequencer_config_variable_initial_accounts(
         initial_accounts: Vec<AccountInitialData>,
     ) -> SequencerConfig {
@@ -310,6 +281,23 @@ mod tests {
             port: 8080,
             initial_accounts,
         }
+    }
+
+    fn setup_sequencer_config() -> SequencerConfig {
+        let initial_accounts = vec![
+            AccountInitialData {
+                addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c"
+                    .to_string(),
+                balance: 10,
+            },
+            AccountInitialData {
+                addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31"
+                    .to_string(),
+                balance: 100,
+            },
+        ];
+
+        setup_sequencer_config_variable_initial_accounts(initial_accounts)
     }
 
     fn create_dummy_transaction(
@@ -401,11 +389,13 @@ mod tests {
                 balance: 1000,
             },
             AccountInitialData {
-                addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff"
+                addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff"
                     .to_string(),
                 balance: 1000,
             },
         ];
+
+        let intial_accounts_len = initial_accounts.len();
 
         let config = setup_sequencer_config_variable_initial_accounts(initial_accounts);
         let sequencer = SequencerCore::start_from_config(config.clone());
@@ -417,7 +407,7 @@ mod tests {
         .try_into()
         .unwrap();
         let acc2_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff".to_string(),
+            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff".to_string(),
         )
         .unwrap()
         .try_into()
@@ -425,6 +415,8 @@ mod tests {
 
         assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
         assert!(sequencer.store.acc_store.contains_account(&acc2_addr));
+
+        assert_eq!(sequencer.store.acc_store.len(), intial_accounts_len);
 
         assert_eq!(
             1000,

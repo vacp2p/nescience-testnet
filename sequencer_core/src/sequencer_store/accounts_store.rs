@@ -16,7 +16,7 @@ impl AccountPublicData {
         }
     }
 
-    pub fn new_with_balance(address: AccountAddress, balance: u64) -> Self {
+    fn new_with_balance(address: AccountAddress, balance: u64) -> Self {
         Self { balance, address }
     }
 }
@@ -63,6 +63,11 @@ impl SequencerAccountsStore {
     ///Remove account from storage
     pub fn unregister_account(&mut self, account_addr: AccountAddress) {
         self.accounts.remove(&account_addr);
+    }
+
+    ///Number of accounts present in store
+    pub fn len(&self) -> usize {
+        self.accounts.len()
     }
 }
 
@@ -161,5 +166,15 @@ mod tests {
         let acc_balance = seq_acc_store.get_account_balance(&[8; 32]).unwrap();
 
         assert_eq!(acc_balance, 10);
+    }
+
+    #[test]
+    fn account_sequencer_store_fetch_unknown_account() {
+        let seq_acc_store =
+            SequencerAccountsStore::new(&[([6; 32], 120), ([7; 32], 15), ([8; 32], 10)]);
+
+        let acc_balance = seq_acc_store.get_account_balance(&[9; 32]);
+
+        assert!(acc_balance.is_none());
     }
 }
