@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use accounts::account_core::AccountAddress;
 use anyhow::Result;
 use common::{
     block::{Block, HashableBlockData},
@@ -53,6 +54,7 @@ impl SequencerCore {
                 &config.home,
                 config.genesis_id,
                 config.is_genesis_random,
+                &config.initial_accounts,
             ),
             mempool: MemPool::<MempoolTransaction>::default(),
             chain_height: config.genesis_id,
@@ -220,11 +222,8 @@ impl SequencerCore {
         Ok(())
     }
 
-    pub fn register_account(&mut self, acc_data: AccountPublicData) {
-        self.store
-            .acc_store
-            .accounts
-            .insert(acc_data.address, acc_data);
+    pub fn register_account(&mut self, account_addr: AccountAddress) {
+        self.store.acc_store.register_account(account_addr);
     }
 
     ///Produces new block from transactions in mempool
@@ -268,6 +267,8 @@ impl SequencerCore {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::AccountInitialData;
+
     use super::*;
     use std::path::PathBuf;
 
@@ -276,7 +277,9 @@ mod tests {
     use rand::Rng;
     use secp256k1_zkp::Tweak;
 
-    fn setup_sequencer_config() -> SequencerConfig {
+    fn setup_sequencer_config_variable_initial_accounts(
+        initial_accounts: Vec<AccountInitialData>,
+    ) -> SequencerConfig {
         let mut rng = rand::thread_rng();
         let random_u8: u8 = rng.gen();
 
@@ -290,7 +293,25 @@ mod tests {
             max_num_tx_in_block: 10,
             block_create_timeout_millis: 1000,
             port: 8080,
+            initial_accounts,
         }
+    }
+
+    fn setup_sequencer_config() -> SequencerConfig {
+        let initial_accounts = vec![
+            AccountInitialData {
+                addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c"
+                    .to_string(),
+                balance: 10,
+            },
+            AccountInitialData {
+                addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31"
+                    .to_string(),
+                balance: 100,
+            },
+        ];
+
+        setup_sequencer_config_variable_initial_accounts(initial_accounts)
     }
 
     fn create_dummy_transaction(
@@ -326,7 +347,9 @@ mod tests {
         };
         sequencer.mempool.push_item(tx_mempool);
 
-        sequencer.produce_new_block_with_mempool_transactions();
+        sequencer
+            .produce_new_block_with_mempool_transactions()
+            .unwrap();
     }
 
     #[test]
@@ -337,6 +360,95 @@ mod tests {
         assert_eq!(sequencer.chain_height, config.genesis_id);
         assert_eq!(sequencer.sequencer_config.max_num_tx_in_block, 10);
         assert_eq!(sequencer.sequencer_config.port, 8080);
+
+        let acc1_addr: [u8; 32] = hex::decode(
+            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c".to_string(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+        let acc2_addr: [u8; 32] = hex::decode(
+            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31".to_string(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+
+        assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
+        assert!(sequencer.store.acc_store.contains_account(&acc2_addr));
+
+        assert_eq!(
+            10,
+            sequencer
+                .store
+                .acc_store
+                .get_account_balance(&acc1_addr)
+                .unwrap()
+        );
+        assert_eq!(
+            100,
+            sequencer
+                .store
+                .acc_store
+                .get_account_balance(&acc2_addr)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_start_different_intial_accounts() {
+        let initial_accounts = vec![
+            AccountInitialData {
+                addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff"
+                    .to_string(),
+                balance: 1000,
+            },
+            AccountInitialData {
+                addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff"
+                    .to_string(),
+                balance: 1000,
+            },
+        ];
+
+        let intial_accounts_len = initial_accounts.len();
+
+        let config = setup_sequencer_config_variable_initial_accounts(initial_accounts);
+        let sequencer = SequencerCore::start_from_config(config.clone());
+
+        let acc1_addr: [u8; 32] = hex::decode(
+            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff".to_string(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+        let acc2_addr: [u8; 32] = hex::decode(
+            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff".to_string(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+
+        assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
+        assert!(sequencer.store.acc_store.contains_account(&acc2_addr));
+
+        assert_eq!(sequencer.store.acc_store.len(), intial_accounts_len);
+
+        assert_eq!(
+            1000,
+            sequencer
+                .store
+                .acc_store
+                .get_account_balance(&acc1_addr)
+                .unwrap()
+        );
+        assert_eq!(
+            1000,
+            sequencer
+                .store
+                .acc_store
+                .get_account_balance(&acc2_addr)
+                .unwrap()
+        );
     }
 
     #[test]

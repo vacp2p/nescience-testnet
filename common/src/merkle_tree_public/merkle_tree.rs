@@ -14,6 +14,7 @@ use crate::{
 
 use super::{hasher::OwnHasher, tree_leav_item::TreeLeavItem, TreeHashType};
 
+#[derive(Clone)]
 pub struct HashStorageMerkleTree<Leav: TreeLeavItem + Clone> {
     leaves: HashMap<usize, Leav>,
     hash_to_id_map: HashMap<TreeHashType, usize>,

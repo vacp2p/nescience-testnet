@@ -142,7 +142,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -171,7 +171,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -200,7 +200,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -231,7 +231,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -265,7 +265,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -298,7 +298,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -335,7 +335,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -373,7 +373,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -414,7 +414,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {
@@ -449,7 +449,7 @@ Request:
 }
 ```
 
-Responce:
+Response:
 
 ```yaml
 {

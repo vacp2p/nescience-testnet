@@ -1,28 +1,43 @@
 use bincode;
-use k256::Scalar;
+use common::merkle_tree_public::merkle_tree::UTXOCommitmentsMerkleTree;
 use rand::{thread_rng, RngCore};
 use secp256k1_zkp::{CommitmentSecrets, Generator, PedersenCommitment, Tag, Tweak, SECP256K1};
 use sha2::{Digest, Sha256};
 use utxo::utxo_core::UTXO;
 
+//
+
+use crate::{cryptography::poseidon_hash, public_context::PublicSCContext};
+
 fn hash(input: &[u8]) -> Vec<u8> {
     Sha256::digest(input).to_vec()
 }
 
-// Generate nullifiers
-
-// takes the input_utxo and nsk
-// returns the nullifiers[i], where the nullifier[i] = hash(in_commitments[i] || nsk) where the hash function
-pub fn generate_nullifiers(input_utxo: &UTXO, nsk: &[u8]) -> Vec<u8> {
-    let mut input = bincode::serialize(input_utxo).unwrap().to_vec();
-    input.extend_from_slice(nsk);
-    hash(&input)
+/// Generate nullifiers
+///
+/// takes the input_utxo and npk
+///
+/// returns the nullifiers[i], where the nullifiers[i] = poseidon_hash(in_commitments[i] || npk)
+pub fn generate_nullifiers(input_utxo: &UTXO, npk: &[u8]) -> Vec<u8> {
+    let commitment = generate_commitment(input_utxo);
+    poseidon_hash(&[commitment.as_ref(), npk]).unwrap().to_vec()
 }
 
-// Generate commitments for output UTXOs
+/// Generate commitment for UTXO
+///
+///  uses the input_utxo
+///
+///  returns commitment here commitment is a hash(bincode(input_utxo))
+pub fn generate_commitment(input_utxo: &UTXO) -> Vec<u8> {
+    let serialized = bincode::serialize(input_utxo).unwrap(); // Serialize UTXO.
+    hash(&serialized)
+}
 
-//  uses the list of input_utxos[]
-//  returns in_commitments[] where each in_commitments[i] = Commitment(in_utxos[i]) where the commitment
+/// Generate commitments for UTXO
+///
+///  uses the input_utxos
+///
+///  returns commitments
 pub fn generate_commitments(input_utxos: &[UTXO]) -> Vec<Vec<u8>> {
     input_utxos
         .iter()
@@ -33,60 +48,112 @@ pub fn generate_commitments(input_utxos: &[UTXO]) -> Vec<Vec<u8>> {
         .collect()
 }
 
-// Validate inclusion proof for in_commitments
-
-// takes the in_commitments[i] as a leaf, the root hash root_commitment and the path in_commitments_proofs[i][],
-// returns True if the in_commitments[i] is in the tree with root hash root_commitment otherwise returns False, as membership proof.
-pub fn validate_in_commitments_proof(
-    _in_commitment: &Vec<u8>,
-    _root_commitment: Vec<u8>,
-    _in_commitments_proof: &[Vec<u8>],
+/// Validate inclusion proof for in_commitments
+///
+/// ToDo: Solve it in more scalable way
+pub fn validate_in_commitments_tree(
+    in_commitment: &Vec<u8>,
+    commitment_tree: &UTXOCommitmentsMerkleTree,
 ) -> bool {
-    // ToDo: Implement correct check
+    let alighned_hash: [u8; 32] = in_commitment.clone().try_into().unwrap();
 
-    todo!()
+    commitment_tree.get_proof(alighned_hash).is_some()
 }
 
-// Validate that `nullifier` has not been present in set items before
-pub fn validate_nullifier_not_present_in_set_items(
-    nullifier: [u8; 32],
-    nullifiers_items: &[[u8; 32]],
-) -> bool {
-    !nullifiers_items.contains(&nullifier)
+/// Check, that input utxos balances is equal to out utxo balances
+pub fn check_balances_private(in_utxos: &[UTXO], out_utxos: &[UTXO]) -> bool {
+    let in_sum = in_utxos.iter().fold(0, |prev, utxo| prev + utxo.amount);
+    let out_sum = out_utxos.iter().fold(0, |prev, utxo| prev + utxo.amount);
+
+    in_sum == out_sum
 }
 
-#[allow(unused)]
-fn private_kernel(
-    root_commitment: &[u8],
-    root_nullifier: [u8; 32],
+pub fn private_circuit(
     input_utxos: &[UTXO],
-    in_commitments_proof: &[Vec<u8>],
-    nullifiers_proof: &[[u8; 32]],
-    nullifier_secret_key: Scalar,
-) -> (Vec<u8>, Vec<Vec<u8>>) {
-    let nullifiers: Vec<_> = input_utxos
-        .into_iter()
-        .map(|utxo| generate_nullifiers(&utxo, &nullifier_secret_key.to_bytes()))
-        .collect();
+    output_utxos: &[UTXO],
+    public_context: &PublicSCContext,
+) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+    assert!(check_balances_private(input_utxos, output_utxos));
 
     let in_commitments = generate_commitments(&input_utxos);
 
+    let mut in_nullifiers = vec![];
+
+    for in_utxo in input_utxos {
+        let nullifier_public_key = public_context
+            .account_masks
+            .get(&in_utxo.owner)
+            .unwrap()
+            .nullifier_public_key;
+
+        let key_ser = serde_json::to_vec(&nullifier_public_key).unwrap();
+
+        in_nullifiers.push(generate_nullifiers(in_utxo, &key_ser));
+    }
+
     for in_commitment in in_commitments {
-        validate_in_commitments_proof(
+        assert!(validate_in_commitments_tree(
             &in_commitment,
-            root_commitment.to_vec(),
-            in_commitments_proof,
-        );
+            &public_context.commitments_tree,
+        ));
     }
 
-    for nullifier in nullifiers.iter() {
-        validate_nullifier_not_present_in_set_items(
-            nullifier[0..32].try_into().unwrap(),
-            nullifiers_proof,
-        );
+    for nullifier in in_nullifiers.iter() {
+        let nullifier: [u8; 32] = nullifier.clone().try_into().unwrap();
+
+        assert!(!public_context.nullifiers_set.contains(&nullifier));
     }
 
-    (vec![], nullifiers)
+    (in_nullifiers, generate_commitments(&output_utxos))
+}
+
+/// Check balances DE
+///
+///  takes the input_utxos[] and output_balance,
+///
+/// returns the True if the token amount in output_balance matches the sum of all input_utxos[], otherwise return False.
+pub fn check_balances_de(input_utxos: &[UTXO], output_balance: u128) -> bool {
+    let total_input: u128 = input_utxos.iter().map(|utxo| utxo.amount).sum();
+    total_input == output_balance
+}
+
+pub fn deshielded_circuit(
+    input_utxos: &[UTXO],
+    output_balance: u128,
+    public_context: &PublicSCContext,
+) -> Vec<Vec<u8>> {
+    assert!(check_balances_de(input_utxos, output_balance));
+
+    let in_commitments = generate_commitments(&input_utxos);
+
+    let mut in_nullifiers = vec![];
+
+    for in_utxo in input_utxos {
+        let nullifier_public_key = public_context
+            .account_masks
+            .get(&in_utxo.owner)
+            .unwrap()
+            .nullifier_public_key;
+
+        let key_ser = serde_json::to_vec(&nullifier_public_key).unwrap();
+
+        in_nullifiers.push(generate_nullifiers(in_utxo, &key_ser));
+    }
+
+    for in_commitment in in_commitments {
+        assert!(validate_in_commitments_tree(
+            &in_commitment,
+            &public_context.commitments_tree,
+        ));
+    }
+
+    for nullifier in in_nullifiers.iter() {
+        let nullifier: [u8; 32] = nullifier.clone().try_into().unwrap();
+
+        assert!(!public_context.nullifiers_set.contains(&nullifier));
+    }
+
+    in_nullifiers
 }
 
 #[allow(unused)]
@@ -114,16 +181,7 @@ pub fn commit(comm: &CommitmentSecrets, tag: Tag) -> PedersenCommitment {
     PedersenCommitment::new(SECP256K1, comm.value, comm.value_blinding_factor, generator)
 }
 
-// Check balances
-
-//  takes the public_info and output_utxos[],
-// returns the True if the token amount in public_info matches the sum of all output_utxos[], otherwise return False.
-pub fn check_balances(public_info: u128, output_utxos: &[UTXO]) -> bool {
-    let total_output: u128 = output_utxos.iter().map(|utxo| utxo.amount).sum();
-    public_info == total_output
-}
-
-// new_commitment for a Vec of values
+/// new_commitment for a Vec of values
 pub fn pedersen_commitment_vec(
     public_info_vec: Vec<u64>,
 ) -> (Tweak, [u8; 32], Vec<PedersenCommitment>) {
@@ -149,10 +207,11 @@ pub fn pedersen_commitment_vec(
     (generator_blinding_factor, random_val, vec_commitments)
 }
 
-// Verify Pedersen commitment
-
-// takes the public_info, secret_r and pedersen_commitment and
-// checks that commitment(public_info,secret_r) is equal pedersen_commitment where the commitment is pedersen commitment.
+/// Verify Pedersen commitment
+///
+/// takes the public_info, secret_r and pedersen_commitment and
+///
+/// checks that commitment(public_info,secret_r) is equal pedersen_commitment where the commitment is pedersen commitment.
 pub fn verify_commitment(
     public_info: u64,
     secret_r: &[u8],
@@ -170,95 +229,69 @@ pub fn verify_commitment(
     commitment == *pedersen_commitment
 }
 
-#[allow(unused)]
-fn de_kernel(
-    root_commitment: &[u8],
-    root_nullifier: [u8; 32],
-    public_info: u64,
-    input_utxos: &[UTXO],
-    in_commitments_proof: &[Vec<u8>],
-    nullifiers_proof: &[[u8; 32]],
-    nullifier_secret_key: Scalar,
-) -> (Vec<u8>, Vec<Vec<u8>>) {
-    check_balances(public_info as u128, input_utxos);
-
-    let nullifiers: Vec<_> = input_utxos
-        .into_iter()
-        .map(|utxo| generate_nullifiers(&utxo, &nullifier_secret_key.to_bytes()))
-        .collect();
-
-    let in_commitments = generate_commitments(&input_utxos);
-
-    for in_commitment in in_commitments {
-        validate_in_commitments_proof(
-            &in_commitment,
-            root_commitment.to_vec(),
-            in_commitments_proof,
-        );
-    }
-
-    for nullifier in nullifiers.iter() {
-        validate_nullifier_not_present_in_set_items(
-            nullifier[0..32].try_into().unwrap(),
-            nullifiers_proof,
-        );
-    }
-
-    (vec![], nullifiers)
-}
-
-// Validate inclusion proof for in_commitments
-
-// takes the pedersen_commitment as a leaf, the root hash root_commitment and the path in_commitments_proof[],
-// returns True if the pedersen_commitment is in the tree with root hash root_commitment
-// otherwise
-// returns False, as membership proof.
-pub fn validate_in_commitments_proof_se(
-    _pedersen_commitment: &PedersenCommitment,
-    _root_commitment: Vec<u8>,
-    _in_commitments_proof: &[Vec<u8>],
+/// Validate inclusion proof for pedersen_commitment
+///
+/// ToDo: Solve it in more scalable way
+pub fn validate_in_commitments_tree_se(
+    pedersen_commitment: &PedersenCommitment,
+    commitment_tree: &UTXOCommitmentsMerkleTree,
 ) -> bool {
-    // ToDo: Implement correct check
+    let alighned_hash: [u8; 32] = pedersen_commitment.serialize()[0..32].try_into().unwrap();
 
-    todo!()
+    commitment_tree.get_proof(alighned_hash).is_some()
 }
 
-// Generate nullifiers SE
+/// Generate nullifier SE
+///
+/// takes the pedersen_commitment and npk then
+/// returns a nullifier, where the nullifier = poseidon_hash(pedersen_commitment || npk)
+pub fn generate_nullifiers_se(pedersen_commitment: &PedersenCommitment, npk: &[u8]) -> Vec<u8> {
+    let commitment_ser = pedersen_commitment.serialize().to_vec();
 
-// takes the pedersen_commitment and nsk then
-// returns a list of nullifiers, where the nullifier = hash(pedersen_commitment || nsk) where the hash function will be determined
-
-pub fn generate_nullifiers_se(pedersen_commitment: &PedersenCommitment, nsk: &[u8]) -> Vec<u8> {
-    let mut input = pedersen_commitment.serialize().to_vec();
-    input.extend_from_slice(nsk);
-    hash(&input)
+    poseidon_hash(&[&commitment_ser, npk]).unwrap().to_vec()
 }
 
-#[allow(unused)]
-fn se_kernel(
-    root_commitment: &[u8],
-    root_nullifier: [u8; 32],
+/// Check balances SE
+///
+///  takes the input_balance and output_utxos[],
+///
+/// returns the True if the token amount in input_balance matches the sum of all output_utxos[], otherwise return False.
+pub fn check_balances_se(input_balance: u128, output_utxos: &[UTXO]) -> bool {
+    let total_output: u128 = output_utxos.iter().map(|utxo| utxo.amount).sum();
+    total_output == input_balance
+}
+
+pub fn shielded_circuit(
     public_info: u64,
+    output_utxos: &[UTXO],
     pedersen_commitment: PedersenCommitment,
     secret_r: &[u8],
-    output_utxos: &[UTXO],
-    in_commitments_proof: &[Vec<u8>],
-    nullifiers_proof: &[[u8; 32]],
-    nullifier_secret_key: Scalar,
-) -> (Vec<u8>, Vec<Vec<u8>>, Vec<u8>) {
-    check_balances(public_info as u128, output_utxos);
+    public_context: &PublicSCContext,
+) -> (Vec<Vec<u8>>, Vec<u8>) {
+    assert!(check_balances_se(public_info as u128, output_utxos));
 
     let out_commitments = generate_commitments(output_utxos);
 
-    let nullifier = generate_nullifiers_se(&pedersen_commitment, &nullifier_secret_key.to_bytes());
+    let nullifier_public_key = public_context
+        .account_masks
+        .get(&public_context.caller_address)
+        .unwrap()
+        .nullifier_public_key;
 
-    validate_in_commitments_proof_se(
+    let key_ser = serde_json::to_vec(&nullifier_public_key).unwrap();
+
+    let nullifier = generate_nullifiers_se(&pedersen_commitment, &key_ser);
+
+    assert!(validate_in_commitments_tree_se(
         &pedersen_commitment,
-        root_commitment.to_vec(),
-        in_commitments_proof,
-    );
+        &public_context.commitments_tree,
+    ));
 
-    verify_commitment(public_info, secret_r, &pedersen_commitment);
+    assert!(verify_commitment(
+        public_info,
+        secret_r,
+        &pedersen_commitment
+    ));
 
-    (vec![], out_commitments, nullifier)
+    (out_commitments, nullifier)
 }

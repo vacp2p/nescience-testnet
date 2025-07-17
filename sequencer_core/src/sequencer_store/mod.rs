@@ -9,6 +9,8 @@ use common::{
 };
 use rand::{rngs::OsRng, RngCore};
 
+use crate::config::AccountInitialData;
+
 pub mod accounts_store;
 pub mod block_store;
 
@@ -21,8 +23,28 @@ pub struct SequecerChainStore {
 }
 
 impl SequecerChainStore {
-    pub fn new_with_genesis(home_dir: &Path, genesis_id: u64, is_genesis_random: bool) -> Self {
-        let acc_store = SequencerAccountsStore::default();
+    pub fn new_with_genesis(
+        home_dir: &Path,
+        genesis_id: u64,
+        is_genesis_random: bool,
+        initial_accounts: &[AccountInitialData],
+    ) -> Self {
+        let acc_data_decoded: Vec<([u8; 32], u64)> = initial_accounts
+            .iter()
+            .map(|acc_data| {
+                (
+                    //ToDo: Handle this error for direct error message
+                    //Failure to produce account address is critical, so error handling is needed only for clarity
+                    hex::decode(acc_data.addr.clone())
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                    acc_data.balance,
+                )
+            })
+            .collect();
+
+        let acc_store = SequencerAccountsStore::new(&acc_data_decoded);
         let nullifier_store = HashSet::new();
         let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
         let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
