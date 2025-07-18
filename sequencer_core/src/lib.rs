@@ -343,18 +343,16 @@ mod tests {
         assert_eq!(sequencer.sequencer_config.max_num_tx_in_block, 10);
         assert_eq!(sequencer.sequencer_config.port, 8080);
 
-        let acc1_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c",
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
-        let acc2_addr: [u8; 32] = hex::decode(
-            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31",
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
+        let acc1_addr: [u8; 32] =
+            hex::decode("bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let acc2_addr: [u8; 32] =
+            hex::decode("20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
         assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
         assert!(sequencer.store.acc_store.contains_account(&acc2_addr));
@@ -397,18 +395,16 @@ mod tests {
         let config = setup_sequencer_config_variable_initial_accounts(initial_accounts);
         let sequencer = SequencerCore::start_from_config(config.clone());
 
-        let acc1_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff",
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
-        let acc2_addr: [u8; 32] = hex::decode(
-            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff",
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
+        let acc1_addr: [u8; 32] =
+            hex::decode("bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let acc2_addr: [u8; 32] =
+            hex::decode("20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
         assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
         assert!(sequencer.store.acc_store.contains_account(&acc2_addr));

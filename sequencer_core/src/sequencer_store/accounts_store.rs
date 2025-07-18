@@ -89,7 +89,7 @@ impl SequencerAccountsStore {
     ///Is accounts store empty
     pub fn is_empty(&self) -> bool {
         self.accounts.is_empty()
-    } 
+    }
 }
 
 impl Default for SequencerAccountsStore {
@@ -221,8 +221,7 @@ mod tests {
 
     #[test]
     fn account_sequencer_store_is_empty_test() {
-        let seq_acc_store =
-            SequencerAccountsStore::default();
+        let seq_acc_store = SequencerAccountsStore::default();
 
         assert!(seq_acc_store.is_empty());
     }
