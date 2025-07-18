@@ -209,7 +209,7 @@ impl NodeChainStore {
         self.block_store.put_block_at_id(block)?;
 
         //Snapshot
-        if block_id % self.node_config.shapshot_frequency_in_blocks == 0 {
+        if block_id.is_multiple_of(self.node_config.shapshot_frequency_in_blocks) {
             //Serializing all important data structures
 
             //If we fail serialization, it is not the reason to stop running
