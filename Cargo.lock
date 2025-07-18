@@ -767,7 +767,7 @@ dependencies = [
 [[package]]
 name = "bonsai-sdk"
 version = "1.4.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "duplicate",
  "maybe-async",
@@ -3715,8 +3715,8 @@ checksum = "3df6368f71f205ff9c33c076d170dd56ebf68e8161c733c0caa07a7a5509ed53"
 
 [[package]]
 name = "risc0-binfmt"
-version = "2.0.1"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "2.0.2"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "borsh",
@@ -3733,8 +3733,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-build"
-version = "2.1.2"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "2.3.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -3757,7 +3757,7 @@ dependencies = [
 [[package]]
 name = "risc0-build-kernel"
 version = "2.0.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "cc",
  "directories",
@@ -3770,8 +3770,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-keccak"
-version = "2.0.2"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "3.0.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3791,8 +3791,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-keccak-sys"
-version = "2.0.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "3.0.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "cc",
  "cust",
@@ -3806,8 +3806,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-recursion"
-version = "2.0.2"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "3.0.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3831,8 +3831,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-recursion-sys"
-version = "2.0.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "3.0.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "glob",
  "risc0-build-kernel",
@@ -3843,8 +3843,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-rv32im"
-version = "2.0.4"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "3.0.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "auto_ops",
@@ -3874,8 +3874,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-rv32im-sys"
-version = "2.0.2"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "3.0.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "cc",
  "cust",
@@ -3890,7 +3890,7 @@ dependencies = [
 [[package]]
 name = "risc0-core"
 version = "2.0.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "bytemuck",
  "bytemuck_derive",
@@ -3901,8 +3901,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-groth16"
-version = "2.0.1"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "2.0.2"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3926,7 +3926,7 @@ dependencies = [
 [[package]]
 name = "risc0-sys"
 version = "1.4.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "cust",
@@ -3937,7 +3937,7 @@ dependencies = [
 [[package]]
 name = "risc0-zkos-v1compat"
 version = "2.0.1"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "include_bytes_aligned",
  "no_std_strings",
@@ -3945,8 +3945,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-zkp"
-version = "2.0.1"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "2.0.2"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "anyhow",
  "blake2",
@@ -3976,8 +3976,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-zkvm"
-version = "2.1.0"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "2.3.0"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "addr2line 0.22.0",
  "anyhow",
@@ -4022,8 +4022,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-zkvm-platform"
-version = "2.0.2"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+version = "2.0.3"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "bytemuck",
  "cfg-if",
@@ -4185,7 +4185,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 [[package]]
 name = "rzup"
 version = "0.4.1"
-source = "git+https://github.com/risc0/risc0.git?branch=release-2.1#f34d6913945ab9f214219f3cbee1703f63936cc4"
+source = "git+https://github.com/risc0/risc0.git?branch=release-2.3#c6297fc2075cb66aadb733ee677223b5a7f8c85a"
 dependencies = [
  "semver",
  "serde",
@@ -4336,6 +4336,7 @@ dependencies = [
  "common",
  "elliptic-curve",
  "env_logger",
+ "hex",
  "k256",
  "log",
  "mempool",

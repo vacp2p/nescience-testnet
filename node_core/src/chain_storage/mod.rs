@@ -12,7 +12,7 @@ use common::{
 };
 use k256::AffinePoint;
 use log::{info, warn};
-use public_context::PublicSCContext;
+use sc_core::public_context::PublicSCContext;
 use serde::{Deserialize, Serialize};
 use utxo::utxo_core::UTXO;
 
@@ -20,7 +20,6 @@ use crate::{config::NodeConfig, ActionData};
 
 pub mod accounts_store;
 pub mod block_store;
-pub mod public_context;
 
 #[derive(Deserialize, Serialize)]
 pub struct AccMap {
@@ -282,6 +281,12 @@ impl NodeChainStore {
             account_masks,
             comitment_store_root: self.utxo_commitments_store.get_root().unwrap_or([0; 32]),
             pub_tx_store_root: self.pub_tx_store.get_root().unwrap_or([0; 32]),
+            nullifiers_set: self
+                .nullifier_store
+                .iter()
+                .map(|item| item.utxo_hash)
+                .collect(),
+            commitments_tree: self.utxo_commitments_store.clone(),
         }
     }
 }

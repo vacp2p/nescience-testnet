@@ -85,12 +85,29 @@ impl<'de> Deserialize<'de> for Account {
 ///A strucure, which represents all the visible(public) information
 ///
 /// known to each node about account `address`
+///
+/// Main usage is to encode data for other account
 #[derive(Serialize, Clone)]
 pub struct AccountPublicMask {
     pub nullifier_public_key: AffinePoint,
     pub viewing_public_key: AffinePoint,
     pub address: AccountAddress,
     pub balance: u64,
+}
+
+impl AccountPublicMask {
+    pub fn encrypt_data(
+        ephemeral_key_holder: &EphemeralKeyHolder,
+        viewing_public_key_receiver: AffinePoint,
+        data: &[u8],
+    ) -> (CipherText, Nonce) {
+        //Using of parent Account fuction
+        Account::encrypt_data(ephemeral_key_holder, viewing_public_key_receiver, data)
+    }
+
+    pub fn make_tag(&self) -> Tag {
+        self.address[0]
+    }
 }
 
 impl Account {
@@ -119,10 +136,6 @@ impl Account {
             balance,
             utxos,
         }
-    }
-
-    pub fn produce_ephemeral_key_holder(&self) -> EphemeralKeyHolder {
-        self.key_holder.produce_ephemeral_key_holder()
     }
 
     pub fn encrypt_data(
@@ -248,5 +261,14 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(account.utxos.len(), 1);
+    }
+
+    #[test]
+    fn accounts_accounts_mask_tag_consistency() {
+        let account = Account::new();
+
+        let account_mask = account.make_account_public_mask();
+
+        assert_eq!(account.make_tag(), account_mask.make_tag());
     }
 }

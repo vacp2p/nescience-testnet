@@ -317,11 +317,16 @@ pub fn prove_mint_utxo_multiple_assets(
     ))
 }
 
-pub fn execute_mint_utxo(amount_to_mint: u128, owner: AccountAddress) -> anyhow::Result<UTXO> {
+pub fn execute_mint_utxo(
+    amount_to_mint: u128,
+    owner: AccountAddress,
+    randomness: [u8; 32],
+) -> anyhow::Result<UTXO> {
     let mut builder = ExecutorEnv::builder();
 
     builder.write(&amount_to_mint)?;
     builder.write(&owner)?;
+    builder.write(&randomness)?;
 
     let env = builder.build()?;
 
@@ -420,6 +425,8 @@ pub fn verify(receipt: Receipt, image_id: impl Into<Digest>) -> anyhow::Result<(
 
 #[cfg(test)]
 mod tests {
+    use crate::gas_calculator::GasCalculator;
+
     use super::*;
     use test_methods::BIG_CALCULATION_ELF;
     use test_methods::{MULTIPLICATION_ELF, MULTIPLICATION_ID};
@@ -432,7 +439,7 @@ mod tests {
 
         let (digest, receipt) = prove(vec![message, message_2], SUMMATION_ELF).unwrap();
 
-        verify(receipt, SUMMATION_ID);
+        verify(receipt, SUMMATION_ID).unwrap();
         assert_eq!(digest, message + message_2);
     }
 
@@ -443,7 +450,7 @@ mod tests {
 
         let (digest, receipt) = prove(vec![message, message_2], SUMMATION_ELF).unwrap();
 
-        verify(receipt, SUMMATION_ID);
+        verify(receipt, SUMMATION_ID).unwrap();
         assert_eq!(digest, message + message_2);
     }
 
@@ -454,7 +461,7 @@ mod tests {
 
         let (digest, receipt) = prove(vec![message, message_2], MULTIPLICATION_ELF).unwrap();
 
-        verify(receipt, MULTIPLICATION_ID);
+        verify(receipt, MULTIPLICATION_ID).unwrap();
         assert_eq!(digest, message * message_2);
     }
 
@@ -465,7 +472,7 @@ mod tests {
 
         let (digest, receipt) = prove(vec![message, message_2], MULTIPLICATION_ELF).unwrap();
 
-        verify(receipt, MULTIPLICATION_ID);
+        verify(receipt, MULTIPLICATION_ID).unwrap();
         assert_eq!(digest, message * message_2);
     }
 
@@ -513,5 +520,109 @@ mod tests {
         }
 
         res
+    }
+
+    #[test]
+    fn test_gas_limits_check_sufficient_funds() {
+        let message = 1;
+        let message_2 = 2;
+        let gas_calc = GasCalculator::new(1, 1, 1, 1, 1, 1000000, 1000000);
+
+        let result = gas_limits_check(vec![message, message_2], SUMMATION_ELF, &gas_calc, 1000000);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_gas_limits_check_insufficient_funds() {
+        let message = 1;
+        let message_2 = 2;
+        let gas_calc = GasCalculator::new(1, 1, 1, 1, 1, 1000000, 1000000);
+
+        let result = gas_limits_check(vec![message, message_2], SUMMATION_ELF, &gas_calc, 1);
+        assert!(matches!(
+            result,
+            Err(ExecutionFailureKind::InsufficientFundsError)
+        ));
+    }
+
+    #[test]
+    fn test_execute_mint_utxo() {
+        let owner = AccountAddress::default();
+        let amount = 123456789;
+        let mut randomness = [0u8; 32];
+        OsRng.fill_bytes(&mut randomness);
+
+        let utxo_exec = execute_mint_utxo(amount, owner, randomness).expect("execution failed");
+        assert_eq!(utxo_exec.amount, amount);
+        assert_eq!(utxo_exec.owner, owner);
+    }
+
+    #[test]
+    fn test_prove_mint_utxo() {
+        let owner = AccountAddress::default();
+        let amount = 123456789;
+
+        let (utxo, _) = prove_mint_utxo(amount, owner).expect("proof failed");
+        assert_eq!(utxo.amount, amount);
+        assert_eq!(utxo.owner, owner);
+    }
+
+    #[test]
+    fn test_prove_send_utxo() {
+        let owner = AccountAddress::default();
+        let amount = 100;
+        let (input_utxo, _) = prove_mint_utxo(amount, owner).expect("mint failed");
+
+        let parts = vec![(40, owner), (60, owner)];
+        let (outputs, _receipt) = prove_send_utxo(input_utxo, parts.clone()).expect("send failed");
+
+        let total: u128 = outputs.iter().map(|(utxo, _)| utxo.amount).sum();
+        assert_eq!(total, amount);
+        assert_eq!(outputs.len(), 2);
+    }
+
+    #[test]
+    fn test_prove_send_utxo_deshielded() {
+        let owner = AccountAddress::default();
+        let amount = 100;
+        let (utxo, _) = prove_mint_utxo(amount, owner).unwrap();
+        let parts = vec![(60, owner), (40, owner)];
+
+        let (outputs, _) = prove_send_utxo_deshielded(utxo, parts.clone()).unwrap();
+
+        let total: u128 = outputs.iter().map(|(amt, _)| amt).sum();
+        assert_eq!(total, amount);
+        assert_eq!(outputs.len(), 2);
+    }
+
+    #[test]
+    fn test_prove_send_utxo_shielded() {
+        let owner = AccountAddress::default();
+        let amount = 100;
+        let parts = vec![(60, owner), (40, owner)];
+
+        let (outputs, _) = prove_send_utxo_shielded(owner, amount, parts.clone()).unwrap();
+
+        let total: u128 = outputs.iter().map(|(utxo, _)| utxo.amount).sum();
+        assert_eq!(total, amount);
+        assert_eq!(outputs.len(), 2);
+    }
+
+    #[test]
+    fn test_prove_send_utxo_multiple_assets_one_receiver() {
+        let owner = AccountAddress::default();
+        let receiver = AccountAddress::default();
+
+        let utxos = vec![
+            prove_mint_utxo(100, owner).unwrap().0,
+            prove_mint_utxo(50, owner).unwrap().0,
+        ];
+
+        let (to_receiver, to_change, _receipt) =
+            prove_send_utxo_multiple_assets_one_receiver(utxos, 1, receiver).unwrap();
+        let total_to_receiver: u128 = to_receiver.iter().map(|u| u.amount).sum();
+
+        assert!(total_to_receiver > 0);
+        assert_eq!(to_receiver.len() + to_change.len(), 2);
     }
 }
