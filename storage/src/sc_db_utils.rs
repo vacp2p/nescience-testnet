@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use serde::{de::Error, Deserialize, Serialize};
 
 use crate::SC_DATA_BLOB_SIZE;
@@ -51,6 +49,7 @@ impl DataBlob {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataBlobChangeVariant {
     Created {

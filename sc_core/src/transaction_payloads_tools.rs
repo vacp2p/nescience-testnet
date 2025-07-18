@@ -43,7 +43,7 @@ pub fn encode_utxos_to_receivers(
         let ephm_key_holder = EphemeralKeyHolder::new_os_random();
 
         let encoded_data = Account::encrypt_data(
-            ephm_key_holder,
+            &ephm_key_holder,
             receiver.key_holder.viewing_public_key,
             &serde_json::to_vec(&utxo).unwrap(),
         );

@@ -207,7 +207,7 @@ impl NodeCore {
             serde_json::to_vec(&ephm_key_holder.generate_ephemeral_public_key()).unwrap();
 
         let encoded_data = Account::encrypt_data(
-            ephm_key_holder,
+            &ephm_key_holder,
             account.key_holder.viewing_public_key,
             &serde_json::to_vec(&utxo).unwrap(),
         );
@@ -299,7 +299,7 @@ impl NodeCore {
             .map(|utxo| {
                 (
                     Account::encrypt_data(
-                        ephm_key_holder,
+                        &ephm_key_holder,
                         account.key_holder.viewing_public_key,
                         &serde_json::to_vec(&utxo).unwrap(),
                     ),
@@ -413,7 +413,7 @@ impl NodeCore {
                 let accout_enc = acc_map_read_guard.acc_map.get(&utxo_enc.owner).unwrap();
 
                 let (ciphertext, nonce) = Account::encrypt_data(
-                    ephm_key_holder,
+                    &ephm_key_holder,
                     accout_enc.key_holder.viewing_public_key,
                     &serde_json::to_vec(&utxo_enc).unwrap(),
                 );
@@ -534,7 +534,7 @@ impl NodeCore {
                 let accout_enc = acc_map_read_guard.acc_map.get(&utxo_enc.owner).unwrap();
 
                 let (ciphertext, nonce) = Account::encrypt_data(
-                    ephm_key_holder,
+                    &ephm_key_holder,
                     accout_enc.key_holder.viewing_public_key,
                     &serde_json::to_vec(&utxo_enc).unwrap(),
                 );
@@ -551,7 +551,7 @@ impl NodeCore {
                 let accout_enc = acc_map_read_guard.acc_map.get(&utxo_enc.owner).unwrap();
 
                 let (ciphertext, nonce) = Account::encrypt_data(
-                    ephm_key_holder,
+                    &ephm_key_holder,
                     accout_enc.key_holder.viewing_public_key,
                     &serde_json::to_vec(&utxo_enc).unwrap(),
                 );
@@ -678,7 +678,7 @@ impl NodeCore {
                 let accout_enc = acc_map_read_guard.acc_map.get(&utxo_enc.owner).unwrap();
 
                 let (ciphertext, nonce) = Account::encrypt_data(
-                    ephm_key_holder,
+                    &ephm_key_holder,
                     accout_enc.key_holder.viewing_public_key,
                     &serde_json::to_vec(&utxo_enc).unwrap(),
                 );
@@ -1392,7 +1392,7 @@ impl NodeCore {
                 let accout_enc = acc_map_read_guard.acc_map.get(&utxo_enc.owner).unwrap();
 
                 let (ciphertext, nonce) = Account::encrypt_data(
-                    ephm_key_holder,
+                    &ephm_key_holder,
                     accout_enc.key_holder.viewing_public_key,
                     &serde_json::to_vec(&utxo_enc).unwrap(),
                 );

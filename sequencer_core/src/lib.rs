@@ -344,13 +344,13 @@ mod tests {
         assert_eq!(sequencer.sequencer_config.port, 8080);
 
         let acc1_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c".to_string(),
+            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c",
         )
         .unwrap()
         .try_into()
         .unwrap();
         let acc2_addr: [u8; 32] = hex::decode(
-            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31".to_string(),
+            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31",
         )
         .unwrap()
         .try_into()
@@ -398,13 +398,13 @@ mod tests {
         let sequencer = SequencerCore::start_from_config(config.clone());
 
         let acc1_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff".to_string(),
+            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff",
         )
         .unwrap()
         .try_into()
         .unwrap();
         let acc2_addr: [u8; 32] = hex::decode(
-            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff".to_string(),
+            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff",
         )
         .unwrap()
         .try_into()
