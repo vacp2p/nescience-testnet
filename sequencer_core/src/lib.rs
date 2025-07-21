@@ -12,7 +12,7 @@ use common::{
 use config::SequencerConfig;
 use mempool::MemPool;
 use mempool_transaction::MempoolTransaction;
-use sequencer_store::{accounts_store::AccountPublicData, SequecerChainStore};
+use sequencer_store::SequecerChainStore;
 use serde::{Deserialize, Serialize};
 
 pub mod config;

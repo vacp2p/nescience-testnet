@@ -1,6 +1,5 @@
 use common::{merkle_tree_public::TreeHashType, transaction::AuthenticatedTransaction};
 use mempool::mempoolitem::MemPoolItem;
-use serde::{Deserialize, Serialize};
 
 pub struct MempoolTransaction {
     pub auth_tx: AuthenticatedTransaction,
