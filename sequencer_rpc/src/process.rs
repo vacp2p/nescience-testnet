@@ -4,7 +4,7 @@ use serde_json::Value;
 use common::{
     merkle_tree_public::TreeHashType,
     rpc_primitives::{
-        errors::{RpcError, RpcParseError},
+        errors::RpcError,
         message::{Message, Request},
         parser::RpcRequest,
         requests::{

@@ -122,7 +122,7 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let path = temp_dir.path();
 
-        let (block, tx) = create_genesis_block_with_transaction();
+        let (block, _) = create_genesis_block_with_transaction();
         let node_store = SequecerBlockStore::open_db_with_genesis(path, Some(block)).unwrap();
         let retrieved_tx = node_store.get_transaction_by_hash([0; 32]);
         assert_eq!(None, retrieved_tx);
