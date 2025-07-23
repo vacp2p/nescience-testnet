@@ -34,12 +34,16 @@ pub struct GetGenesisIdRequest {}
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetLastBlockRequest {}
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetInitialTestnetAccountsRequest {}
+
 parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
 parse_request!(GetGenesisIdRequest);
 parse_request!(GetLastBlockRequest);
+parse_request!(GetInitialTestnetAccountsRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {

@@ -4363,6 +4363,7 @@ dependencies = [
 name = "sequencer_rpc"
 version = "0.1.0"
 dependencies = [
+ "accounts",
  "actix",
  "actix-cors",
  "actix-web",

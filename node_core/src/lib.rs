@@ -103,7 +103,14 @@ impl NodeCore {
 
         let genesis_block = client.get_block(genesis_id.genesis_id).await?.block;
 
+        let initial_accounts_ser = client.get_initial_testnet_accounts().await?;
+        let initial_accounts: Vec<Account> =
+            initial_accounts_ser.into_iter().map(Into::into).collect();
+
         let (mut storage, mut chain_height) = NodeChainStore::new(config.clone(), genesis_block)?;
+        for acc in initial_accounts {
+            storage.acc_map.insert(acc.address, acc);
+        }
 
         pre_start::setup_empty_sc_states(&storage).await?;
 

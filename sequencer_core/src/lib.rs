@@ -38,7 +38,6 @@ pub enum TransactionMalformationErrorKind {
     ChainStateFurtherThanTransactionState { tx: TreeHashType },
     FailedToInsert { tx: TreeHashType, details: String },
     InvalidSignature,
-    AccountNotFound { tx: TreeHashType, acc: TreeHashType },
     BalanceMismatch { tx: TreeHashType },
     FailedToDecode { tx: TreeHashType },
 }
@@ -110,41 +109,26 @@ impl SequencerCore {
         if let Ok(native_transfer_action) =
             serde_json::from_slice::<PublicNativeTokenSend>(&execution_input)
         {
-            if let Some(from_balance) = self
+            let from_balance = self
                 .store
                 .acc_store
-                .get_account_balance(&native_transfer_action.from)
-            {
-                if let Some(to_balance) = self
-                    .store
-                    .acc_store
-                    .get_account_balance(&native_transfer_action.to)
-                {
-                    if from_balance >= native_transfer_action.moved_balance {
-                        self.store.acc_store.set_account_balance(
-                            &native_transfer_action.from,
-                            from_balance - native_transfer_action.moved_balance,
-                        );
-                        self.store.acc_store.set_account_balance(
-                            &native_transfer_action.to,
-                            to_balance + native_transfer_action.moved_balance,
-                        );
-                    } else {
-                        return Err(TransactionMalformationErrorKind::BalanceMismatch {
-                            tx: tx_hash,
-                        });
-                    }
-                } else {
-                    return Err(TransactionMalformationErrorKind::AccountNotFound {
-                        tx: tx_hash,
-                        acc: native_transfer_action.to,
-                    });
-                }
+                .get_account_balance(&native_transfer_action.from);
+            let to_balance = self
+                .store
+                .acc_store
+                .get_account_balance(&native_transfer_action.to);
+
+            if from_balance >= native_transfer_action.moved_balance {
+                self.store.acc_store.set_account_balance(
+                    &native_transfer_action.from,
+                    from_balance - native_transfer_action.moved_balance,
+                );
+                self.store.acc_store.set_account_balance(
+                    &native_transfer_action.to,
+                    to_balance + native_transfer_action.moved_balance,
+                );
             } else {
-                return Err(TransactionMalformationErrorKind::AccountNotFound {
-                    tx: tx_hash,
-                    acc: native_transfer_action.from,
-                });
+                return Err(TransactionMalformationErrorKind::BalanceMismatch { tx: tx_hash });
             }
         } else {
             return Err(TransactionMalformationErrorKind::FailedToDecode { tx: tx_hash });
@@ -347,16 +331,8 @@ mod tests {
 
     fn setup_sequencer_config() -> SequencerConfig {
         let initial_accounts = vec![
-            AccountInitialData {
-                addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c"
-                    .to_string(),
-                balance: 10,
-            },
-            AccountInitialData {
-                addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31"
-                    .to_string(),
-                balance: 100,
-            },
+            AccountInitialData { balance: 10 },
+            AccountInitialData { balance: 100 },
         ];
 
         setup_sequencer_config_variable_initial_accounts(initial_accounts)
@@ -409,53 +385,27 @@ mod tests {
         assert_eq!(sequencer.sequencer_config.max_num_tx_in_block, 10);
         assert_eq!(sequencer.sequencer_config.port, 8080);
 
-        let acc1_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117d09a8c".to_string(),
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
-        let acc2_addr: [u8; 32] = hex::decode(
-            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1e376f31".to_string(),
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
+        let acc1_addr = sequencer.store.testnet_initial_accounts_full_data[0].address;
+        let acc2_addr = sequencer.store.testnet_initial_accounts_full_data[1].address;
 
         assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
         assert!(sequencer.store.acc_store.contains_account(&acc2_addr));
 
         assert_eq!(
             10,
-            sequencer
-                .store
-                .acc_store
-                .get_account_balance(&acc1_addr)
-                .unwrap()
+            sequencer.store.acc_store.get_account_balance(&acc1_addr)
         );
         assert_eq!(
             100,
-            sequencer
-                .store
-                .acc_store
-                .get_account_balance(&acc2_addr)
-                .unwrap()
+            sequencer.store.acc_store.get_account_balance(&acc2_addr)
         );
     }
 
     #[test]
     fn test_start_different_intial_accounts() {
         let initial_accounts = vec![
-            AccountInitialData {
-                addr: "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff"
-                    .to_string(),
-                balance: 1000,
-            },
-            AccountInitialData {
-                addr: "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff"
-                    .to_string(),
-                balance: 1000,
-            },
+            AccountInitialData { balance: 1000 },
+            AccountInitialData { balance: 1000 },
         ];
 
         let intial_accounts_len = initial_accounts.len();
@@ -463,18 +413,8 @@ mod tests {
         let config = setup_sequencer_config_variable_initial_accounts(initial_accounts);
         let sequencer = SequencerCore::start_from_config(config.clone());
 
-        let acc1_addr: [u8; 32] = hex::decode(
-            "bfd91e6703273a115ad7f099ef32f621243be69369d00ddef5d3a25117ffffff".to_string(),
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
-        let acc2_addr: [u8; 32] = hex::decode(
-            "20573479053979b98d2ad09ef31a0750f22c77709bed51c4e64946bd1effffff".to_string(),
-        )
-        .unwrap()
-        .try_into()
-        .unwrap();
+        let acc1_addr = sequencer.store.testnet_initial_accounts_full_data[0].address;
+        let acc2_addr = sequencer.store.testnet_initial_accounts_full_data[1].address;
 
         assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
         assert!(sequencer.store.acc_store.contains_account(&acc2_addr));
@@ -483,19 +423,11 @@ mod tests {
 
         assert_eq!(
             1000,
-            sequencer
-                .store
-                .acc_store
-                .get_account_balance(&acc1_addr)
-                .unwrap()
+            sequencer.store.acc_store.get_account_balance(&acc1_addr)
         );
         assert_eq!(
             1000,
-            sequencer
-                .store
-                .acc_store
-                .get_account_balance(&acc2_addr)
-                .unwrap()
+            sequencer.store.acc_store.get_account_balance(&acc2_addr)
         );
     }
 

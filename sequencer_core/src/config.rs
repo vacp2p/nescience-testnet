@@ -6,8 +6,6 @@ use std::path::PathBuf;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 ///Helperstruct for account serialization
 pub struct AccountInitialData {
-    ///Hex encoded `AccountAddress`
-    pub addr: String,
     pub balance: u64,
 }
 
@@ -27,6 +25,6 @@ pub struct SequencerConfig {
     pub block_create_timeout_millis: u64,
     ///Port to listen
     pub port: u16,
-    ///List of pairs (account_address, initial_balance)
+    ///List of initial accounts data
     pub initial_accounts: Vec<AccountInitialData>,
 }

@@ -1,4 +1,4 @@
-use accounts::account_core::AccountAddress;
+use accounts::account_core::{Account, AccountAddress};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -28,13 +28,13 @@ pub struct SequencerAccountsStore {
 }
 
 impl SequencerAccountsStore {
-    pub fn new(initial_accounts: &[(AccountAddress, u64)]) -> Self {
+    pub fn new(initial_accounts: &[Account]) -> Self {
         let mut accounts = HashMap::new();
 
-        for (account_addr, balance) in initial_accounts {
+        for account in initial_accounts {
             accounts.insert(
-                *account_addr,
-                AccountPublicData::new_with_balance(*account_addr, *balance),
+                account.address,
+                AccountPublicData::new_with_balance(account.address, account.balance),
             );
         }
 
@@ -56,28 +56,29 @@ impl SequencerAccountsStore {
 
     ///Check `account_addr` balance,
     ///
-    ///returns `None`, if account address not found
-    pub fn get_account_balance(&self, account_addr: &AccountAddress) -> Option<u64> {
-        self.accounts.get(account_addr).map(|acc| acc.balance)
+    ///returns 0, if account address not found
+    pub fn get_account_balance(&self, account_addr: &AccountAddress) -> u64 {
+        self.accounts
+            .get(account_addr)
+            .map(|acc| acc.balance)
+            .unwrap_or(0)
     }
 
     ///Update `account_addr` balance,
     ///
-    /// returns `None` if account address not found, othervise returns previous balance
-    pub fn set_account_balance(
-        &mut self,
-        account_addr: &AccountAddress,
-        new_balance: u64,
-    ) -> Option<u64> {
+    /// returns 0, if account address not found, othervise returns previous balance
+    pub fn set_account_balance(&mut self, account_addr: &AccountAddress, new_balance: u64) -> u64 {
         let acc_data = self.accounts.get_mut(account_addr);
 
-        acc_data.map(|data| {
-            let old_bal = data.balance;
+        acc_data
+            .map(|data| {
+                let old_bal = data.balance;
 
-            data.balance = new_balance;
+                data.balance = new_balance;
 
-            old_bal
-        })
+                old_bal
+            })
+            .unwrap_or(0)
     }
 
     ///Remove account from storage
@@ -89,14 +90,10 @@ impl SequencerAccountsStore {
         &mut self,
         account_addr: AccountAddress,
     ) -> Result<Option<AccountAddress>> {
-        if let Some(account_balance) = self.get_account_balance(&account_addr) {
-            if account_balance == 0 {
-                Ok(self.accounts.remove(&account_addr).map(|data| data.address))
-            } else {
-                anyhow::bail!("Chain consistency violation: It is forbidden to remove account with nonzero balance");
-            }
+        if self.get_account_balance(&account_addr) == 0 {
+            Ok(self.accounts.remove(&account_addr).map(|data| data.address))
         } else {
-            Ok(None)
+            anyhow::bail!("Chain consistency violation: It is forbidden to remove account with nonzero balance");
         }
     }
 
@@ -147,7 +144,7 @@ mod tests {
 
         assert!(seq_acc_store.contains_account(&[1; 32]));
 
-        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]).unwrap();
+        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]);
 
         assert_eq!(acc_balance, 0);
     }
@@ -165,9 +162,14 @@ mod tests {
 
     #[test]
     fn account_sequencer_store_unregister_acc_not_zero_balance() {
-        let mut seq_acc_store = SequencerAccountsStore::new(&[([1; 32], 12), ([2; 32], 100)]);
+        let acc1 = Account::new_with_balance(12);
+        let acc2 = Account::new_with_balance(100);
 
-        let rem_res = seq_acc_store.unregister_account([1; 32]);
+        let acc1_addr = acc1.address.clone();
+
+        let mut seq_acc_store = SequencerAccountsStore::new(&[acc1, acc2]);
+
+        let rem_res = seq_acc_store.unregister_account(acc1_addr);
 
         assert!(rem_res.is_err());
     }
@@ -187,49 +189,65 @@ mod tests {
 
     #[test]
     fn account_sequencer_store_with_preset_accounts_1() {
-        let seq_acc_store = SequencerAccountsStore::new(&[([1; 32], 12), ([2; 32], 100)]);
+        let acc1 = Account::new_with_balance(12);
+        let acc2 = Account::new_with_balance(100);
 
-        assert!(seq_acc_store.contains_account(&[1; 32]));
-        assert!(seq_acc_store.contains_account(&[2; 32]));
+        let acc1_addr = acc1.address.clone();
+        let acc2_addr = acc2.address.clone();
 
-        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]).unwrap();
+        let seq_acc_store = SequencerAccountsStore::new(&[acc1, acc2]);
+
+        assert!(seq_acc_store.contains_account(&acc1_addr));
+        assert!(seq_acc_store.contains_account(&acc2_addr));
+
+        let acc_balance = seq_acc_store.get_account_balance(&acc1_addr);
 
         assert_eq!(acc_balance, 12);
 
-        let acc_balance = seq_acc_store.get_account_balance(&[2; 32]).unwrap();
+        let acc_balance = seq_acc_store.get_account_balance(&acc2_addr);
 
         assert_eq!(acc_balance, 100);
     }
 
     #[test]
     fn account_sequencer_store_with_preset_accounts_2() {
-        let seq_acc_store =
-            SequencerAccountsStore::new(&[([6; 32], 120), ([7; 32], 15), ([8; 32], 10)]);
+        let acc1 = Account::new_with_balance(120);
+        let acc2 = Account::new_with_balance(15);
+        let acc3 = Account::new_with_balance(10);
 
-        assert!(seq_acc_store.contains_account(&[6; 32]));
-        assert!(seq_acc_store.contains_account(&[7; 32]));
-        assert!(seq_acc_store.contains_account(&[8; 32]));
+        let acc1_addr = acc1.address.clone();
+        let acc2_addr = acc2.address.clone();
+        let acc3_addr = acc3.address.clone();
 
-        let acc_balance = seq_acc_store.get_account_balance(&[6; 32]).unwrap();
+        let seq_acc_store = SequencerAccountsStore::new(&[acc1, acc2, acc3]);
+
+        assert!(seq_acc_store.contains_account(&acc1_addr));
+        assert!(seq_acc_store.contains_account(&acc2_addr));
+        assert!(seq_acc_store.contains_account(&acc3_addr));
+
+        let acc_balance = seq_acc_store.get_account_balance(&[6; 32]);
 
         assert_eq!(acc_balance, 120);
 
-        let acc_balance = seq_acc_store.get_account_balance(&[7; 32]).unwrap();
+        let acc_balance = seq_acc_store.get_account_balance(&[7; 32]);
 
         assert_eq!(acc_balance, 15);
 
-        let acc_balance = seq_acc_store.get_account_balance(&[8; 32]).unwrap();
+        let acc_balance = seq_acc_store.get_account_balance(&[8; 32]);
 
         assert_eq!(acc_balance, 10);
     }
 
     #[test]
     fn account_sequencer_store_fetch_unknown_account() {
-        let seq_acc_store =
-            SequencerAccountsStore::new(&[([6; 32], 120), ([7; 32], 15), ([8; 32], 10)]);
+        let acc1 = Account::new_with_balance(120);
+        let acc2 = Account::new_with_balance(15);
+        let acc3 = Account::new_with_balance(10);
+
+        let seq_acc_store = SequencerAccountsStore::new(&[acc1, acc2, acc3]);
 
         let acc_balance = seq_acc_store.get_account_balance(&[9; 32]);
 
-        assert!(acc_balance.is_none());
+        assert_eq!(acc_balance, 0);
     }
 }

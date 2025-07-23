@@ -1,3 +1,4 @@
+use accounts::account_core::AccountForSerialization;
 use actix_web::Error as HttpError;
 use serde_json::Value;
 
@@ -5,6 +6,7 @@ use common::rpc_primitives::{
     errors::RpcError,
     message::{Message, Request},
     parser::RpcRequest,
+    requests::GetInitialTestnetAccountsRequest,
 };
 
 use common::rpc_primitives::requests::{
@@ -25,6 +27,8 @@ pub const GET_LAST_BLOCK: &str = "get_last_block";
 pub const HELLO_FROM_SEQUENCER: &str = "HELLO_FROM_SEQUENCER";
 
 pub const SUCCESS: &str = "Success";
+
+pub const GET_INITIAL_TESTNET_ACCOUNTS: &str = "get_initial_testnet_accounts";
 
 impl JsonHandler {
     pub async fn process(&self, message: Message) -> Result<Message, HttpError> {
@@ -131,6 +135,24 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
+    async fn get_initial_testnet_accounts(&self, request: Request) -> Result<Value, RpcErr> {
+        let _get_initial_testnet_accounts_request =
+            GetInitialTestnetAccountsRequest::parse(Some(request.params))?;
+
+        let accounts_for_serialization: Vec<AccountForSerialization> = {
+            let state = self.sequencer_state.lock().await;
+
+            state
+                .store
+                .testnet_initial_accounts_full_data
+                .iter()
+                .map(|acc| acc.clone().into())
+                .collect()
+        };
+
+        respond(accounts_for_serialization)
+    }
+
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             HELLO => self.process_temp_hello(request).await,
@@ -139,6 +161,7 @@ impl JsonHandler {
             GET_BLOCK => self.process_get_block_data(request).await,
             GET_GENESIS => self.process_get_genesis(request).await,
             GET_LAST_BLOCK => self.process_get_last_block(request).await,
+            GET_INITIAL_TESTNET_ACCOUNTS => self.get_initial_testnet_accounts(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
     }

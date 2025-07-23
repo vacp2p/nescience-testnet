@@ -20,6 +20,9 @@ tokio.workspace = true
 [dependencies.mempool]
 path = "../mempool"
 
+[dependencies.accounts]
+path = "../accounts"
+
 [dependencies.consensus]
 path = "../consensus"
 
