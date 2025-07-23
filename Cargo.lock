@@ -196,11 +196,13 @@ checksum = "a27e8fe9ba4ae613c21f677c2cfaf0696c3744030c6f485b34634e502d6bb379"
 dependencies = [
  "actix-codec",
  "actix-http",
+ "actix-macros",
  "actix-router",
  "actix-rt",
  "actix-server",
  "actix-service",
  "actix-utils",
+ "actix-web-codegen",
  "ahash 0.7.8",
  "bytes",
  "bytestring",
@@ -223,6 +225,18 @@ dependencies = [
  "socket2 0.4.10",
  "time",
  "url",
+]
+
+[[package]]
+name = "actix-web-codegen"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f591380e2e68490b5dfaf1dd1aa0ebe78d84ba7067078512b4ea6e4492d622b8"
+dependencies = [
+ "actix-router",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
 ]
 
 [[package]]
@@ -4379,6 +4393,7 @@ dependencies = [
  "serde",
  "serde_json",
  "storage",
+ "tempfile",
  "tokio",
 ]
 

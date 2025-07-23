@@ -34,12 +34,18 @@ pub struct GetGenesisIdRequest {}
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetLastBlockRequest {}
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetAccountBalanceRequest {
+    pub address: String,
+}
+
 parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
 parse_request!(GetGenesisIdRequest);
 parse_request!(GetLastBlockRequest);
+parse_request!(GetAccountBalanceRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -69,4 +75,9 @@ pub struct GetGenesisIdResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetLastBlockResponse {
     pub last_block: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetAccountBalanceResponse {
+    pub balance: u64,
 }

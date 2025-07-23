@@ -68,6 +68,7 @@ version = "1.0.60"
 
 [workspace.dependencies.actix-web]
 default-features = false
+features = ["macros"]
 version = "=4.1.0"
 
 [workspace.dependencies.clap]

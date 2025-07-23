@@ -18,7 +18,7 @@ pub const SHUTDOWN_TIMEOUT_SECS: u64 = 10;
 
 pub const NETWORK: &str = "network";
 
-fn rpc_handler(
+pub(crate) fn rpc_handler(
     message: web::Json<Message>,
     handler: web::Data<JsonHandler>,
 ) -> impl Future<Output = Result<HttpResponse, HttpError>> {
