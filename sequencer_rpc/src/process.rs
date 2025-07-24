@@ -141,18 +141,18 @@ impl JsonHandler {
     }
 
     /// Returns the balance of the account at the given address.
-    /// The address must be a valid hex string. If the account doesn't exist, a balance of zero is returned.
+    /// The address must be a valid hex string of the correct length.
     async fn process_get_account_balance(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_req = GetAccountBalanceRequest::parse(Some(request.params))?;
-        let address = hex::decode(get_account_req.address)
-            .map_err(|_| RpcError::invalid_params("invalid address".to_string()))?;
+        let address_bytes = hex::decode(get_account_req.address)
+            .map_err(|_| RpcError::invalid_params("invalid hex".to_string()))?;
+        let address = address_bytes
+            .try_into()
+            .map_err(|_| RpcError::invalid_params("invalid length".to_string()))?;
 
         let balance = {
             let state = self.sequencer_state.lock().await;
-            state
-                .store
-                .acc_store
-                .get_account_balance(&address.try_into().unwrap_or_default())
+            state.store.acc_store.get_account_balance(&address)
         }
         .unwrap_or(0);
 
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_account_balance_for_invalid_address() {
+    async fn test_get_account_balance_for_invalid_hex() {
         let json_handler = json_handler_for_tests();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -329,7 +329,30 @@ mod tests {
             "error": {
                 "code": -32602,
                 "message": "Invalid params",
-                "data": "invalid address"
+                "data": "invalid hex"
+            }
+        });
+        let response = call_rpc_handler_with_json(json_handler, request).await;
+
+        assert_eq!(response, expected_response);
+    }
+
+    #[actix_web::test]
+    async fn test_get_account_balance_for_invalid_length() {
+        let json_handler = json_handler_for_tests();
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "get_account_balance",
+            "params": { "address": "cafecafe" },
+            "id": 1
+        });
+        let expected_response = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+                "code": -32602,
+                "message": "Invalid params",
+                "data": "invalid length"
             }
         });
         let response = call_rpc_handler_with_json(json_handler, request).await;
