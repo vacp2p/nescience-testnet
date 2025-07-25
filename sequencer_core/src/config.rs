@@ -1,15 +1,8 @@
+use accounts::account_core::AccountForSerialization;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-//
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-///Helperstruct for account serialization
-pub struct AccountInitialData {
-    pub balance: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SequencerConfig {
     ///Home dir of sequencer storage
     pub home: PathBuf,
@@ -26,5 +19,5 @@ pub struct SequencerConfig {
     ///Port to listen
     pub port: u16,
     ///List of initial accounts data
-    pub initial_accounts: Vec<AccountInitialData>,
+    pub initial_accounts: Vec<AccountForSerialization>,
 }

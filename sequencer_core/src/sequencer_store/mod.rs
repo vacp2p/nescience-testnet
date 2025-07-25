@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::Path};
 
-use accounts::account_core::Account;
+use accounts::account_core::AccountForSerialization;
 use accounts_store::SequencerAccountsStore;
 use block_store::SequecerBlockStore;
 use common::{
@@ -9,8 +9,6 @@ use common::{
     nullifier::UTXONullifier,
 };
 use rand::{rngs::OsRng, RngCore};
-
-use crate::config::AccountInitialData;
 
 pub mod accounts_store;
 pub mod block_store;
@@ -21,8 +19,6 @@ pub struct SequecerChainStore {
     pub nullifier_store: HashSet<UTXONullifier>,
     pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
     pub pub_tx_store: PublicTransactionMerkleTree,
-    //ToDo: For testing purposes, remove after testnet
-    pub testnet_initial_accounts_full_data: Vec<Account>,
 }
 
 impl SequecerChainStore {
@@ -30,11 +26,11 @@ impl SequecerChainStore {
         home_dir: &Path,
         genesis_id: u64,
         is_genesis_random: bool,
-        initial_accounts: &[AccountInitialData],
+        initial_accounts: &[AccountForSerialization],
     ) -> Self {
-        let accs_pregenerated: Vec<Account> = initial_accounts
+        let accs_pregenerated: Vec<_> = initial_accounts
             .iter()
-            .map(|acc_data| Account::new_with_balance(acc_data.balance))
+            .map(|acc| (acc.address, acc.balance))
             .collect();
 
         let acc_store = SequencerAccountsStore::new(&accs_pregenerated);
@@ -74,7 +70,6 @@ impl SequecerChainStore {
             nullifier_store,
             utxo_commitments_store,
             pub_tx_store,
-            testnet_initial_accounts_full_data: accs_pregenerated,
         }
     }
 }
