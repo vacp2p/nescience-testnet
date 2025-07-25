@@ -2,12 +2,17 @@ use accounts::account_core::AccountForSerialization;
 use actix_web::Error as HttpError;
 use serde_json::Value;
 
-use common::rpc_primitives::{
-    errors::RpcError,
-    message::{Message, Request},
-    parser::RpcRequest,
-    requests::GetInitialTestnetAccountsRequest,
-    requests::{GetAccountBalanceRequest, GetAccountBalanceResponse},
+use common::{
+    merkle_tree_public::TreeHashType,
+    rpc_primitives::{
+        errors::RpcError,
+        message::{Message, Request},
+        parser::RpcRequest,
+        requests::{
+            GetAccountBalanceRequest, GetAccountBalanceResponse, GetInitialTestnetAccountsRequest,
+            GetTransactionByHashRequest, GetTransactionByHashResponse,
+        },
+    },
 };
 
 use common::rpc_primitives::requests::{
@@ -213,7 +218,10 @@ mod tests {
 
     use crate::{rpc_handler, JsonHandler};
     use accounts::account_core::Account;
-    use common::rpc_primitives::RpcPollingConfig;
+    use common::{
+        rpc_primitives::RpcPollingConfig,
+        transaction::{SignaturePrivateKey, Transaction, TransactionBody},
+    };
     use sequencer_core::{config::SequencerConfig, SequencerCore};
     use serde_json::Value;
     use tempfile::tempdir;
@@ -475,13 +483,38 @@ mod tests {
     fn json_handler_for_tests() -> (JsonHandler, Vec<Account>) {
         let config = sequencer_config_for_tests();
 
-        let sequencer_core = SequencerCore::start_from_config(config);
+        let mut sequencer_core = SequencerCore::start_from_config(config);
         let initial_accounts = sequencer_core
             .sequencer_config
             .initial_accounts
             .iter()
             .map(|acc_ser| acc_ser.clone().into())
             .collect();
+
+        let tx_body = TransactionBody {
+            tx_kind: common::transaction::TxKind::Public,
+            execution_input: Default::default(),
+            execution_output: Default::default(),
+            utxo_commitments_spent_hashes: Default::default(),
+            utxo_commitments_created_hashes: Default::default(),
+            nullifier_created_hashes: Default::default(),
+            execution_proof_private: Default::default(),
+            encoded_data: Default::default(),
+            ephemeral_pub_key: Default::default(),
+            commitment: Default::default(),
+            tweak: Default::default(),
+            secret_r: Default::default(),
+            sc_addr: Default::default(),
+            state_changes: Default::default(),
+        };
+        let tx = Transaction::new(tx_body, SignaturePrivateKey::from_slice(&[1; 32]).unwrap());
+
+        sequencer_core
+            .push_tx_into_mempool_pre_check(tx, [[0; 32]; 2])
+            .unwrap();
+        sequencer_core
+            .produce_new_block_with_mempool_transactions()
+            .unwrap();
 
         let sequencer_core = Arc::new(Mutex::new(sequencer_core));
 
@@ -610,7 +643,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_non_existent_hash() {
-        let json_handler = json_handler_for_tests();
+        let (json_handler, _) = json_handler_for_tests();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
@@ -632,7 +665,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_invalid_hex() {
-        let json_handler = json_handler_for_tests();
+        let (json_handler, _) = json_handler_for_tests();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
@@ -656,7 +689,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_invalid_length() {
-        let json_handler = json_handler_for_tests();
+        let (json_handler, _) = json_handler_for_tests();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
@@ -680,7 +713,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_existing_transaction() {
-        let json_handler = json_handler_for_tests();
+        let (json_handler, _) = json_handler_for_tests();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
