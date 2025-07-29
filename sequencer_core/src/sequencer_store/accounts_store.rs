@@ -98,10 +98,18 @@ impl SequencerAccountsStore {
         }
     }
 
-    pub fn increase_nonce(&mut self, account_addr: &AccountAddress) -> Option<u64> {
-        let acc_data = self.accounts.get_mut(account_addr)?;
-        acc_data.nonce += 1;
-        Some(acc_data.nonce)
+    ///Update `account_addr` nonce,
+    ///
+    /// Returns previous nonce
+    pub fn increase_nonce(&mut self, account_addr: &AccountAddress) -> u64 {
+        if let Some(acc_data) = self.accounts.get_mut(account_addr) {
+            let old_nonce = acc_data.nonce;
+            acc_data.nonce += 1;
+            old_nonce
+        } else {
+            self.register_account(*account_addr);
+            self.increase_nonce(account_addr)
+        }
     }
 
     ///Remove account from storage
@@ -288,5 +296,15 @@ mod tests {
         assert_eq!(ret, 0);
         assert!(seq_acc_store.contains_account(&[1; 32]));
         assert_eq!(seq_acc_store.get_account_balance(&[1; 32]), 0);
+    }
+
+    #[test]
+    fn test_increase_nonce() {
+        let mut account_store = SequencerAccountsStore::default();
+        let address = [1; 32];
+        let first_nonce = account_store.increase_nonce(&address);
+        assert_eq!(first_nonce, 0);
+        let second_nonce = account_store.increase_nonce(&address);
+        assert_eq!(second_nonce, 1);
     }
 }
