@@ -478,6 +478,9 @@ mod tests {
         assert_eq!(sequencer.sequencer_config.max_num_tx_in_block, 10);
         assert_eq!(sequencer.sequencer_config.port, 8080);
 
+        println!("Initial_acc1 {:#?}", config.initial_accounts[0].addr.clone());
+        println!("Initial_acc1 {:#?}", config.initial_accounts[1].addr.clone());
+
         let acc1_addr = hex::decode(config.initial_accounts[0].addr.clone())
             .unwrap()
             .try_into()
@@ -486,6 +489,8 @@ mod tests {
             .unwrap()
             .try_into()
             .unwrap();
+
+        assert_eq!(2,3);
 
         assert!(sequencer.store.acc_store.contains_account(&acc1_addr));
         assert!(sequencer.store.acc_store.contains_account(&acc2_addr));

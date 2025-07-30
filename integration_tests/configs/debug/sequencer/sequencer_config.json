@@ -1,0 +1,19 @@
+{
+    "home": "./sequencer",
+    "override_rust_log": null,
+    "genesis_id": 1,
+    "is_genesis_random": true,
+    "max_num_tx_in_block": 20,
+    "block_create_timeout_millis": 10000,
+    "port": 3040,
+    "initial_accounts": [
+        {
+            "addr": "0d96dfcc414019380c9dde0cd3dce5aac90fb5443bf871108741aeafde552ad7",
+            "balance": 10000
+        },
+        {
+            "addr": "974870e9be8d0ac08aa83b3fc7a7a686291d8732508aba98b36080f39c2cf364",
+            "balance": 20000
+        }
+    ]
+}

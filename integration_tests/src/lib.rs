@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use clap::Parser;
@@ -15,14 +15,23 @@ struct Args {
     home_dir: PathBuf,
 }
 
+pub const ACC_SENDER: &str = "0d96dfcc414019380c9dde0cd3dce5aac90fb5443bf871108741aeafde552ad7";
+pub const ACC_RECEIVER: &str = "974870e9be8d0ac08aa83b3fc7a7a686291d8732508aba98b36080f39c2cf364";
+
 pub async fn main_tests_runner() -> Result<()> {
     env_logger::init();
 
     let args = Args::parse();
     let Args { home_dir } = args;
 
-    let sequencer_config = sequencer_runner::config::from_file(home_dir.join("sequencer_config.json"))?;
-    let node_config = node_runner::config::from_file(home_dir.join("node_config.json"))?;
+    let home_dir_sequencer = home_dir.join("sequencer");
+    let home_dir_node = home_dir.join("node");
+
+    let sequencer_config =
+        sequencer_runner::config::from_file(home_dir_sequencer.join("sequencer_config.json"))
+            .unwrap();
+    let node_config =
+        node_runner::config::from_file(home_dir_node.join("node_config.json")).unwrap();
 
     let block_timeout = sequencer_config.block_create_timeout_millis;
     let sequencer_port = sequencer_config.port;
@@ -33,14 +42,17 @@ pub async fn main_tests_runner() -> Result<()> {
 
     let seq_core_wrapped = Arc::new(Mutex::new(sequencer_core));
 
-    let http_server = sequencer_rpc::new_http_server(RpcConfig::with_port(sequencer_port), seq_core_wrapped.clone())?;
+    let http_server = sequencer_rpc::new_http_server(
+        RpcConfig::with_port(sequencer_port),
+        seq_core_wrapped.clone(),
+    )?;
     info!("HTTP server started");
-    let _http_server_handle = http_server.handle();
+    let seq_http_server_handle = http_server.handle();
     tokio::spawn(http_server);
 
     info!("Starting main sequencer loop");
 
-    let _sequencer_loop_handle: JoinHandle<Result<()>> = tokio::spawn(async move {
+    let sequencer_loop_handle: JoinHandle<Result<()>> = tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(block_timeout)).await;
 
@@ -69,9 +81,51 @@ pub async fn main_tests_runner() -> Result<()> {
         wrapped_node_core.clone(),
     )?;
     info!("HTTP server started");
-    let _http_server_handle = http_server.handle();
+    let node_http_server_handle = http_server.handle();
     tokio::spawn(http_server);
 
-    #[allow(clippy::empty_loop)]
-    loop {}
+    info!("Waiting for first block creation");
+    tokio::time::sleep(Duration::from_secs(12)).await;
+
+    let acc_sender = hex::decode(ACC_SENDER).unwrap().try_into().unwrap();
+    let acc_receiver = hex::decode(ACC_RECEIVER).unwrap().try_into().unwrap();
+
+    {
+        let guard = wrapped_node_core.lock().await;
+
+        let res = guard
+            .send_public_native_token_transfer(acc_sender, acc_receiver, 100)
+            .await
+            .unwrap();
+
+        info!("Res of tx_send is {res:#?}");
+
+        info!("Waiting for next block creation");
+        tokio::time::sleep(Duration::from_secs(12)).await;
+
+        info!("Checking correct balance move");
+        let acc_1_balance = guard
+            .sequencer_client
+            .get_account_balance(ACC_SENDER.to_string())
+            .await
+            .unwrap();
+        let acc_2_balance = guard
+            .sequencer_client
+            .get_account_balance(ACC_RECEIVER.to_string())
+            .await
+            .unwrap();
+
+        info!("Balance of sender : {acc_1_balance:#?}");
+        info!("Balance of receiver : {acc_2_balance:#?}");
+    }
+
+    info!("Success!");
+
+    info!("Cleanup");
+
+    node_http_server_handle.stop(true).await;
+    sequencer_loop_handle.abort();
+    seq_http_server_handle.stop(true).await;
+
+    Ok(())
 }

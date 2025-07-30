@@ -1,8 +1,7 @@
-use accounts::account_core::{Account, AccountForSerialization};
+use accounts::account_core::Account;
 use anyhow::Result;
 use common::rpc_primitives::requests::{
-    GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
-    GetInitialTestnetAccountsRequest, RegisterAccountRequest, RegisterAccountResponse,
+    GetAccountBalanceRequest, GetAccountBalanceResponse, GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse, GetInitialTestnetAccountsRequest, RegisterAccountRequest, RegisterAccountResponse
 };
 use common::transaction::Transaction;
 use common::{SequencerClientError, SequencerRpcError};
@@ -11,6 +10,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::config::NodeConfig;
+use crate::sequencer_client::json::AccountInitialData;
 
 pub mod json;
 
@@ -63,6 +63,21 @@ impl SequencerClient {
         let req = serde_json::to_value(block_req)?;
 
         let resp = self.call_method_with_payload("get_block", req).await?;
+
+        let resp_deser = serde_json::from_value(resp)?;
+
+        Ok(resp_deser)
+    }
+
+    pub async fn get_account_balance(
+        &self,
+        address: String,
+    ) -> Result<GetAccountBalanceResponse, SequencerClientError> {
+        let block_req = GetAccountBalanceRequest { address };
+
+        let req = serde_json::to_value(block_req)?;
+
+        let resp = self.call_method_with_payload("get_account_balance", req).await?;
 
         let resp_deser = serde_json::from_value(resp)?;
 
@@ -124,7 +139,7 @@ impl SequencerClient {
 
     pub async fn get_initial_testnet_accounts(
         &self,
-    ) -> Result<Vec<AccountForSerialization>, SequencerClientError> {
+    ) -> Result<Vec<AccountInitialData>, SequencerClientError> {
         let acc_req = GetInitialTestnetAccountsRequest {};
 
         let req = serde_json::to_value(acc_req).unwrap();

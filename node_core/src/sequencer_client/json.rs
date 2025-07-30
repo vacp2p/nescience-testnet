@@ -46,3 +46,11 @@ pub struct SequencerRpcResponse {
     pub result: serde_json::Value,
     pub id: u64,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+///Helperstruct for account serialization
+pub struct AccountInitialData {
+    ///Hex encoded `AccountAddress`
+    pub addr: String,
+    pub balance: u64,
+}

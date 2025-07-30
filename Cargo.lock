@@ -2389,6 +2389,7 @@ dependencies = [
  "clap",
  "common",
  "env_logger",
+ "hex",
  "log",
  "node_core",
  "node_rpc",
