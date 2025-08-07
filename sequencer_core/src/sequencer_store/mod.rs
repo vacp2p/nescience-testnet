@@ -1,5 +1,6 @@
 use std::{collections::HashSet, path::Path};
 
+use accounts::account_core::address::AccountAddress;
 use accounts_store::SequencerAccountsStore;
 use block_store::SequecerBlockStore;
 use common::{
@@ -8,6 +9,7 @@ use common::{
     nullifier::UTXONullifier,
 };
 use rand::{rngs::OsRng, RngCore};
+use nssa;
 
 use crate::config::AccountInitialData;
 
@@ -15,11 +17,11 @@ pub mod accounts_store;
 pub mod block_store;
 
 pub struct SequecerChainStore {
-    pub acc_store: SequencerAccountsStore,
+    pub state: nssa::V01State,
     pub block_store: SequecerBlockStore,
     pub nullifier_store: HashSet<UTXONullifier>,
     pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
-    pub pub_tx_store: PublicTransactionMerkleTree,
+    // pub pub_tx_store: PublicTransactionMerkleTree,
 }
 
 impl SequecerChainStore {
@@ -29,7 +31,7 @@ impl SequecerChainStore {
         is_genesis_random: bool,
         initial_accounts: &[AccountInitialData],
     ) -> Self {
-        let init_accs: Vec<_> = initial_accounts
+        let init_accs: Vec<(AccountAddress, u128)> = initial_accounts
             .iter()
             .map(|acc_data| {
                 (
@@ -42,10 +44,10 @@ impl SequecerChainStore {
             })
             .collect();
 
-        let acc_store = SequencerAccountsStore::new(&init_accs);
+        let state = nssa::V01State::new_with_genesis_accounts(&init_accs);
         let nullifier_store = HashSet::new();
         let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
-        let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
+        // let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
 
         let mut data = [0; 32];
         let mut prev_block_hash = [0; 32];
@@ -74,11 +76,11 @@ impl SequecerChainStore {
         .unwrap();
 
         Self {
-            acc_store,
+            state,
             block_store,
             nullifier_store,
             utxo_commitments_store,
-            pub_tx_store,
+            // pub_tx_store,
         }
     }
 }

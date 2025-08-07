@@ -51,12 +51,12 @@ impl SequecerBlockStore {
     }
 
     /// Returns the transaction corresponding to the given hash, if it exists in the blockchain.
-    pub fn get_transaction_by_hash(&self, hash: TreeHashType) -> Option<Transaction> {
+    pub fn get_transaction_by_hash(&self, hash: TreeHashType) -> Option<nssa::PublicTransaction> {
         let block_id = self.tx_hash_to_block_map.get(&hash);
         let block = block_id.map(|&id| self.get_block_at_id(id));
         if let Some(Ok(block)) = block {
             for transaction in block.transactions.into_iter() {
-                if transaction.body().hash() == hash {
+                if transaction.hash() == hash {
                     return Some(transaction);
                 }
             }
@@ -69,7 +69,7 @@ fn block_to_transactions_map(block: &Block) -> HashMap<TreeHashType, u64> {
     block
         .transactions
         .iter()
-        .map(|transaction| (transaction.body().hash(), block.block_id))
+        .map(|transaction| (transaction.hash(), block.block_id))
         .collect()
 }
 
@@ -77,26 +77,18 @@ fn block_to_transactions_map(block: &Block) -> HashMap<TreeHashType, u64> {
 mod tests {
     use super::*;
     use common::transaction::{SignaturePrivateKey, TransactionBody};
+    use nssa::Program;
     use tempfile::tempdir;
 
-    fn create_dummy_block_with_transaction(block_id: u64) -> (Block, Transaction) {
-        let body = TransactionBody {
-            tx_kind: common::transaction::TxKind::Public,
-            execution_input: Default::default(),
-            execution_output: Default::default(),
-            utxo_commitments_spent_hashes: Default::default(),
-            utxo_commitments_created_hashes: Default::default(),
-            nullifier_created_hashes: Default::default(),
-            execution_proof_private: Default::default(),
-            encoded_data: Default::default(),
-            ephemeral_pub_key: Default::default(),
-            commitment: Default::default(),
-            tweak: Default::default(),
-            secret_r: Default::default(),
-            sc_addr: Default::default(),
-            state_changes: Default::default(),
-        };
-        let tx = Transaction::new(body, SignaturePrivateKey::from_slice(&[1; 32]).unwrap());
+    fn create_dummy_block_with_transaction(block_id: u64) -> (Block, nssa::PublicTransaction) {
+        let program_id = nssa::AuthenticatedTransferProgram::PROGRAM_ID;
+        let addresses = vec![];
+        let nonces = vec![];
+        let instruction_data = 0;
+        let message = nssa::public_transaction::Message::new(program_id, addresses, nonces, instruction_data);
+        let private_key = nssa::PrivateKey::new(1);
+        let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[private_key]);
+        let tx = nssa::PublicTransaction::new(message, witness_set);
         (
             Block {
                 block_id,
@@ -127,12 +119,12 @@ mod tests {
             SequecerBlockStore::open_db_with_genesis(path, Some(genesis_block)).unwrap();
         let (block, tx) = create_dummy_block_with_transaction(1);
         // Try retrieve a tx that's not in the chain yet.
-        let retrieved_tx = node_store.get_transaction_by_hash(tx.body().hash());
+        let retrieved_tx = node_store.get_transaction_by_hash(tx.hash());
         assert_eq!(None, retrieved_tx);
         // Add the block with the transaction
         node_store.put_block_at_id(block).unwrap();
         // Try again
-        let retrieved_tx = node_store.get_transaction_by_hash(tx.body().hash());
+        let retrieved_tx = node_store.get_transaction_by_hash(tx.hash());
         assert_eq!(Some(tx), retrieved_tx);
     }
 }

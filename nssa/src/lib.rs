@@ -1,16 +1,22 @@
 use nssa_core::{
     account::{Account, AccountWithMetadata},
-    program::{Program, ProgramId},
+    program::ProgramId,
 };
 use program_methods::{AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID};
 use risc0_zkvm::{ExecutorEnv, ExecutorEnvBuilder, default_executor};
 
 mod address;
-mod public_transaction;
+pub mod public_transaction;
 mod signature;
-pub mod state;
+mod state;
 
-struct AuthenticatedTransferProgram;
+pub use address::Address;
+pub use nssa_core::program::Program;
+pub use public_transaction::PublicTransaction;
+pub use signature::PrivateKey;
+pub use state::V01State;
+
+pub struct AuthenticatedTransferProgram;
 impl Program for AuthenticatedTransferProgram {
     const PROGRAM_ID: ProgramId = AUTHENTICATED_TRANSFER_ID;
     const PROGRAM_ELF: &[u8] = AUTHENTICATED_TRANSFER_ELF;

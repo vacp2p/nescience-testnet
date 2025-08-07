@@ -38,3 +38,6 @@ path = "../storage"
 
 [dependencies.common]
 path = "../common"
+
+[dependencies.nssa]
+path = "../nssa"

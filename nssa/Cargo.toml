@@ -7,3 +7,6 @@ edition = "2024"
 risc0-zkvm = "2.2"
 nssa-core = {path="core"}
 program-methods = { path = "program_methods" }
+serde = "1.0.219"
+serde_cbor = "0.11.2"
+sha2 = "0.10.9"

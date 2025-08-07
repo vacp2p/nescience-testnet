@@ -1,10 +1,21 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{address::Address, public_transaction::Message};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct Signature;
 
 // TODO: Dummy impl. Replace by actual private key.
-pub(crate) struct PrivateKey(pub(crate) u8);
+pub struct PrivateKey(pub(crate) u8);
+
+impl PrivateKey {
+    pub fn new(dummy_value: u8) -> Self {
+        Self(dummy_value)
+    }
+}
+
 // TODO: Dummy impl. Replace by actual public key.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct PublicKey(pub(crate) u8);
 
 impl PublicKey {

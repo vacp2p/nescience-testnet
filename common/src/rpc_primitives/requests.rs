@@ -18,7 +18,7 @@ pub struct RegisterAccountRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendTxRequest {
-    pub transaction: Transaction,
+    pub transaction: nssa::PublicTransaction,
     ///UTXO Commitment Root, Pub Tx Root
     pub tx_roots: [[u8; 32]; 2],
 }
@@ -89,10 +89,10 @@ pub struct GetLastBlockResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetAccountBalanceResponse {
-    pub balance: u64,
+    pub balance: u128,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetTransactionByHashResponse {
-    pub transaction: Option<Transaction>,
+    pub transaction: Option<nssa::PublicTransaction>,
 }

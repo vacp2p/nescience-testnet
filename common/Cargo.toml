@@ -21,3 +21,6 @@ hex.workspace = true
 [dependencies.secp256k1-zkp]
 workspace = true
 features = ["std", "rand-std", "rand", "serde", "global-context"]
+
+[dependencies.nssa]
+path = "../nssa"

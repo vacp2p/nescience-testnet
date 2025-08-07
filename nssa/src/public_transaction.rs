@@ -2,13 +2,16 @@ use nssa_core::{
     account::{Account, Nonce},
     program::ProgramId,
 };
+use serde::{Deserialize, Serialize};
+use sha2::{digest::FixedOutput, Digest};
 
 use crate::{
     address::Address,
     signature::{PrivateKey, PublicKey, Signature},
 };
 
-pub(crate) struct Message {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Message {
     pub(crate) program_id: ProgramId,
     pub(crate) addresses: Vec<Address>,
     pub(crate) nonces: Vec<Nonce>,
@@ -17,7 +20,7 @@ pub(crate) struct Message {
 }
 
 impl Message {
-    pub(crate) fn new(
+    pub fn new(
         program_id: ProgramId,
         addresses: Vec<Address>,
         nonces: Vec<Nonce>,
@@ -37,12 +40,13 @@ impl Message {
     }
 }
 
-pub(crate) struct WitnessSet {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WitnessSet {
     pub(crate) signatures_and_public_keys: Vec<(Signature, PublicKey)>,
 }
 
 impl WitnessSet {
-    pub(crate) fn for_message(message: &Message, private_keys: &[PrivateKey]) -> Self {
+    pub fn for_message(message: &Message, private_keys: &[PrivateKey]) -> Self {
         let message_bytes = message.to_bytes();
         let signatures_and_public_keys = private_keys
             .iter()
@@ -54,17 +58,18 @@ impl WitnessSet {
     }
 }
 
-pub(crate) struct PublicTransaction {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PublicTransaction {
     message: Message,
     witness_set: WitnessSet,
 }
 
 impl PublicTransaction {
-    pub(crate) fn message(&self) -> &Message {
+    pub fn message(&self) -> &Message {
         &self.message
     }
 
-    pub(crate) fn witness_set(&self) -> &WitnessSet {
+    pub fn witness_set(&self) -> &WitnessSet {
         &self.witness_set
     }
 
@@ -76,10 +81,17 @@ impl PublicTransaction {
             .collect()
     }
 
-    pub(crate) fn new(message: Message, witness_set: WitnessSet) -> Self {
+    pub fn new(message: Message, witness_set: WitnessSet) -> Self {
         Self {
             message,
             witness_set,
         }
+    }
+
+    pub fn hash(&self) -> [u8; 32] {
+        let bytes = serde_cbor::to_vec(&self).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&bytes);
+        hasher.finalize_fixed().try_into().unwrap()
     }
 }

@@ -11,7 +11,7 @@ pub type Nonce = u128;
 type Data = Vec<u8>;
 
 /// Account to be used both in public and private contexts
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Account {
     pub program_owner: ProgramId,
     pub balance: u128,

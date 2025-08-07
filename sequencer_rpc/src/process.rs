@@ -1,4 +1,5 @@
 use actix_web::Error as HttpError;
+use nssa;
 use sequencer_core::config::AccountInitialData;
 use serde_json::Value;
 
@@ -24,7 +25,6 @@ use common::rpc_primitives::requests::{
 use super::{respond, types::err_rpc::RpcErr, JsonHandler};
 
 pub const HELLO: &str = "hello";
-pub const REGISTER_ACCOUNT: &str = "register_account";
 pub const SEND_TX: &str = "send_tx";
 pub const GET_BLOCK: &str = "get_block";
 pub const GET_GENESIS: &str = "get_genesis";
@@ -66,29 +66,13 @@ impl JsonHandler {
         respond(helperstruct)
     }
 
-    async fn process_register_account_request(&self, request: Request) -> Result<Value, RpcErr> {
-        let acc_req = RegisterAccountRequest::parse(Some(request.params))?;
-
-        {
-            let mut acc_store = self.sequencer_state.lock().await;
-
-            acc_store.register_account(acc_req.address);
-        }
-
-        let helperstruct = RegisterAccountResponse {
-            status: SUCCESS.to_string(),
-        };
-
-        respond(helperstruct)
-    }
-
     async fn process_send_tx(&self, request: Request) -> Result<Value, RpcErr> {
         let send_tx_req = SendTxRequest::parse(Some(request.params))?;
 
         {
             let mut state = self.sequencer_state.lock().await;
 
-            state.push_tx_into_mempool_pre_check(send_tx_req.transaction, send_tx_req.tx_roots)?;
+            state.push_tx_into_mempool_pre_check(send_tx_req.transaction)?;
         }
 
         let helperstruct = SendTxResponse {
@@ -164,13 +148,16 @@ impl JsonHandler {
         let get_account_req = GetAccountBalanceRequest::parse(Some(request.params))?;
         let address_bytes = hex::decode(get_account_req.address)
             .map_err(|_| RpcError::invalid_params("invalid hex".to_string()))?;
-        let address = address_bytes
-            .try_into()
-            .map_err(|_| RpcError::invalid_params("invalid length".to_string()))?;
+        let address = nssa::Address::new(
+            address_bytes
+                .try_into()
+                .map_err(|_| RpcError::invalid_params("invalid length".to_string()))?,
+        );
 
         let balance = {
             let state = self.sequencer_state.lock().await;
-            state.store.acc_store.get_account_balance(&address)
+            let account = state.store.state.get_account_by_address(&address);
+            account.balance
         };
 
         let helperstruct = GetAccountBalanceResponse { balance };
@@ -199,7 +186,6 @@ impl JsonHandler {
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
         match request.method.as_ref() {
             HELLO => self.process_temp_hello(request).await,
-            REGISTER_ACCOUNT => self.process_register_account_request(request).await,
             SEND_TX => self.process_send_tx(request).await,
             GET_BLOCK => self.process_get_block_data(request).await,
             GET_GENESIS => self.process_get_genesis(request).await,
@@ -221,6 +207,7 @@ mod tests {
         rpc_primitives::RpcPollingConfig,
         transaction::{SignaturePrivateKey, Transaction, TransactionBody},
     };
+    use nssa::Program;
     use sequencer_core::{
         config::{AccountInitialData, SequencerConfig},
         SequencerCore,
@@ -233,13 +220,15 @@ mod tests {
         let tempdir = tempdir().unwrap();
         let home = tempdir.path().to_path_buf();
         let acc1_addr = vec![
-            13, 150, 223, 204, 65, 64, 25, 56, 12, 157, 222, 12, 211, 220, 229, 170, 201, 15, 181,
-            68, 59, 248, 113, 16, 135, 65, 174, 175, 222, 85, 42, 215,
+            // 13, 150, 223, 204, 65, 64, 25, 56, 12, 157, 222, 12, 211, 220, 229, 170, 201, 15, 181,
+            // 68, 59, 248, 113, 16, 135, 65, 174, 175, 222, 85, 42, 215,
+            1; 32
         ];
 
         let acc2_addr = vec![
-            151, 72, 112, 233, 190, 141, 10, 192, 138, 168, 59, 63, 199, 167, 166, 134, 41, 29,
-            135, 50, 80, 138, 186, 152, 179, 96, 128, 243, 156, 44, 243, 100,
+            // 151, 72, 112, 233, 190, 141, 10, 192, 138, 168, 59, 63, 199, 167, 166, 134, 41, 29,
+            // 135, 50, 80, 138, 186, 152, 179, 96, 128, 243, 156, 44, 243, 100,
+            2; 32
         ];
 
         let initial_acc1 = AccountInitialData {
@@ -268,32 +257,25 @@ mod tests {
 
     fn json_handler_for_tests() -> (JsonHandler, Vec<AccountInitialData>) {
         let config = sequencer_config_for_tests();
-
         let mut sequencer_core = SequencerCore::start_from_config(config);
-
         let initial_accounts = sequencer_core.sequencer_config.initial_accounts.clone();
 
-        let tx_body = TransactionBody {
-            tx_kind: common::transaction::TxKind::Shielded,
-            execution_input: Default::default(),
-            execution_output: Default::default(),
-            utxo_commitments_spent_hashes: Default::default(),
-            utxo_commitments_created_hashes: Default::default(),
-            nullifier_created_hashes: Default::default(),
-            execution_proof_private: Default::default(),
-            encoded_data: Default::default(),
-            ephemeral_pub_key: Default::default(),
-            commitment: Default::default(),
-            tweak: Default::default(),
-            secret_r: Default::default(),
-            sc_addr: Default::default(),
-            state_changes: Default::default(),
-        };
-        let tx = Transaction::new(tx_body, SignaturePrivateKey::from_slice(&[1; 32]).unwrap());
+        let from = nssa::Address::new([1; 32]);
+        let signing_key = nssa::PrivateKey::new(1);
+        let to = nssa::Address::new([2; 32]);
+        let balance_to_move = 10;
 
-        sequencer_core
-            .push_tx_into_mempool_pre_check(tx, [[0; 32]; 2])
-            .unwrap();
+        let addresses = vec![from, to];
+        let nonces = vec![0];
+        let program_id = nssa::AuthenticatedTransferProgram::PROGRAM_ID;
+        let message =
+            nssa::public_transaction::Message::new(program_id, addresses, nonces, balance_to_move);
+        let witness_set =
+            nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
+        let tx = nssa::PublicTransaction::new(message, witness_set);
+
+        sequencer_core.push_tx_into_mempool_pre_check(tx).unwrap();
+
         sequencer_core
             .produce_new_block_with_mempool_transactions()
             .unwrap();
@@ -414,7 +396,7 @@ mod tests {
             "id": 1,
             "jsonrpc": "2.0",
             "result": {
-                "balance": 10000
+                "balance": 10000 - 10
             }
         });
 
@@ -499,7 +481,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
-            "params": { "hash": "a5210ef33912a448cfe6eda43878c144df81f7bdf51d19b5ddf97be11806a6ed"},
+            "params": { "hash": "e5f0c9b4b7732a2f4946b8e7a5f7c641b004559b1a13b1ccc600f29477725240"},
             "id": 1
         });
 
@@ -508,24 +490,20 @@ mod tests {
             "jsonrpc": "2.0",
             "result": {
                 "transaction": {
-                    "body": {
-                        "commitment": [],
-                        "encoded_data": [],
-                        "ephemeral_pub_key": [],
-                        "execution_input": [],
-                        "execution_output": [],
-                        "execution_proof_private": "",
-                        "nullifier_created_hashes": [],
-                        "sc_addr": "",
-                        "secret_r": vec![0; 32],
-                        "state_changes": [null, 0],
-                        "tweak": "0".repeat(64),
-                        "tx_kind": "Shielded",
-                        "utxo_commitments_created_hashes": [],
-                        "utxo_commitments_spent_hashes": [],
+                    "message": {
+                        "addresses": [
+                            { "value": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
+                            { "value": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2] }
+                        ],
+                        "instruction_data": 10,
+                        "nonces": [0],
+                        "program_id": nssa::AuthenticatedTransferProgram::PROGRAM_ID,
                     },
-                    "public_key": "3056301006072A8648CE3D020106052B8104000A034200041B84C5567B126440995D3ED5AABA0565D71E1834604819FF9C17F5E9D5DD078F70BEAF8F588B541507FED6A642C5AB42DFDF8120A7F639DE5122D47A69A8E8D1",
-                    "signature": "A4E0D6A25BE829B006124F0DFD766427967AA3BEA96C29219E79BB2CC871891F384748C27E28718A4450AA78709FBF1A57DB33BCD575A2C819D2A439C2D878E6"
+                    "witness_set": {
+                        "signatures_and_public_keys": [
+                            [null, 1]
+                        ]
+                    }
                 }
             }
         });

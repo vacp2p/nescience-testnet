@@ -8,12 +8,28 @@ use nssa_core::{
 };
 use std::collections::{HashMap, HashSet};
 
-struct V01State {
+pub struct V01State {
     public_state: HashMap<Address, Account>,
 }
 
 impl V01State {
-    fn transition_from_public_transaction(&mut self, tx: PublicTransaction) -> Result<(), ()> {
+    pub fn new_with_genesis_accounts(initial_data: &[([u8; 32], u128)]) -> Self {
+        // TODO:: remove this assert?
+        let public_state = initial_data
+            .to_owned()
+            .into_iter()
+            .map(|(address_value, balance)| {
+                let mut account = Account::default();
+                account.balance = balance;
+                account.program_owner = AuthenticatedTransferProgram::PROGRAM_ID;
+                let address = Address::new(address_value);
+                (address, account)
+            })
+            .collect();
+        Self { public_state }
+    }
+
+    pub fn transition_from_public_transaction(&mut self, tx: &PublicTransaction) -> Result<(), ()> {
         let state_diff = self
             .execute_and_verify_public_transaction(&tx)
             .map_err(|_| ())?;
@@ -36,7 +52,7 @@ impl V01State {
             .or_insert_with(Account::default)
     }
 
-    fn get_account_by_address(&self, address: &Address) -> Account {
+    pub fn get_account_by_address(&self, address: &Address) -> Account {
         self.public_state
             .get(address)
             .cloned()
@@ -123,26 +139,6 @@ mod tests {
     use super::*;
     use crate::{public_transaction, signature::PrivateKey};
 
-    fn genesis_state_for_tests(balances: &[u128], addresses: &[Address]) -> V01State {
-        assert_eq!(balances.len(), addresses.len());
-        let accounts: Vec<Account> = balances
-            .iter()
-            .map(|balance| {
-                let mut account = Account::default();
-                account.balance = *balance;
-                account.program_owner = AuthenticatedTransferProgram::PROGRAM_ID;
-                account
-            })
-            .collect();
-
-        let public_state = addresses
-            .to_owned()
-            .into_iter()
-            .zip(accounts.into_iter())
-            .collect();
-        V01State { public_state }
-    }
-
     fn transfer_transaction_for_tests(
         from: Address,
         from_key: PrivateKey,
@@ -160,23 +156,22 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let addresses = [Address::new([1; 32])];
-        let balances = [100];
-        let mut genesis_state = genesis_state_for_tests(&balances, &addresses);
-        let from = addresses[0].clone();
+        let initial_data = [([1; 32], 100)];
+        let mut genesis_state = V01State::new_with_genesis_accounts(&initial_data);
+        let from = Address::new(initial_data[0].0.clone());
         let from_key = PrivateKey(1);
         let to = Address::new([2; 32]);
         let balance_to_move = 5;
         let tx =
             transfer_transaction_for_tests(from.clone(), from_key, 0, to.clone(), balance_to_move);
-        let _ = genesis_state.transition_from_public_transaction(tx);
+        let _ = genesis_state.transition_from_public_transaction(&tx);
         assert_eq!(
             genesis_state.get_account_by_address(&to).balance,
             balance_to_move
         );
         assert_eq!(
             genesis_state.get_account_by_address(&from).balance,
-            balances[0] - balance_to_move
+            initial_data[0].1 - balance_to_move
         );
         assert_eq!(genesis_state.get_account_by_address(&from).nonce, 1);
         assert_eq!(genesis_state.get_account_by_address(&to).nonce, 0);
@@ -184,20 +179,20 @@ mod tests {
 
     #[test]
     fn test_2() {
-        let addresses = [Address::new([1; 32]), Address::new([99; 32])];
-        let balances = [100, 200];
-        let mut genesis_state = genesis_state_for_tests(&balances, &addresses);
-        let from = addresses[1].clone();
+        let initial_data = [([1; 32], 100), ([99; 32], 200)];
+        let mut genesis_state = V01State::new_with_genesis_accounts(&initial_data);
+        let from = Address::new(initial_data[1].0.clone());
         let from_key = PrivateKey(99);
-        let to = addresses[0].clone();
+        let to = Address::new(initial_data[0].0.clone());
         let balance_to_move = 8;
         let to_previous_balance = genesis_state.get_account_by_address(&to).balance;
-        let tx = transfer_transaction_for_tests(from.clone(), from_key, 0, to.clone(), balance_to_move);
-        let _ = genesis_state.transition_from_public_transaction(tx);
+        let tx =
+            transfer_transaction_for_tests(from.clone(), from_key, 0, to.clone(), balance_to_move);
+        let _ = genesis_state.transition_from_public_transaction(&tx);
         assert_eq!(genesis_state.get_account_by_address(&to).balance, 108);
         assert_eq!(
             genesis_state.get_account_by_address(&from).balance,
-            balances[1] - balance_to_move
+            initial_data[1].1 - balance_to_move
         );
         assert_eq!(genesis_state.get_account_by_address(&from).nonce, 1);
         assert_eq!(genesis_state.get_account_by_address(&to).nonce, 0);

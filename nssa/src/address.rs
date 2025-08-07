@@ -1,12 +1,14 @@
+use serde::{Deserialize, Serialize};
+
 use crate::signature::PublicKey;
 
-#[derive(Clone, Hash, PartialEq, Eq)]
-pub(crate) struct Address {
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Address {
     pub(crate) value: [u8; 32],
 }
 
 impl Address {
-    pub(crate) fn new(value: [u8; 32]) -> Self {
+    pub fn new(value: [u8; 32]) -> Self {
         Self { value }
     }
 
