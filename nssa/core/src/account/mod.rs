@@ -11,7 +11,7 @@ pub type Nonce = u128;
 type Data = Vec<u8>;
 
 /// Account to be used both in public and private contexts
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Account {
     pub program_owner: ProgramId,
     pub balance: u128,
@@ -25,13 +25,35 @@ pub struct AccountWithMetadata {
     pub is_authorized: bool,
 }
 
-impl Default for Account {
-    fn default() -> Self {
-        Self {
-            program_owner: [0; 8],
-            balance: 0,
-            data: vec![],
-            nonce: 0,
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zero_balance_account_data_creation() {
+        let new_acc = Account::default();
+
+        assert_eq!(new_acc.balance, 0);
+    }
+
+    #[test]
+    fn test_zero_nonce_account_data_creation() {
+        let new_acc = Account::default();
+
+        assert_eq!(new_acc.nonce, 0);
+    }
+
+    #[test]
+    fn test_empty_data_account_data_creation() {
+        let new_acc = Account::default();
+
+        assert_eq!(new_acc.data, vec![]);
+    }
+
+    #[test]
+    fn test_default_program_owner_account_data_creation() {
+        let new_acc = Account::default();
+
+        assert_eq!(new_acc.program_owner, [0; 8]);
     }
 }

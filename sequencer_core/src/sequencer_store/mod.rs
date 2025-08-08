@@ -1,7 +1,6 @@
 use std::{collections::HashSet, path::Path};
 
 use accounts::account_core::address::AccountAddress;
-use accounts_store::SequencerAccountsStore;
 use block_store::SequecerBlockStore;
 use common::{
     block::{Block, HashableBlockData},
@@ -13,14 +12,11 @@ use nssa;
 
 use crate::config::AccountInitialData;
 
-pub mod accounts_store;
 pub mod block_store;
 
 pub struct SequecerChainStore {
     pub state: nssa::V01State,
     pub block_store: SequecerBlockStore,
-    pub nullifier_store: HashSet<UTXONullifier>,
-    pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
 }
 
 impl SequecerChainStore {
@@ -44,9 +40,6 @@ impl SequecerChainStore {
             .collect();
 
         let state = nssa::V01State::new_with_genesis_accounts(&init_accs);
-        let nullifier_store = HashSet::new();
-        let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
-        // let pub_tx_store = PublicTransactionMerkleTree::new(vec![]);
 
         let mut data = [0; 32];
         let mut prev_block_hash = [0; 32];
@@ -77,9 +70,6 @@ impl SequecerChainStore {
         Self {
             state,
             block_store,
-            nullifier_store,
-            utxo_commitments_store,
-            // pub_tx_store,
         }
     }
 }

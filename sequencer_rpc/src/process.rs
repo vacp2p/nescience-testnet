@@ -481,7 +481,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
-            "params": { "hash": "e5f0c9b4b7732a2f4946b8e7a5f7c641b004559b1a13b1ccc600f29477725240"},
+            "params": { "hash":"fc96dbd7603f1f97bfd96c31e09c35dc877a436c4aa71437b3e8f5bbf69b77fc"},
             "id": 1
         });
 
