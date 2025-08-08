@@ -12,17 +12,15 @@ use common::{
 };
 use config::SequencerConfig;
 use mempool::MemPool;
-use mempool_transaction::MempoolTransaction;
 use sequencer_store::SequecerChainStore;
 use serde::{Deserialize, Serialize};
 
 pub mod config;
-pub mod mempool_transaction;
 pub mod sequencer_store;
 
 pub struct SequencerCore {
     pub store: SequecerChainStore,
-    pub mempool: MemPool<MempoolTransaction>,
+    pub mempool: MemPool<nssa::PublicTransaction>,
     pub sequencer_config: SequencerConfig,
     pub chain_height: u64,
 }
@@ -61,7 +59,7 @@ impl SequencerCore {
                 config.is_genesis_random,
                 &config.initial_accounts,
             ),
-            mempool: MemPool::<MempoolTransaction>::default(),
+            mempool: MemPool::default(),
             chain_height: config.genesis_id,
             sequencer_config: config,
         }
@@ -95,10 +93,8 @@ impl SequencerCore {
 
     fn execute_check_transaction_on_state(
         &mut self,
-        mempool_tx: MempoolTransaction,
+        tx: nssa::PublicTransaction,
     ) -> Result<nssa::PublicTransaction, ()> {
-        let tx = mempool_tx.auth_tx;
-
         self.store.state.transition_from_public_transaction(&tx)?;
 
         // self.store.pub_tx_store.add_tx(mempool_tx.auth_tx);
@@ -116,7 +112,7 @@ impl SequencerCore {
 
         let valid_transactions = transactions
             .into_iter()
-            .filter_map(|mempool_tx| self.execute_check_transaction_on_state(mempool_tx).ok())
+            .filter_map(|tx| self.execute_check_transaction_on_state(tx).ok())
             .collect();
 
         let prev_block_hash = self
@@ -151,7 +147,6 @@ mod tests {
 
     use common::transaction::{SignaturePrivateKey, Transaction, TransactionBody, TxKind};
     use k256::{ecdsa::SigningKey, FieldBytes};
-    use mempool_transaction::MempoolTransaction;
     use nssa::Program;
     use secp256k1_zkp::Tweak;
 
@@ -255,8 +250,7 @@ mod tests {
 
     fn common_setup(sequencer: &mut SequencerCore) {
         let tx = create_dummy_transaction();
-        let mempool_tx = MempoolTransaction { auth_tx: tx };
-        sequencer.mempool.push_item(mempool_tx);
+        sequencer.mempool.push_item(tx);
 
         sequencer
             .produce_new_block_with_mempool_transactions()
@@ -281,17 +275,19 @@ mod tests {
             .try_into()
             .unwrap();
 
-        let balance_acc_1 = sequencer.store.state.get_account_by_address(&nssa::Address::new(acc1_addr)).balance;
-        let balance_acc_2 = sequencer.store.state.get_account_by_address(&nssa::Address::new(acc2_addr)).balance;
+        let balance_acc_1 = sequencer
+            .store
+            .state
+            .get_account_by_address(&nssa::Address::new(acc1_addr))
+            .balance;
+        let balance_acc_2 = sequencer
+            .store
+            .state
+            .get_account_by_address(&nssa::Address::new(acc2_addr))
+            .balance;
 
-        assert_eq!(
-            10000,
-            balance_acc_1
-        );
-        assert_eq!(
-            20000,
-            balance_acc_2
-        );
+        assert_eq!(10000, balance_acc_1);
+        assert_eq!(20000, balance_acc_2);
     }
 
     #[test]
@@ -334,11 +330,19 @@ mod tests {
 
         assert_eq!(
             10000,
-            sequencer.store.state.get_account_by_address(&nssa::Address::new(acc1_addr)).balance
+            sequencer
+                .store
+                .state
+                .get_account_by_address(&nssa::Address::new(acc1_addr))
+                .balance
         );
         assert_eq!(
             20000,
-            sequencer.store.state.get_account_by_address(&nssa::Address::new(acc2_addr)).balance
+            sequencer
+                .store
+                .state
+                .get_account_by_address(&nssa::Address::new(acc2_addr))
+                .balance
         );
     }
 
@@ -402,8 +406,7 @@ mod tests {
         // let tx_roots = sequencer.get_tree_roots();
         let tx = sequencer.transaction_pre_check(tx).unwrap();
 
-        let result =
-            sequencer.execute_check_transaction_on_state(MempoolTransaction { auth_tx: tx });
+        let result = sequencer.execute_check_transaction_on_state(tx);
 
         assert_eq!(result.err().unwrap(), ());
     }
@@ -433,9 +436,7 @@ mod tests {
         //Passed pre-check
         assert!(result.is_ok());
 
-        let result = sequencer.execute_check_transaction_on_state(MempoolTransaction {
-            auth_tx: result.unwrap(),
-        });
+        let result = sequencer.execute_check_transaction_on_state(result.unwrap());
         let is_failed_at_balance_mismatch = matches!(
             result.err().unwrap(),
             // TransactionMalformationErrorKind::BalanceMismatch { tx: _ }
@@ -465,12 +466,18 @@ mod tests {
 
         let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 100, sign_key1);
 
-        sequencer
-            .execute_check_transaction_on_state(MempoolTransaction { auth_tx: tx })
-            .unwrap();
+        sequencer.execute_check_transaction_on_state(tx).unwrap();
 
-        let bal_from = sequencer.store.state.get_account_by_address(&nssa::Address::new(acc1)).balance;
-        let bal_to = sequencer.store.state.get_account_by_address(&nssa::Address::new(acc2)).balance;
+        let bal_from = sequencer
+            .store
+            .state
+            .get_account_by_address(&nssa::Address::new(acc1))
+            .balance;
+        let bal_to = sequencer
+            .store
+            .state
+            .get_account_by_address(&nssa::Address::new(acc2))
+            .balance;
 
         assert_eq!(bal_from, 9900);
         assert_eq!(bal_to, 20100);
@@ -490,10 +497,7 @@ mod tests {
         // let tx_roots = sequencer.get_tree_roots();
 
         // Fill the mempool
-        let dummy_tx = MempoolTransaction {
-            auth_tx: tx.clone(),
-        };
-        sequencer.mempool.push_item(dummy_tx);
+        sequencer.mempool.push_item(tx.clone());
 
         let result = sequencer.push_tx_into_mempool_pre_check(tx);
 
@@ -525,8 +529,7 @@ mod tests {
         let genesis_height = sequencer.chain_height;
 
         let tx = create_dummy_transaction();
-        let tx_mempool = MempoolTransaction { auth_tx: tx };
-        sequencer.mempool.push_item(tx_mempool);
+        sequencer.mempool.push_item(tx);
 
         let block_id = sequencer.produce_new_block_with_mempool_transactions();
         assert!(block_id.is_ok());
@@ -553,16 +556,11 @@ mod tests {
 
         let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 100, sign_key1);
 
-        let tx_mempool_original = MempoolTransaction {
-            auth_tx: tx.clone(),
-        };
-        let tx_mempool_replay = MempoolTransaction {
-            auth_tx: tx.clone(),
-        };
-
+        let tx_original = tx.clone();
+        let tx_replay = tx.clone();
         // Pushing two copies of the same tx to the mempool
-        sequencer.mempool.push_item(tx_mempool_original);
-        sequencer.mempool.push_item(tx_mempool_replay);
+        sequencer.mempool.push_item(tx_original);
+        sequencer.mempool.push_item(tx_replay);
 
         // Create block
         let current_height = sequencer
@@ -599,10 +597,7 @@ mod tests {
         let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 100, sign_key1);
 
         // The transaction should be included the first time
-        let tx_mempool_original = MempoolTransaction {
-            auth_tx: tx.clone(),
-        };
-        sequencer.mempool.push_item(tx_mempool_original);
+        sequencer.mempool.push_item(tx.clone());
         let current_height = sequencer
             .produce_new_block_with_mempool_transactions()
             .unwrap();
@@ -614,8 +609,7 @@ mod tests {
         assert_eq!(block.transactions, vec![tx.clone()]);
 
         // Add same transaction should fail
-        let tx_mempool_replay = MempoolTransaction { auth_tx: tx };
-        sequencer.mempool.push_item(tx_mempool_replay);
+        sequencer.mempool.push_item(tx);
         let current_height = sequencer
             .produce_new_block_with_mempool_transactions()
             .unwrap();
