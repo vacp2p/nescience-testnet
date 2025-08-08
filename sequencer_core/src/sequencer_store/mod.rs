@@ -21,7 +21,6 @@ pub struct SequecerChainStore {
     pub block_store: SequecerBlockStore,
     pub nullifier_store: HashSet<UTXONullifier>,
     pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
-    // pub pub_tx_store: PublicTransactionMerkleTree,
 }
 
 impl SequecerChainStore {

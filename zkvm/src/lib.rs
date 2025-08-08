@@ -63,7 +63,10 @@ pub fn prove_mint_utxo(
         .map_err(ExecutionFailureKind::prove_error)?
         .receipt;
 
-    let digest: UTXOPayload = receipt.journal.decode()?;
+    let digest: UTXOPayload = receipt
+        .journal
+        .decode()
+        .map_err(|e| ExecutionFailureKind::DecodeError(e.to_string()))?;
 
     Ok((UTXO::create_utxo_from_payload(digest), receipt))
 }
@@ -110,7 +113,10 @@ pub fn prove_send_utxo(
         .map_err(ExecutionFailureKind::prove_error)?
         .receipt;
 
-    let digest: Vec<(UTXOPayload, AccountAddress)> = receipt.journal.decode()?;
+    let digest: Vec<(UTXOPayload, AccountAddress)> = receipt
+        .journal
+        .decode()
+        .map_err(|e| ExecutionFailureKind::DecodeError(e.to_string()))?;
 
     Ok((
         digest
@@ -158,7 +164,10 @@ pub fn prove_send_utxo_multiple_assets_one_receiver(
         .map_err(ExecutionFailureKind::prove_error)?
         .receipt;
 
-    let digest: (Vec<UTXOPayload>, Vec<UTXOPayload>) = receipt.journal.decode()?;
+    let digest: (Vec<UTXOPayload>, Vec<UTXOPayload>) = receipt
+        .journal
+        .decode()
+        .map_err(|e| ExecutionFailureKind::DecodeError(e.to_string()))?;
 
     Ok((
         digest
@@ -220,7 +229,10 @@ pub fn prove_send_utxo_shielded(
         .map_err(ExecutionFailureKind::prove_error)?
         .receipt;
 
-    let digest: Vec<(UTXOPayload, AccountAddress)> = receipt.journal.decode()?;
+    let digest: Vec<(UTXOPayload, AccountAddress)> = receipt
+        .journal
+        .decode()
+        .map_err(|e| ExecutionFailureKind::DecodeError(e.to_string()))?;
 
     Ok((
         digest
@@ -273,7 +285,10 @@ pub fn prove_send_utxo_deshielded(
         .map_err(ExecutionFailureKind::prove_error)?
         .receipt;
 
-    let digest: Vec<(UTXOPayload, AccountAddress)> = receipt.journal.decode()?;
+    let digest: Vec<(UTXOPayload, AccountAddress)> = receipt
+        .journal
+        .decode()
+        .map_err(|e| ExecutionFailureKind::DecodeError(e.to_string()))?;
 
     Ok((
         digest
@@ -313,7 +328,10 @@ pub fn prove_mint_utxo_multiple_assets(
         .map_err(ExecutionFailureKind::prove_error)?
         .receipt;
 
-    let digest: Vec<UTXOPayload> = receipt.journal.decode()?;
+    let digest: Vec<UTXOPayload> = receipt
+        .journal
+        .decode()
+        .map_err(|e| ExecutionFailureKind::DecodeError(e.to_string()))?;
 
     Ok((
         digest

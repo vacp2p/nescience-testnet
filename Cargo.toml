@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-  # "sequencer_runner",
+  "sequencer_runner",
   "storage",
   "accounts",
   "utxo",

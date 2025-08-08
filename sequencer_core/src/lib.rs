@@ -67,16 +67,6 @@ impl SequencerCore {
         }
     }
 
-    // pub fn get_tree_roots(&self) -> [[u8; 32]; 2] {
-    //     [
-    //         self.store
-    //             .utxo_commitments_store
-    //             .get_root()
-    //             .unwrap_or([0; 32]),
-    //         self.store.pub_tx_store.get_root().unwrap_or([0; 32]),
-    //     ]
-    // }
-
     pub fn transaction_pre_check(
         &mut self,
         tx: nssa::PublicTransaction,
