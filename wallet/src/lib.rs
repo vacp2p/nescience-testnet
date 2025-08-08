@@ -136,12 +136,7 @@ impl NodeCore {
     pub fn store_present_accounts_at_path(&self, path: PathBuf) -> Result<PathBuf> {
         let dump_path = path.join("curr_accounts.json");
 
-        let curr_accs: Vec<Account> = self
-            .storage
-            .acc_map
-            .values()
-            .cloned()
-            .collect();
+        let curr_accs: Vec<Account> = self.storage.acc_map.values().cloned().collect();
         let accs_serialized = serde_json::to_vec_pretty(&curr_accs)?;
 
         let mut acc_file = File::create(&dump_path).unwrap();
