@@ -275,7 +275,7 @@ mod tests {
         let message =
             nssa::public_transaction::Message::new(program_id, addresses, nonces, balance_to_move);
         let witness_set =
-            nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
+            nssa::public_transaction::WitnessSet::for_message(&message, &[&signing_key]);
         let tx = nssa::PublicTransaction::new(message, witness_set);
 
         sequencer_core

@@ -3,7 +3,7 @@ use nssa_core::{
     program::ProgramId,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{digest::FixedOutput, Digest};
+use sha2::{Digest, digest::FixedOutput};
 
 use crate::{
     address::Address,
@@ -46,11 +46,11 @@ pub struct WitnessSet {
 }
 
 impl WitnessSet {
-    pub fn for_message(message: &Message, private_keys: &[PrivateKey]) -> Self {
+    pub fn for_message(message: &Message, private_keys: &[&PrivateKey]) -> Self {
         let message_bytes = message.to_bytes();
         let signatures_and_public_keys = private_keys
             .iter()
-            .map(|key| (Signature::new(key, &message_bytes), PublicKey::new(key)))
+            .map(|&key| (Signature::new(key, &message_bytes), PublicKey::new(key)))
             .collect();
         Self {
             signatures_and_public_keys,

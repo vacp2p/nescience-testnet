@@ -58,10 +58,6 @@ pub struct TransactionBody {
     pub secret_r: [u8; 32],
     ///Hex-encoded address of a smart contract account called
     pub sc_addr: String,
-    ///Recorded changes in state of smart contract
-    ///
-    /// First value represents vector of changes, second is new length of a state
-    pub state_changes: (serde_json::Value, usize),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -325,7 +321,6 @@ mod tests {
             tweak: Tweak::from_slice(&[7; SECRET_KEY_SIZE]).unwrap(),
             secret_r: [8; 32],
             sc_addr: "someAddress".to_string(),
-            state_changes: (serde_json::Value::Null, 10),
         }
     }
 

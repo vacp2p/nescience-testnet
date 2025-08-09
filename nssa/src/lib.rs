@@ -14,6 +14,7 @@ pub use address::Address;
 pub use nssa_core::program::Program;
 pub use public_transaction::PublicTransaction;
 pub use signature::PrivateKey;
+pub use signature::PublicKey;
 pub use state::V01State;
 
 pub const AUTHENTICATED_TRANSFER_PROGRAM: Program = Program {

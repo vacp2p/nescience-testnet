@@ -1,0 +1,90 @@
+use k256::ecdsa::SigningKey;
+use nssa;
+use secp256k1_zkp::Tweak;
+
+use crate::{
+    block::{Block, HashableBlockData},
+    execution_input::PublicNativeTokenSend,
+    transaction::{SignaturePrivateKey, Transaction, TransactionBody, TxKind},
+};
+
+//Dummy producers
+
+///Produce dummy block with
+///
+/// `id` - block id, provide zero for genesis
+///
+/// `prev_hash` - hash of previous block, provide None for genesis
+///
+/// `transactions` - vector of `Transaction` objects
+///
+/// `additional_data` - vector with additional data
+pub fn produce_dummy_block(
+    id: u64,
+    prev_hash: Option<[u8; 32]>,
+    transactions: Vec<nssa::PublicTransaction>,
+    additional_data: Vec<u8>,
+) -> Block {
+    let block_data = HashableBlockData {
+        block_id: id,
+        prev_block_id: id.saturating_sub(1),
+        prev_block_hash: prev_hash.unwrap_or_default(),
+        transactions,
+        data: additional_data,
+    };
+
+    block_data.into()
+}
+
+pub fn produce_dummy_empty_transaction() -> nssa::PublicTransaction {
+    let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
+    let addresses = vec![];
+    let nonces = vec![];
+    let instruction_data = 0;
+    let message =
+        nssa::public_transaction::Message::new(program_id, addresses, nonces, instruction_data);
+    let private_key = nssa::PrivateKey::new(1);
+    let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[&private_key]);
+    nssa::PublicTransaction::new(message, witness_set)
+}
+
+// pub fn create_dummy_private_transaction_random_signer(
+//     nullifier_created_hashes: Vec<[u8; 32]>,
+//     utxo_commitments_spent_hashes: Vec<[u8; 32]>,
+//     utxo_commitments_created_hashes: Vec<[u8; 32]>,
+// ) -> Transaction {
+//     let mut rng = rand::thread_rng();
+//
+//     let body = TransactionBody {
+//         tx_kind: TxKind::Private,
+//         execution_input: vec![],
+//         execution_output: vec![],
+//         utxo_commitments_spent_hashes,
+//         utxo_commitments_created_hashes,
+//         nullifier_created_hashes,
+//         execution_proof_private: "dummy_proof".to_string(),
+//         encoded_data: vec![],
+//         ephemeral_pub_key: vec![10, 11, 12],
+//         commitment: vec![],
+//         tweak: Tweak::new(&mut rng),
+//         secret_r: [0; 32],
+//         sc_addr: "sc_addr".to_string(),
+//     };
+//     Transaction::new(body, SignaturePrivateKey::random(&mut rng))
+// }
+
+pub fn create_dummy_transaction_native_token_transfer(
+    from: [u8; 32],
+    nonce: u128,
+    to: [u8; 32],
+    balance_to_move: u128,
+    signing_key: nssa::PrivateKey,
+) -> nssa::PublicTransaction {
+    let addresses = vec![nssa::Address::new(from), nssa::Address::new(to)];
+    let nonces = vec![nonce];
+    let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
+    let message =
+        nssa::public_transaction::Message::new(program_id, addresses, nonces, balance_to_move);
+    let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[&signing_key]);
+    nssa::PublicTransaction::new(message, witness_set)
+}

@@ -117,14 +117,14 @@ impl AccountPublicMask {
 impl Account {
     pub fn new() -> Self {
         let key_holder = AddressKeyHolder::new_os_random();
-        let public_key = *key_holder.get_pub_account_signing_key().verifying_key();
-        let address = address::from_public_key(&public_key);
+        let public_key = nssa::PublicKey::new(&key_holder.get_pub_account_signing_key());
+        let address = nssa::Address::from_public_key(&public_key);
         let balance = 0;
         let utxos = HashMap::new();
 
         Self {
             key_holder,
-            address,
+            address: *address.value(),
             balance,
             utxos,
         }
@@ -132,13 +132,13 @@ impl Account {
 
     pub fn new_with_balance(balance: u64) -> Self {
         let key_holder = AddressKeyHolder::new_os_random();
-        let public_key = *key_holder.get_pub_account_signing_key().verifying_key();
-        let address = address::from_public_key(&public_key);
+        let public_key = nssa::PublicKey::new(&key_holder.get_pub_account_signing_key());
+        let address = nssa::Address::from_public_key(&public_key);
         let utxos = HashMap::new();
 
         Self {
             key_holder,
-            address,
+            address: *address.value(),
             balance,
             utxos,
         }

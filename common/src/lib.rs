@@ -7,8 +7,12 @@ pub mod execution_input;
 pub mod merkle_tree_public;
 pub mod nullifier;
 pub mod rpc_primitives;
+pub mod sequencer_client;
 pub mod transaction;
 pub mod utxo_commitment;
+
+//Module for tests utility functions
+pub mod test_utils;
 
 use rpc_primitives::errors::RpcError;
 

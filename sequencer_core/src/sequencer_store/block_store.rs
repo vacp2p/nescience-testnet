@@ -76,34 +76,33 @@ fn block_to_transactions_map(block: &Block) -> HashMap<TreeHashType, u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::transaction::{SignaturePrivateKey, TransactionBody};
     use nssa::Program;
     use tempfile::tempdir;
-
-    fn create_dummy_block_with_transaction(block_id: u64) -> (Block, nssa::PublicTransaction) {
-        let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
-        let addresses = vec![];
-        let nonces = vec![];
-        let instruction_data = 0;
-        let message =
-            nssa::public_transaction::Message::new(program_id, addresses, nonces, instruction_data);
-        let private_key = nssa::PrivateKey::new(1);
-        let witness_set =
-            nssa::public_transaction::WitnessSet::for_message(&message, &[private_key]);
-        let tx = nssa::PublicTransaction::new(message, witness_set);
-        (
-            Block {
-                block_id,
-                prev_block_id: block_id - 1,
-                prev_block_hash: [0; 32],
-                hash: [1; 32],
-                transactions: vec![tx.clone()],
-                data: vec![],
-            },
-            tx,
-        )
-    }
-
+    //
+    // fn create_dummy_block_with_transaction(block_id: u64) -> (Block, nssa::PublicTransaction) {
+    //     let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
+    //     let addresses = vec![];
+    //     let nonces = vec![];
+    //     let instruction_data = 0;
+    //     let message =
+    //         nssa::public_transaction::Message::new(program_id, addresses, nonces, instruction_data);
+    //     let private_key = nssa::PrivateKey::new(1);
+    //     let witness_set =
+    //         nssa::public_transaction::WitnessSet::for_message(&message, &[private_key]);
+    //     let tx = nssa::PublicTransaction::new(message, witness_set);
+    //     (
+    //         Block {
+    //             block_id,
+    //             prev_block_id: block_id - 1,
+    //             prev_block_hash: [0; 32],
+    //             hash: [1; 32],
+    //             transactions: vec![tx.clone()],
+    //             data: vec![],
+    //         },
+    //         tx,
+    //     )
+    // }
+    //
     #[test]
     fn test_get_transaction_by_hash() {
         let temp_dir = tempdir().unwrap();
@@ -119,7 +118,10 @@ mod tests {
         // Start an empty node store
         let mut node_store =
             SequecerBlockStore::open_db_with_genesis(path, Some(genesis_block)).unwrap();
-        let (block, tx) = create_dummy_block_with_transaction(1);
+
+        let tx = common::test_utils::produce_dummy_empty_transaction();
+        let block = common::test_utils::produce_dummy_block(1, None, vec![tx.clone()], vec![]);
+
         // Try retrieve a tx that's not in the chain yet.
         let retrieved_tx = node_store.get_transaction_by_hash(tx.hash());
         assert_eq!(None, retrieved_tx);

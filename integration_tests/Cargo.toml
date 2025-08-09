@@ -30,14 +30,8 @@ path = "../sequencer_core"
 [dependencies.sequencer_runner]
 path = "../sequencer_runner"
 
-[dependencies.node_rpc]
-path = "../node_rpc"
-
-[dependencies.node_core]
-path = "../node_core"
-
-[dependencies.node_runner]
-path = "../node_runner"
+[dependencies.wallet]
+path = "../wallet"
 
 [dependencies.common]
 path = "../common"

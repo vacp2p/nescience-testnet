@@ -3,12 +3,13 @@ use constants_types::{CipherText, Nonce};
 use elliptic_curve::point::AffineCoordinates;
 use k256::{ecdsa::SigningKey, AffinePoint, FieldBytes};
 use log::info;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::OsRng, Rng, RngCore};
 use secret_holders::{SeedHolder, TopSecretKeyHolder, UTXOSecretKeyHolder};
 use serde::{Deserialize, Serialize};
 
 use crate::account_core::PublicKey;
 pub type PublicAccountSigningKey = [u8; 32];
+use nssa::{self, PrivateKey};
 
 pub mod constants_types;
 pub mod ephemeral_key_holder;
@@ -19,7 +20,7 @@ pub mod secret_holders;
 pub struct AddressKeyHolder {
     top_secret_key_holder: TopSecretKeyHolder,
     pub utxo_secret_key_holder: UTXOSecretKeyHolder,
-    pub_account_signing_key: PublicAccountSigningKey,
+    pub_account_signing_key: nssa::PrivateKey,
     pub nullifer_public_key: PublicKey,
     pub viewing_public_key: PublicKey,
 }
@@ -37,9 +38,8 @@ impl AddressKeyHolder {
         let viewing_public_key = utxo_secret_key_holder.generate_viewing_public_key();
 
         let pub_account_signing_key = {
-            let mut bytes = [0; 32];
-            OsRng.fill_bytes(&mut bytes);
-            bytes
+            let mut rng = OsRng;
+            nssa::PrivateKey::new(rng.gen())
         };
 
         Self {
@@ -52,10 +52,8 @@ impl AddressKeyHolder {
     }
 
     /// Returns the signing key for public transaction signatures
-    pub fn get_pub_account_signing_key(&self) -> SigningKey {
-        let field_bytes = FieldBytes::from_slice(&self.pub_account_signing_key);
-        // TODO: remove unwrap
-        SigningKey::from_bytes(field_bytes).unwrap()
+    pub fn get_pub_account_signing_key(&self) -> &nssa::PrivateKey {
+        &self.pub_account_signing_key
     }
 
     pub fn calculate_shared_secret_receiver(
@@ -319,10 +317,7 @@ mod tests {
     fn test_get_public_account_signing_key() {
         let address_key_holder = AddressKeyHolder::new_os_random();
         let signing_key = address_key_holder.get_pub_account_signing_key();
-        assert_eq!(
-            signing_key.to_bytes().as_slice(),
-            address_key_holder.pub_account_signing_key
-        );
+        assert_eq!(signing_key, &address_key_holder.pub_account_signing_key);
     }
 
     #[test]
@@ -336,18 +331,13 @@ mod tests {
         let viewing_public_key = utxo_secret_key_holder.generate_viewing_public_key();
 
         let pub_account_signing_key = {
-            let mut bytes = [0; 32];
-            OsRng.fill_bytes(&mut bytes);
-            bytes
+            let mut rng = OsRng;
+            nssa::PrivateKey::new(rng.gen())
         };
 
-        //Address is a Keccak(verification_key)
-        let field_bytes = FieldBytes::from_slice(&pub_account_signing_key);
-        let signing_key = SigningKey::from_bytes(field_bytes).unwrap();
+        let public_key = nssa::PublicKey::new(&pub_account_signing_key);
 
-        let verifying_key = signing_key.verifying_key();
-
-        let address = address::from_public_key(verifying_key);
+        let address = nssa::Address::from_public_key(&public_key);
 
         println!("======Prerequisites======");
         println!();
@@ -373,7 +363,7 @@ mod tests {
 
         println!("======Public data======");
         println!();
-        println!("Address{:?}", hex::encode(address));
+        println!("Address{:?}", hex::encode(address.value()));
         println!(
             "Nulifier public key {:?}",
             hex::encode(serde_json::to_vec(&nullifer_public_key).unwrap())

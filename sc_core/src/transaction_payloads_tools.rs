@@ -14,7 +14,6 @@ pub fn create_public_transaction_payload(
     tweak: Tweak,
     secret_r: [u8; 32],
     sc_addr: String,
-    state_changes: (serde_json::Value, usize),
 ) -> TransactionBody {
     TransactionBody {
         tx_kind: TxKind::Public,
@@ -30,7 +29,6 @@ pub fn create_public_transaction_payload(
         tweak,
         secret_r,
         sc_addr,
-        state_changes,
     }
 }
 

@@ -46,12 +46,6 @@ pub struct NodeConfig {
     pub sequencer_addr: String,
     ///Sequencer polling duration for new blocks in seconds
     pub seq_poll_timeout_secs: u64,
-    ///Port to listen
-    pub port: u16,
-    ///Gas config
-    pub gas_config: GasConfig,
-    ///Frequency of snapshots
-    pub shapshot_frequency_in_blocks: u64,
     ///Initial accounts for wallet
     pub initial_accounts: Vec<Account>,
 }

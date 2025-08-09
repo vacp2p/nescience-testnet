@@ -24,12 +24,6 @@ path = "../mempool"
 [dependencies.accounts]
 path = "../accounts"
 
-[dependencies.consensus]
-path = "../consensus"
-
-[dependencies.networking]
-path = "../networking"
-
 [dependencies.sequencer_core]
 path = "../sequencer_core"
 

@@ -6,6 +6,8 @@ use crate::{address::Address, public_transaction::Message};
 pub(crate) struct Signature;
 
 // TODO: Dummy impl. Replace by actual private key.
+// TODO: Remove Debug, Clone, Serialize, Deserialize, PartialEq and Eq for security reasons
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PrivateKey(pub(crate) u8);
 
 impl PrivateKey {
@@ -16,10 +18,10 @@ impl PrivateKey {
 
 // TODO: Dummy impl. Replace by actual public key.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct PublicKey(pub(crate) u8);
+pub struct PublicKey(pub(crate) u8);
 
 impl PublicKey {
-    pub(crate) fn new(key: &PrivateKey) -> Self {
+    pub fn new(key: &PrivateKey) -> Self {
         // TODO: implement
         Self(key.0)
     }

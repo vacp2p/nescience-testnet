@@ -158,7 +158,7 @@ mod tests {
         let nonces = vec![nonce];
         let program_id = AUTHENTICATED_TRANSFER_PROGRAM.id;
         let message = public_transaction::Message::new(program_id, addresses, nonces, balance);
-        let witness_set = public_transaction::WitnessSet::for_message(&message, &[from_key]);
+        let witness_set = public_transaction::WitnessSet::for_message(&message, &[&from_key]);
         PublicTransaction::new(message, witness_set)
     }
 

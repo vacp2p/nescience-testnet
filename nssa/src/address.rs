@@ -12,8 +12,12 @@ impl Address {
         Self { value }
     }
 
-    pub(crate) fn from_public_key(public_key: &PublicKey) -> Self {
+    pub fn from_public_key(public_key: &PublicKey) -> Self {
         // TODO: implement
         Address::new([public_key.0; 32])
+    }
+
+    pub fn value(&self) -> &[u8; 32] {
+        &self.value
     }
 }

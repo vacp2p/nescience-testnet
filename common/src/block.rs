@@ -27,19 +27,19 @@ pub struct HashableBlockData {
     pub data: Data,
 }
 
-impl Block {
-    pub fn produce_block_from_hashable_data(hashable_data: HashableBlockData) -> Self {
-        let data = serde_json::to_vec(&hashable_data).unwrap();
+impl From<HashableBlockData> for Block {
+    fn from(value: HashableBlockData) -> Self {
+        let data = serde_json::to_vec(&value).unwrap();
 
         let hash = OwnHasher::hash(&data);
 
         Self {
-            block_id: hashable_data.block_id,
-            prev_block_id: hashable_data.prev_block_id,
+            block_id: value.block_id,
+            prev_block_id: value.prev_block_id,
             hash,
-            transactions: hashable_data.transactions,
-            data: hashable_data.data,
-            prev_block_hash: hashable_data.prev_block_hash,
+            transactions: value.transactions,
+            data: value.data,
+            prev_block_hash: value.prev_block_hash,
         }
     }
 }

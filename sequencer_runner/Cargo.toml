@@ -22,12 +22,6 @@ workspace = true
 [dependencies.mempool]
 path = "../mempool"
 
-[dependencies.consensus]
-path = "../consensus"
-
-[dependencies.networking]
-path = "../networking"
-
 [dependencies.sequencer_rpc]
 path = "../sequencer_rpc"
 

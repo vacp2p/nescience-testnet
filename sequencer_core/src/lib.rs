@@ -3,7 +3,7 @@ use std::fmt::Display;
 use accounts::account_core::address::{self, AccountAddress};
 use anyhow::Result;
 use common::{
-    block::{Block, HashableBlockData},
+    block::HashableBlockData,
     execution_input::PublicNativeTokenSend,
     merkle_tree_public::TreeHashType,
     nullifier::UTXONullifier,
@@ -129,7 +129,7 @@ impl SequencerCore {
             prev_block_hash,
         };
 
-        let block = Block::produce_block_from_hashable_data(hashable_data);
+        let block = hashable_data.into();
 
         self.store.block_store.put_block_at_id(block)?;
 
@@ -144,11 +144,7 @@ mod tests {
     use crate::config::AccountInitialData;
 
     use super::*;
-
-    use common::transaction::{SignaturePrivateKey, Transaction, TransactionBody, TxKind};
-    use k256::{ecdsa::SigningKey, FieldBytes};
     use nssa::Program;
-    use secp256k1_zkp::Tweak;
 
     fn setup_sequencer_config_variable_initial_accounts(
         initial_accounts: Vec<AccountInitialData>,
@@ -196,35 +192,35 @@ mod tests {
         setup_sequencer_config_variable_initial_accounts(initial_accounts)
     }
 
-    fn create_dummy_transaction() -> nssa::PublicTransaction {
-        let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
-        let addresses = vec![];
-        let nonces = vec![];
-        let instruction_data = 0;
-        let message =
-            nssa::public_transaction::Message::new(program_id, addresses, nonces, instruction_data);
-        let private_key = nssa::PrivateKey::new(1);
-        let witness_set =
-            nssa::public_transaction::WitnessSet::for_message(&message, &[private_key]);
-        nssa::PublicTransaction::new(message, witness_set)
-    }
-
-    fn create_dummy_transaction_native_token_transfer(
-        from: [u8; 32],
-        nonce: u128,
-        to: [u8; 32],
-        balance_to_move: u128,
-        signing_key: nssa::PrivateKey,
-    ) -> nssa::PublicTransaction {
-        let addresses = vec![nssa::Address::new(from), nssa::Address::new(to)];
-        let nonces = vec![nonce];
-        let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
-        let message =
-            nssa::public_transaction::Message::new(program_id, addresses, nonces, balance_to_move);
-        let witness_set =
-            nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
-        nssa::PublicTransaction::new(message, witness_set)
-    }
+    // fn create_dummy_transaction() -> nssa::PublicTransaction {
+    //     let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
+    //     let addresses = vec![];
+    //     let nonces = vec![];
+    //     let instruction_data = 0;
+    //     let message =
+    //         nssa::public_transaction::Message::new(program_id, addresses, nonces, instruction_data);
+    //     let private_key = nssa::PrivateKey::new(1);
+    //     let witness_set =
+    //         nssa::public_transaction::WitnessSet::for_message(&message, &[&private_key]);
+    //     nssa::PublicTransaction::new(message, witness_set)
+    // }
+    //
+    // fn create_dummy_transaction_native_token_transfer(
+    //     from: [u8; 32],
+    //     nonce: u128,
+    //     to: [u8; 32],
+    //     balance_to_move: u128,
+    //     signing_key: nssa::PrivateKey,
+    // ) -> nssa::PublicTransaction {
+    //     let addresses = vec![nssa::Address::new(from), nssa::Address::new(to)];
+    //     let nonces = vec![nonce];
+    //     let program_id = nssa::AUTHENTICATED_TRANSFER_PROGRAM.id;
+    //     let message =
+    //         nssa::public_transaction::Message::new(program_id, addresses, nonces, balance_to_move);
+    //     let witness_set =
+    //         nssa::public_transaction::WitnessSet::for_message(&message, &[&signing_key]);
+    //     nssa::PublicTransaction::new(message, witness_set)
+    // }
 
     fn create_signing_key_for_account1() -> nssa::PrivateKey {
         // let pub_sign_key_acc1 = [
@@ -249,7 +245,7 @@ mod tests {
     }
 
     fn common_setup(sequencer: &mut SequencerCore) {
-        let tx = create_dummy_transaction();
+        let tx = common::test_utils::produce_dummy_empty_transaction();
         sequencer.mempool.push_item(tx);
 
         sequencer
@@ -353,7 +349,7 @@ mod tests {
 
         common_setup(&mut sequencer);
 
-        let tx = create_dummy_transaction();
+        let tx = common::test_utils::produce_dummy_empty_transaction();
         // let tx_roots = sequencer.get_tree_roots();
         let result = sequencer.transaction_pre_check(tx);
 
@@ -378,7 +374,9 @@ mod tests {
 
         let sign_key1 = create_signing_key_for_account1();
 
-        let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 10, sign_key1);
+        let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
+            acc1, 0, acc2, 10, sign_key1,
+        );
         let result = sequencer.transaction_pre_check(tx);
 
         assert!(result.is_ok());
@@ -402,7 +400,9 @@ mod tests {
 
         let sign_key2 = create_signing_key_for_account2();
 
-        let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 10, sign_key2);
+        let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
+            acc1, 0, acc2, 10, sign_key2,
+        );
         // let tx_roots = sequencer.get_tree_roots();
         let tx = sequencer.transaction_pre_check(tx).unwrap();
 
@@ -429,7 +429,9 @@ mod tests {
 
         let sign_key1 = create_signing_key_for_account1();
 
-        let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 10000000, sign_key1);
+        let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
+            acc1, 0, acc2, 10000000, sign_key1,
+        );
         // let tx_roots = sequencer.get_tree_roots();
         let result = sequencer.transaction_pre_check(tx);
 
@@ -464,7 +466,9 @@ mod tests {
 
         let sign_key1 = create_signing_key_for_account1();
 
-        let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 100, sign_key1);
+        let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
+            acc1, 0, acc2, 100, sign_key1,
+        );
 
         sequencer.execute_check_transaction_on_state(tx).unwrap();
 
@@ -493,7 +497,7 @@ mod tests {
 
         common_setup(&mut sequencer);
 
-        let tx = create_dummy_transaction();
+        let tx = common::test_utils::produce_dummy_empty_transaction();
         // let tx_roots = sequencer.get_tree_roots();
 
         // Fill the mempool
@@ -514,8 +518,7 @@ mod tests {
 
         common_setup(&mut sequencer);
 
-        let tx = create_dummy_transaction();
-        // let tx_roots = sequencer.get_tree_roots();
+        let tx = common::test_utils::produce_dummy_empty_transaction();
 
         let result = sequencer.push_tx_into_mempool_pre_check(tx);
         assert!(result.is_ok());
@@ -528,7 +531,7 @@ mod tests {
         let mut sequencer = SequencerCore::start_from_config(config);
         let genesis_height = sequencer.chain_height;
 
-        let tx = create_dummy_transaction();
+        let tx = common::test_utils::produce_dummy_empty_transaction();
         sequencer.mempool.push_item(tx);
 
         let block_id = sequencer.produce_new_block_with_mempool_transactions();
@@ -554,7 +557,9 @@ mod tests {
 
         let sign_key1 = create_signing_key_for_account1();
 
-        let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 100, sign_key1);
+        let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
+            acc1, 0, acc2, 100, sign_key1,
+        );
 
         let tx_original = tx.clone();
         let tx_replay = tx.clone();
@@ -594,7 +599,9 @@ mod tests {
 
         let sign_key1 = create_signing_key_for_account1();
 
-        let tx = create_dummy_transaction_native_token_transfer(acc1, 0, acc2, 100, sign_key1);
+        let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
+            acc1, 0, acc2, 100, sign_key1,
+        );
 
         // The transaction should be included the first time
         sequencer.mempool.push_item(tx.clone());
