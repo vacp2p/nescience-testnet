@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{address::Address, public_transaction::Message};
+use crate::public_transaction::Message;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct Signature;

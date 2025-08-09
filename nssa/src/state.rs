@@ -40,7 +40,7 @@ impl V01State {
 
     pub fn transition_from_public_transaction(&mut self, tx: &PublicTransaction) -> Result<(), ()> {
         let state_diff = self
-            .execute_and_verify_public_transaction(&tx)
+            .execute_and_verify_public_transaction(tx)
             .map_err(|_| ())?;
 
         for (address, post) in state_diff.into_iter() {
@@ -58,7 +58,7 @@ impl V01State {
     fn get_account_by_address_mut(&mut self, address: Address) -> &mut Account {
         self.public_state
             .entry(address)
-            .or_insert_with(Account::default)
+            .or_default()
     }
 
     pub fn get_account_by_address(&self, address: &Address) -> Account {
@@ -137,7 +137,7 @@ impl V01State {
             .addresses
             .iter()
             .cloned()
-            .zip(post_states.into_iter())
+            .zip(post_states)
             .collect())
     }
 }
@@ -166,7 +166,7 @@ mod tests {
     fn test_1() {
         let initial_data = [([1; 32], 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
-        let from = Address::new(initial_data[0].0.clone());
+        let from = Address::new(initial_data[0].0);
         let from_key = PrivateKey(1);
         let to = Address::new([2; 32]);
         let balance_to_move = 5;
@@ -184,9 +184,9 @@ mod tests {
     fn test_2() {
         let initial_data = [([1; 32], 100), ([99; 32], 200)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
-        let from = Address::new(initial_data[1].0.clone());
+        let from = Address::new(initial_data[1].0);
         let from_key = PrivateKey(99);
-        let to = Address::new(initial_data[0].0.clone());
+        let to = Address::new(initial_data[0].0);
         let balance_to_move = 8;
         let to_previous_balance = state.get_account_by_address(&to).balance;
         let tx =
@@ -203,7 +203,7 @@ mod tests {
     fn test_3() {
         let initial_data = [([1; 32], 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
-        let address_1 = Address::new(initial_data[0].0.clone());
+        let address_1 = Address::new(initial_data[0].0);
         let key_1 = PrivateKey(1);
         let address_2 = Address::new([2; 32]);
 

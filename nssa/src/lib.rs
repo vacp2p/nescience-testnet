@@ -1,6 +1,6 @@
 use nssa_core::{
     account::{Account, AccountWithMetadata},
-    program::{DEFAULT_PROGRAM_ID, ProgramId},
+    program::DEFAULT_PROGRAM_ID,
 };
 use program_methods::{AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID};
 use risc0_zkvm::{ExecutorEnv, ExecutorEnvBuilder, default_executor};

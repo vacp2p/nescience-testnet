@@ -1,5 +1,5 @@
 use nssa_core::{
-    account::{Account, Nonce},
+    account::Nonce,
     program::ProgramId,
 };
 use serde::{Deserialize, Serialize};
@@ -92,6 +92,6 @@ impl PublicTransaction {
         let bytes = serde_cbor::to_vec(&self).unwrap();
         let mut hasher = sha2::Sha256::new();
         hasher.update(&bytes);
-        hasher.finalize_fixed().try_into().unwrap()
+        hasher.finalize_fixed().into()
     }
 }
