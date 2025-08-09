@@ -1,4 +1,4 @@
-use nssa_core::account::{Account, AccountWithMetadata};
+use nssa_core::account::AccountWithMetadata;
 use risc0_zkvm::guest::env;
 
 /// A transfer of balance program.

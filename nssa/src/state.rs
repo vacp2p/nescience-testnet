@@ -16,11 +16,11 @@ pub struct V01State {
 impl V01State {
     pub fn new_with_genesis_accounts(initial_data: &[([u8; 32], u128)]) -> Self {
         let public_state = initial_data
-            .to_owned()
-            .into_iter()
+            .iter()
+            .copied()
             .map(|(address_value, balance)| {
                 let account = Account {
-                    balance: balance,
+                    balance,
                     program_owner: AUTHENTICATED_TRANSFER_PROGRAM.id,
                     ..Account::default()
                 };
@@ -58,9 +58,7 @@ impl V01State {
     }
 
     fn get_account_by_address_mut(&mut self, address: Address) -> &mut Account {
-        self.public_state
-            .entry(address)
-            .or_default()
+        self.public_state.entry(address).or_default()
     }
 
     pub fn get_account_by_address(&self, address: &Address) -> Account {
@@ -135,12 +133,7 @@ impl V01State {
             return Err(());
         }
 
-        Ok(message
-            .addresses
-            .iter()
-            .cloned()
-            .zip(post_states)
-            .collect())
+        Ok(message.addresses.iter().cloned().zip(post_states).collect())
     }
 }
 

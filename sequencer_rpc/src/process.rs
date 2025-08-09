@@ -505,7 +505,7 @@ mod tests {
                     },
                     "witness_set": {
                         "signatures_and_public_keys": [
-                            [null, 1]
+                            [1, 1]
                         ]
                     }
                 }

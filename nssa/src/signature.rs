@@ -29,7 +29,7 @@ impl PublicKey {
 }
 
 impl Signature {
-    pub(crate) fn new(key: &PrivateKey, message: &[u8]) -> Self {
+    pub(crate) fn new(key: &PrivateKey, _message: &[u8]) -> Self {
         Signature(key.0)
     }
 
