@@ -3,10 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::public_transaction::Message;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct Signature;
+pub struct Signature(pub(crate) u8);
 
 // TODO: Dummy impl. Replace by actual private key.
 // TODO: Remove Debug, Clone, Serialize, Deserialize, PartialEq and Eq for security reasons
+// TODO: Implement Zeroize
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PrivateKey(pub(crate) u8);
 
@@ -28,12 +29,12 @@ impl PublicKey {
 }
 
 impl Signature {
-    pub(crate) fn new(_key: &PrivateKey, message: &[u8]) -> Self {
-        Self
+    pub(crate) fn new(key: &PrivateKey, message: &[u8]) -> Self {
+        Signature(key.0)
     }
 
-    pub(crate) fn is_valid_for(&self, _message: &Message, _public_key: &PublicKey) -> bool {
+    pub fn is_valid_for(&self, _message: &Message, public_key: &PublicKey) -> bool {
         // TODO: implement
-        true
+        self.0 == public_key.0
     }
 }

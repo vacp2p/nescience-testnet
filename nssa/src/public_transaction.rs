@@ -42,7 +42,7 @@ impl Message {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WitnessSet {
-    pub(crate) signatures_and_public_keys: Vec<(Signature, PublicKey)>,
+    pub signatures_and_public_keys: Vec<(Signature, PublicKey)>,
 }
 
 impl WitnessSet {

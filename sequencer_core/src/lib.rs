@@ -1,10 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use common::{
-    block::HashableBlockData,
-    merkle_tree_public::TreeHashType,
-};
+use common::{block::HashableBlockData, merkle_tree_public::TreeHashType};
 use config::SequencerConfig;
 use mempool::MemPool;
 use sequencer_store::SequecerChainStore;
@@ -63,10 +60,18 @@ impl SequencerCore {
     pub fn transaction_pre_check(
         &mut self,
         tx: nssa::PublicTransaction,
-        // tx_roots: [[u8; 32]; 2],
     ) -> Result<nssa::PublicTransaction, TransactionMalformationErrorKind> {
-        // TODO: Stateless checks here
-        Ok(tx)
+        // Stateless checks here
+        if tx
+            .witness_set()
+            .signatures_and_public_keys
+            .iter()
+            .all(|(signature, public_key)| signature.is_valid_for(tx.message(), public_key))
+        {
+            Ok(tx)
+        } else {
+            Err(TransactionMalformationErrorKind::InvalidSignature)
+        }
     }
 
     pub fn push_tx_into_mempool_pre_check(
@@ -91,8 +96,6 @@ impl SequencerCore {
         tx: nssa::PublicTransaction,
     ) -> Result<nssa::PublicTransaction, ()> {
         self.store.state.transition_from_public_transaction(&tx)?;
-
-        // self.store.pub_tx_store.add_tx(mempool_tx.auth_tx);
 
         Ok(tx)
     }
@@ -139,7 +142,6 @@ mod tests {
     use crate::config::AccountInitialData;
 
     use super::*;
-    
 
     fn setup_sequencer_config_variable_initial_accounts(
         initial_accounts: Vec<AccountInitialData>,
@@ -396,12 +398,14 @@ mod tests {
         let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
             acc1, 0, acc2, 10, sign_key2,
         );
-        // let tx_roots = sequencer.get_tree_roots();
+
+        // Signature is valid, stateless check pass
         let tx = sequencer.transaction_pre_check(tx).unwrap();
 
+        // Signature is not from sender. Execution fails
         let result = sequencer.execute_check_transaction_on_state(tx);
 
-        assert_eq!(result.err().unwrap(), ());
+        assert!(matches!(result, Err(())));
     }
 
     #[test]
