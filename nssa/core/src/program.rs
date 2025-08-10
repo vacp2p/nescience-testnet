@@ -9,7 +9,7 @@ pub const DEFAULT_PROGRAM_ID: ProgramId = [0; 8];
 /// - `pre_states`: The list of input accounts, each annotated with authorization metadata.
 /// - `post_states`: The list of resulting accounts after executing the program logic.
 /// - `executing_program_id`: The identifier of the program that was executed.
-pub fn validate_constraints(
+pub fn validate_execution(
     pre_states: &[AccountWithMetadata],
     post_states: &[Account],
     executing_program_id: ProgramId,

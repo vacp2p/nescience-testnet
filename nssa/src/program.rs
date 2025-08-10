@@ -85,4 +85,14 @@ impl Program {
             elf: NONCE_CHANGER_ELF,
         }
     }
+
+    /// A program that produces more output accounts than the inputs it received
+    pub fn extra_outputs_program() -> Self {
+        use test_program_methods::{EXTRA_OUTPUTS_ELF, EXTRA_OUTPUTS_ID};
+
+        Program {
+            id: EXTRA_OUTPUTS_ID,
+            elf: EXTRA_OUTPUTS_ELF,
+        }
+    }
 }

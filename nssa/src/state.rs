@@ -3,7 +3,7 @@ use crate::{
 };
 use nssa_core::{
     account::{Account, AccountWithMetadata},
-    program::{ProgramId, validate_constraints},
+    program::{ProgramId, validate_execution},
 };
 use std::collections::{HashMap, HashSet};
 
@@ -29,15 +29,18 @@ impl V01State {
             })
             .collect();
 
-        let builtin_programs = HashMap::from([(
-            authenticated_transfer_program.id(),
-            authenticated_transfer_program,
-        )]);
-
-        Self {
+        let mut this = Self {
             public_state,
-            builtin_programs,
-        }
+            builtin_programs: HashMap::new(),
+        };
+
+        this.insert_program(Program::authenticated_transfer_program());
+
+        this
+    }
+
+    fn insert_program(&mut self, program: Program) {
+        self.builtin_programs.insert(program.id(), program);
     }
 
     pub fn transition_from_public_transaction(
@@ -129,8 +132,8 @@ impl V01State {
         let post_states = program.execute(&pre_states, message.instruction_data)?;
 
         // Verify execution corresponds to a well-behaved program.
-        // See the # Programs section for the definition of the `validate_constraints` method.
-        if !validate_constraints(&pre_states, &post_states, message.program_id) {
+        // See the # Programs section for the definition of the `validate_execution` method.
+        if !validate_execution(&pre_states, &post_states, message.program_id) {
             return Err(NssaError::InvalidProgramBehavior);
         }
 
@@ -143,10 +146,8 @@ impl V01State {
 impl V01State {
     /// Include test programs in the builtin programs map
     pub fn with_test_programs(mut self) -> Self {
-        self.builtin_programs.insert(
-            Program::nonce_changer_program().id(),
-            Program::nonce_changer_program(),
-        );
+        self.insert_program(Program::nonce_changer_program());
+        self.insert_program(Program::extra_outputs_program());
         self
     }
 }
