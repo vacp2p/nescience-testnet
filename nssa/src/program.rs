@@ -146,7 +146,7 @@ impl Program {
         }
     }
 
-    /// A program that mints balance
+    /// A program that burns balance
     pub fn burner() -> Self {
         use test_program_methods::{BURNER_ELF, BURNER_ID};
 
