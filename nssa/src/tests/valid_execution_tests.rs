@@ -5,13 +5,12 @@ use crate::{
 };
 
 #[test]
-fn test_program_should_fail_if_it_modifies_nonces() {
+fn test_program_should_fail_if_modifies_nonces() {
     let initial_data = [([1; 32], 100)];
     let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
     let addresses = vec![Address::new([1; 32])];
-    let nonces = vec![];
     let program_id = Program::nonce_changer_program().id();
-    let message = public_transaction::Message::new(program_id, addresses, nonces, 0);
+    let message = public_transaction::Message::new(program_id, addresses, vec![], 0);
     let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
     let tx = PublicTransaction::new(message, witness_set);
 
@@ -25,9 +24,8 @@ fn test_program_should_fail_if_output_accounts_exceed_inputs() {
     let initial_data = [([1; 32], 100)];
     let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
     let addresses = vec![Address::new([1; 32])];
-    let nonces = vec![];
     let program_id = Program::extra_output_program().id();
-    let message = public_transaction::Message::new(program_id, addresses, nonces, 0);
+    let message = public_transaction::Message::new(program_id, addresses, vec![], 0);
     let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
     let tx = PublicTransaction::new(message, witness_set);
 
@@ -41,9 +39,8 @@ fn test_program_should_fail_with_missing_output_accounts() {
     let initial_data = [([1; 32], 100)];
     let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
     let addresses = vec![Address::new([1; 32]), Address::new([2; 32])];
-    let nonces = vec![];
     let program_id = Program::missing_output_program().id();
-    let message = public_transaction::Message::new(program_id, addresses, nonces, 0);
+    let message = public_transaction::Message::new(program_id, addresses, vec![], 0);
     let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
     let tx = PublicTransaction::new(message, witness_set);
 
@@ -53,7 +50,7 @@ fn test_program_should_fail_with_missing_output_accounts() {
 }
 
 #[test]
-fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_program_owner() {
+fn test_program_should_fail_if_modifies_program_owner_with_only_non_default_program_owner() {
     let initial_data = [([1; 32], 0)];
     let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
     let address = Address::new([1; 32]);
@@ -74,7 +71,7 @@ fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_p
 }
 
 #[test]
-fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_balance() {
+fn test_program_should_fail_if_modifies_program_owner_with_only_non_default_balance() {
     let initial_data = [];
     let mut state = V01State::new_with_genesis_accounts(&initial_data)
         .with_test_programs()
@@ -97,7 +94,7 @@ fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_b
 }
 
 #[test]
-fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_nonce() {
+fn test_program_should_fail_if_modifies_program_owner_with_only_non_default_nonce() {
     let initial_data = [];
     let mut state = V01State::new_with_genesis_accounts(&initial_data)
         .with_test_programs()
@@ -120,7 +117,7 @@ fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_n
 }
 
 #[test]
-fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_data() {
+fn test_program_should_fail_if_modifies_program_owner_with_only_non_default_data() {
     let initial_data = [];
     let mut state = V01State::new_with_genesis_accounts(&initial_data)
         .with_test_programs()
@@ -134,6 +131,32 @@ fn test_program_should_fail_if_it_modifies_program_owner_with_only_non_default_d
     assert_ne!(account.data, Account::default().data);
     let program_id = Program::program_owner_changer().id();
     let message = public_transaction::Message::new(program_id, vec![address], vec![], 0);
+    let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
+    let tx = PublicTransaction::new(message, witness_set);
+
+    let result = state.transition_from_public_transaction(&tx);
+
+    assert!(matches!(result, Err(NssaError::InvalidProgramBehavior)));
+}
+
+#[test]
+fn test_program_should_fail_if_transfers_balance_from_non_owned_account() {
+    let initial_data = [([1; 32], 100)];
+    let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
+    let sender_address = Address::new([1; 32]);
+    let receiver_address = Address::new([2; 32]);
+    let balance_to_move = 1;
+    let program_id = Program::simple_balance_transfer().id();
+    assert_ne!(
+        state.get_account_by_address(&sender_address).program_owner,
+        program_id
+    );
+    let message = public_transaction::Message::new(
+        program_id,
+        vec![sender_address, receiver_address],
+        vec![],
+        balance_to_move,
+    );
     let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
     let tx = PublicTransaction::new(message, witness_set);
 

@@ -150,6 +150,7 @@ impl V01State {
         self.insert_program(Program::extra_output_program());
         self.insert_program(Program::missing_output_program());
         self.insert_program(Program::program_owner_changer());
+        self.insert_program(Program::simple_balance_transfer());
         self
     }
 

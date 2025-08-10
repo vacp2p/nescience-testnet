@@ -115,4 +115,14 @@ impl Program {
             elf: PROGRAM_OWNER_CHANGER_ELF,
         }
     }
+
+    /// A program that transfers balance without caring about authorizations
+    pub fn simple_balance_transfer() -> Self {
+        use test_program_methods::{SIMPLE_BALANCE_TRANSFER_ELF, SIMPLE_BALANCE_TRANSFER_ID};
+
+        Program {
+            id: SIMPLE_BALANCE_TRANSFER_ID,
+            elf: SIMPLE_BALANCE_TRANSFER_ELF,
+        }
+    }
 }
