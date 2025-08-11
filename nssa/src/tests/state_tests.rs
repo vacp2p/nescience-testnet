@@ -87,7 +87,7 @@ fn transition_from_authenticated_transfer_program_invocation_non_default_account
 
 #[test]
 fn transition_from_chained_authenticated_transfer_program_invocations() {
-    let key1 = PrivateKey::try_new([1; 32]).unwrap();
+    let key1 = PrivateKey::try_new([8; 32]).unwrap();
     let address1 = Address::from_public_key(&PublicKey::new(&key1));
     let key2 = PrivateKey::try_new([2; 32]).unwrap();
     let address2 = Address::from_public_key(&PublicKey::new(&key2));

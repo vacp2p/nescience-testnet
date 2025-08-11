@@ -13,7 +13,7 @@ impl Address {
     }
 
     pub fn from_public_key(public_key: &PublicKey) -> Self {
-        // TODO: implement
+        // TODO: Check specs
         Address::new(public_key.0)
     }
 

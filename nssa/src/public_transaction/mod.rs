@@ -72,23 +72,20 @@ impl PublicTransaction {
             ));
         }
 
-        let mut authorized_addresses = Vec::new();
-        for ((signature, public_key), nonce) in witness_set.iter_signatures().zip(&message.nonces) {
-            // Check the signature is valid
-            if !signature.is_valid_for(message, public_key) {
-                return Err(NssaError::InvalidInput(
-                    "Invalid signature for given message and public key".into(),
-                ));
-            }
+        // Check the signatures are valid
+        if !witness_set.is_valid_for(message) {
+            return Err(NssaError::InvalidInput(
+                "Invalid signature for given message and public key".into(),
+            ));
+        }
 
-            // Check the nonce corresponds to the current nonce on the public state.
-            let address = Address::from_public_key(public_key);
-            let current_nonce = state.get_account_by_address(&address).nonce;
+        let signer_addresses = self.signer_addresses();
+        // Check nonces corresponds to the current nonces on the public state.
+        for (address, nonce) in signer_addresses.iter().zip(&message.nonces) {
+            let current_nonce = state.get_account_by_address(address).nonce;
             if current_nonce != *nonce {
                 return Err(NssaError::InvalidInput("Nonce mismatch".into()));
             }
-
-            authorized_addresses.push(address);
         }
 
         // Build pre_states for execution
@@ -97,7 +94,7 @@ impl PublicTransaction {
             .iter()
             .map(|address| AccountWithMetadata {
                 account: state.get_account_by_address(address),
-                is_authorized: authorized_addresses.contains(address),
+                is_authorized: signer_addresses.contains(address),
             })
             .collect();
 
