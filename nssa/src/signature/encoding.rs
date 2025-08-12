@@ -10,6 +10,10 @@ impl PublicKey {
         cursor.read_exact(&mut value).unwrap();
         Self(value)
     }
+
+    pub(crate) fn to_bytes(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 impl Signature {
@@ -18,5 +22,9 @@ impl Signature {
         let mut value = [0u8; 64];
         cursor.read_exact(&mut value).unwrap();
         Self { value }
+    }
+
+    pub(crate) fn to_bytes(&self) -> &[u8] {
+        &self.value
     }
 }

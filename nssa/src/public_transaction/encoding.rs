@@ -11,9 +11,9 @@ const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] = b"NSSA/v0.1/
 
 impl Message {
     /// Serializes a `Message` into bytes in the following layout:
-    /// TAG || <program_id>  (bytes LE) * 8 || addresses_len (4 bytes LE) || addresses (32 bytes * N) || nonces_len (4 bytes LE) || nonces (16 bytes * M) || instruction_data_len || instruction_data (4 bytes * K)
+    /// PREFIX || <program_id>  (4 bytes LE) * 8 || addresses_len (4 bytes LE) || addresses (32 bytes * N) || nonces_len (4 bytes LE) || nonces (16 bytes LE * M) || instruction_data_len || instruction_data (4 bytes LE * K)
     /// Integers and words are encoded in little-endian byte order, and fields appear in the above order.
-    pub(crate) fn message_to_bytes(&self) -> Vec<u8> {
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = MESSAGE_ENCODING_PREFIX.to_vec();
         // program_id: [u32; 8]
         for word in &self.program_id {
@@ -27,6 +27,7 @@ impl Message {
             bytes.extend_from_slice(addr.value());
         }
         // nonces: Vec<u128>
+        // serialize length as u32 little endian, then all nonces concatenated in LE
         let nonces_len = self.nonces.len() as u32;
         bytes.extend(&nonces_len.to_le_bytes());
         for nonce in &self.nonces {
@@ -93,8 +94,8 @@ impl WitnessSet {
         let size = self.signatures_and_public_keys.len() as u32;
         bytes.extend_from_slice(&size.to_le_bytes());
         for (signature, public_key) in &self.signatures_and_public_keys {
-            bytes.extend_from_slice(&signature.value);
-            bytes.extend_from_slice(&public_key.0);
+            bytes.extend_from_slice(signature.to_bytes());
+            bytes.extend_from_slice(public_key.to_bytes());
         }
         bytes
     }
@@ -120,7 +121,7 @@ impl WitnessSet {
 
 impl PublicTransaction {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = self.message.message_to_bytes();
+        let mut bytes = self.message.to_bytes();
         bytes.extend_from_slice(&self.witness_set.to_bytes());
         bytes
     }

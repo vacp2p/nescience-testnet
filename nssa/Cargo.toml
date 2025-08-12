@@ -14,3 +14,4 @@ secp256k1 = "0.31.1"
 
 [dev-dependencies]
 test-program-methods = { path = "test_program_methods" }
+hex = "0.4.3"

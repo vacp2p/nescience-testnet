@@ -11,7 +11,7 @@ pub struct WitnessSet {
 
 impl WitnessSet {
     pub fn for_message(message: &Message, private_keys: &[&PrivateKey]) -> Self {
-        let message_bytes = message.message_to_bytes();
+        let message_bytes = message.to_bytes();
         let signatures_and_public_keys = private_keys
             .iter()
             .map(|&key| (Signature::new(key, &message_bytes), PublicKey::new(key)))
@@ -22,7 +22,7 @@ impl WitnessSet {
     }
 
     pub fn is_valid_for(&self, message: &Message) -> bool {
-        let message_bytes = message.message_to_bytes();
+        let message_bytes = message.to_bytes();
         for (signature, public_key) in self.iter_signatures() {
             if !signature.is_valid_for(&message_bytes, &public_key) {
                 return false;
