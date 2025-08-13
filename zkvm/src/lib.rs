@@ -350,7 +350,7 @@ pub fn execute_mint_utxo(
     let mut builder = ExecutorEnv::builder();
 
     builder.write(&amount_to_mint)?;
-    builder.write(&owner)?;
+    builder.write(owner.value())?;
     builder.write(&randomness)?;
 
     let env = builder.build()?;
@@ -378,7 +378,7 @@ pub fn execute_send_utxo(
         .map(|(amount, addr)| {
             let mut randomness = Randomness::default();
             OsRng.fill_bytes(&mut randomness);
-            (amount, addr, randomness)
+            (amount, *addr.value(), randomness)
         })
         .collect::<Vec<_>>();
 
