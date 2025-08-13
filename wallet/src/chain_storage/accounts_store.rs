@@ -82,7 +82,7 @@ mod tests {
         let mut store = WalletAccountsStore::new();
 
         let account_addr: [u8; 32] = pad_to_32("nonexistent".to_string().as_bytes());
-        store.unregister_account(AccountAddress::new(account_addr));
+        store.unregister_account(account_addr);
 
         assert!(store.accounts.is_empty());
     }

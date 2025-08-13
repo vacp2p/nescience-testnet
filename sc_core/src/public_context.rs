@@ -28,12 +28,7 @@ impl Serialize for PublicSCContext {
     where
         S: serde::Serializer,
     {
-        let mut account_masks_keys: Vec<[u8; 32]> = self
-            .account_masks
-            .keys()
-            .cloned()
-            .map(|addr| addr.raw_addr())
-            .collect();
+        let mut account_masks_keys: Vec<[u8; 32]> = self.account_masks.keys().cloned().collect();
         account_masks_keys.sort();
 
         let mut account_mask_values: Vec<AccountPublicMask> =
@@ -116,7 +111,7 @@ mod tests {
         account_masks.insert(acc_3.address, acc_3.make_account_public_mask());
 
         PublicSCContext {
-            caller_address: AccountAddress::new(caller_address),
+            caller_address,
             caller_balance: 100,
             account_masks,
             comitment_store_root,

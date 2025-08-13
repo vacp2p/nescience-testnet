@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use accounts::account_core::address::AccountAddress;
+use accounts::account_core::address::{self, AccountAddress};
 use anyhow::Result;
 use common::{
     block::HashableBlockData,
@@ -135,10 +135,10 @@ impl SequencerCore {
         if let Ok(native_transfer_action) =
             serde_json::from_slice::<PublicNativeTokenSend>(execution_input)
         {
-            let signer_address = AccountAddress::from(&tx.transaction().public_key);
+            let signer_address = address::from_public_key(&tx.transaction().public_key);
 
             //Correct sender check
-            if AccountAddress::new(native_transfer_action.from) != signer_address {
+            if native_transfer_action.from != signer_address {
                 return Err(TransactionMalformationErrorKind::IncorrectSender);
             }
         }
@@ -219,7 +219,8 @@ impl SequencerCore {
             serde_json::from_slice::<PublicNativeTokenSend>(execution_input)
         {
             // Nonce check
-            let signer_addres = AccountAddress::from(&mempool_tx.auth_tx.transaction().public_key);
+            let signer_addres =
+                address::from_public_key(&mempool_tx.auth_tx.transaction().public_key);
             if self.store.acc_store.get_account_nonce(&signer_addres)
                 != native_transfer_action.nonce
             {
@@ -229,11 +230,11 @@ impl SequencerCore {
             let from_balance = self
                 .store
                 .acc_store
-                .get_account_balance(&AccountAddress::new(native_transfer_action.from));
+                .get_account_balance(&native_transfer_action.from);
             let to_balance = self
                 .store
                 .acc_store
-                .get_account_balance(&AccountAddress::new(native_transfer_action.to));
+                .get_account_balance(&native_transfer_action.to);
 
             //Balance check
             if from_balance < native_transfer_action.balance_to_move {
@@ -241,11 +242,11 @@ impl SequencerCore {
             }
 
             self.store.acc_store.set_account_balance(
-                &AccountAddress::new(native_transfer_action.from),
+                &native_transfer_action.from,
                 from_balance - native_transfer_action.balance_to_move,
             );
             self.store.acc_store.set_account_balance(
-                &AccountAddress::new(native_transfer_action.to),
+                &native_transfer_action.to,
                 to_balance + native_transfer_action.balance_to_move,
             );
 
@@ -619,25 +620,19 @@ mod tests {
 
         common_setup(&mut sequencer);
 
-        let acc1: AccountAddress =
-            hex::decode(sequencer.sequencer_config.initial_accounts[0].addr.clone())
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let acc2: AccountAddress =
-            hex::decode(sequencer.sequencer_config.initial_accounts[1].addr.clone())
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let acc1 = hex::decode(sequencer.sequencer_config.initial_accounts[0].addr.clone())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let acc2 = hex::decode(sequencer.sequencer_config.initial_accounts[1].addr.clone())
+            .unwrap()
+            .try_into()
+            .unwrap();
 
         let sign_key1 = create_signing_key_for_account1();
 
         let tx = common::test_utils::create_dummy_transaction_native_token_transfer(
-            acc1.raw_addr(),
-            0,
-            acc2.raw_addr(),
-            100,
-            sign_key1,
+            acc1, 0, acc2, 100, sign_key1,
         );
 
         sequencer

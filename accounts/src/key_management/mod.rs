@@ -120,10 +120,7 @@ mod tests {
     use elliptic_curve::point::AffineCoordinates;
     use k256::{AffinePoint, ProjectivePoint, Scalar};
 
-    use crate::{
-        account_core::address::AccountAddress,
-        key_management::ephemeral_key_holder::EphemeralKeyHolder,
-    };
+    use crate::{account_core::address, key_management::ephemeral_key_holder::EphemeralKeyHolder};
 
     use super::*;
 
@@ -350,7 +347,7 @@ mod tests {
 
         let verifying_key = signing_key.verifying_key();
 
-        let address = AccountAddress::from(verifying_key);
+        let address = address::from_public_key(verifying_key);
 
         println!("======Prerequisites======");
         println!();
@@ -376,8 +373,7 @@ mod tests {
 
         println!("======Public data======");
         println!();
-        //Use HexString
-        println!("Address{:?}", hex::encode(address.raw_addr()));
+        println!("Address{:?}", hex::encode(address));
         println!(
             "Nulifier public key {:?}",
             hex::encode(serde_json::to_vec(&nullifer_public_key).unwrap())

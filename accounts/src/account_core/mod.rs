@@ -114,7 +114,7 @@ impl AccountPublicMask {
     }
 
     pub fn make_tag(&self) -> Tag {
-        self.address.tag()
+        self.address[0]
     }
 }
 
@@ -122,7 +122,7 @@ impl Account {
     pub fn new() -> Self {
         let key_holder = AddressKeyHolder::new_os_random();
         let public_key = *key_holder.get_pub_account_signing_key().verifying_key();
-        let address = AccountAddress::from(&public_key);
+        let address = address::from_public_key(&public_key);
         let balance = 0;
         let nonce = 0;
         let utxos = HashMap::new();
@@ -139,7 +139,7 @@ impl Account {
     pub fn new_with_balance(balance: u64) -> Self {
         let key_holder = AddressKeyHolder::new_os_random();
         let public_key = *key_holder.get_pub_account_signing_key().verifying_key();
-        let address = AccountAddress::from(&public_key);
+        let address = address::from_public_key(&public_key);
         let nonce = 0;
         let utxos = HashMap::new();
 
@@ -191,7 +191,7 @@ impl Account {
         privacy_flag: bool,
     ) -> Result<()> {
         let asset_utxo = UTXO::new(
-            self.address.raw_addr(),
+            self.address,
             serde_json::to_vec(&asset)?,
             amount,
             privacy_flag,
@@ -204,16 +204,12 @@ impl Account {
 
     pub fn log(&self) {
         info!("Keys generated");
-        //use HexString
-        info!(
-            "Account address is {:?}",
-            hex::encode(self.address.raw_addr())
-        );
+        info!("Account address is {:?}", hex::encode(self.address));
         info!("Account balance is {:?}", self.balance);
     }
 
     pub fn make_tag(&self) -> Tag {
-        self.address.tag()
+        self.address[0]
     }
 
     ///Produce account public mask
@@ -251,8 +247,8 @@ mod tests {
     #[test]
     fn test_add_new_utxo_outputs() {
         let mut account = Account::new();
-        let utxo1 = generate_dummy_utxo(account.address.raw_addr(), 100);
-        let utxo2 = generate_dummy_utxo(account.address.raw_addr(), 200);
+        let utxo1 = generate_dummy_utxo(account.address, 100);
+        let utxo2 = generate_dummy_utxo(account.address, 200);
 
         let result = account.add_new_utxo_outputs(vec![utxo1.clone(), utxo2.clone()]);
 

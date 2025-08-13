@@ -187,7 +187,7 @@ pub fn prove_send_utxo_shielded(
         return Err(ExecutionFailureKind::AmountMismatchError);
     }
 
-    let temp_utxo_to_spend = UTXO::new(owner.raw_addr(), vec![], amount, true);
+    let temp_utxo_to_spend = UTXO::new(owner, vec![], amount, true);
     let utxo_payload = temp_utxo_to_spend.into_payload();
 
     let mut builder = ExecutorEnv::builder();
@@ -561,7 +561,7 @@ mod tests {
 
         let utxo_exec = execute_mint_utxo(amount, owner, randomness).expect("execution failed");
         assert_eq!(utxo_exec.amount, amount);
-        assert_eq!(utxo_exec.owner, owner.raw_addr());
+        assert_eq!(utxo_exec.owner, owner);
     }
 
     #[test]
@@ -571,7 +571,7 @@ mod tests {
 
         let (utxo, _) = prove_mint_utxo(amount, owner).expect("proof failed");
         assert_eq!(utxo.amount, amount);
-        assert_eq!(utxo.owner, owner.raw_addr());
+        assert_eq!(utxo.owner, owner);
     }
 
     #[test]

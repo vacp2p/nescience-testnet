@@ -155,38 +155,30 @@ mod tests {
 
     #[test]
     fn test_zero_balance_account_data_creation() {
-        let address = AccountAddress::new([1; 32]);
-
-        let new_acc = AccountPublicData::new(address);
+        let new_acc = AccountPublicData::new([1; 32]);
 
         assert_eq!(new_acc.balance, 0);
-        assert_eq!(new_acc.address, address);
+        assert_eq!(new_acc.address, [1; 32]);
     }
 
     #[test]
     fn test_zero_nonce_account_data_creation() {
-        let address = AccountAddress::new([1; 32]);
-
-        let new_acc = AccountPublicData::new(address);
+        let new_acc = AccountPublicData::new([1; 32]);
 
         assert_eq!(new_acc.nonce, 0);
     }
 
     #[test]
     fn test_non_zero_balance_account_data_creation() {
-        let address = AccountAddress::new([1; 32]);
-
-        let new_acc = AccountPublicData::new_with_balance(address, 10);
+        let new_acc = AccountPublicData::new_with_balance([1; 32], 10);
 
         assert_eq!(new_acc.balance, 10);
-        assert_eq!(new_acc.address, address);
+        assert_eq!(new_acc.address, [1; 32]);
     }
 
     #[test]
     fn test_zero_nonce_account_data_creation_with_balance() {
-        let address = AccountAddress::new([1; 32]);
-
-        let new_acc = AccountPublicData::new_with_balance(address, 10);
+        let new_acc = AccountPublicData::new_with_balance([1; 32], 10);
 
         assert_eq!(new_acc.nonce, 0);
     }
@@ -200,117 +192,94 @@ mod tests {
 
     #[test]
     fn account_sequencer_store_register_acc() {
-        let address = AccountAddress::new([1; 32]);
-
         let mut seq_acc_store = SequencerAccountsStore::default();
 
-        seq_acc_store.register_account(address);
+        seq_acc_store.register_account([1; 32]);
 
-        assert!(seq_acc_store.contains_account(&address));
+        assert!(seq_acc_store.contains_account(&[1; 32]));
 
-        let acc_balance = seq_acc_store.get_account_balance(&address);
+        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]);
 
         assert_eq!(acc_balance, 0);
     }
 
     #[test]
     fn account_sequencer_store_unregister_acc_not_present() {
-        let address1 = AccountAddress::new([1; 32]);
-        let address2 = AccountAddress::new([2; 32]);
-
         let mut seq_acc_store = SequencerAccountsStore::default();
 
-        seq_acc_store.register_account(address1);
+        seq_acc_store.register_account([1; 32]);
 
-        let rem_res = seq_acc_store.unregister_account(address2).unwrap();
+        let rem_res = seq_acc_store.unregister_account([2; 32]).unwrap();
 
         assert!(rem_res.is_none());
     }
 
     #[test]
     fn account_sequencer_store_unregister_acc_not_zero_balance() {
-        let address1 = AccountAddress::new([1; 32]);
-        let address2 = AccountAddress::new([2; 32]);
+        let mut seq_acc_store = SequencerAccountsStore::new(&[([1; 32], 12), ([2; 32], 100)]);
 
-        let mut seq_acc_store = SequencerAccountsStore::new(&[(address1, 12), (address2, 100)]);
-
-        let rem_res = seq_acc_store.unregister_account(address1);
+        let rem_res = seq_acc_store.unregister_account([1; 32]);
 
         assert!(rem_res.is_err());
     }
 
     #[test]
     fn account_sequencer_store_unregister_acc() {
-        let address = AccountAddress::new([1; 32]);
-
         let mut seq_acc_store = SequencerAccountsStore::default();
 
-        seq_acc_store.register_account(address);
+        seq_acc_store.register_account([1; 32]);
 
-        assert!(seq_acc_store.contains_account(&address));
+        assert!(seq_acc_store.contains_account(&[1; 32]));
 
-        seq_acc_store.unregister_account(address).unwrap().unwrap();
+        seq_acc_store.unregister_account([1; 32]).unwrap().unwrap();
 
-        assert!(!seq_acc_store.contains_account(&address));
+        assert!(!seq_acc_store.contains_account(&[1; 32]));
     }
 
     #[test]
     fn account_sequencer_store_with_preset_accounts_1() {
-        let address1 = AccountAddress::new([1; 32]);
-        let address2 = AccountAddress::new([2; 32]);
+        let seq_acc_store = SequencerAccountsStore::new(&[([1; 32], 12), ([2; 32], 100)]);
 
-        let seq_acc_store = SequencerAccountsStore::new(&[(address1, 12), (address2, 100)]);
+        assert!(seq_acc_store.contains_account(&[1; 32]));
+        assert!(seq_acc_store.contains_account(&[2; 32]));
 
-        assert!(seq_acc_store.contains_account(&address1));
-        assert!(seq_acc_store.contains_account(&address2));
-
-        let acc_balance = seq_acc_store.get_account_balance(&address1);
+        let acc_balance = seq_acc_store.get_account_balance(&[1; 32]);
 
         assert_eq!(acc_balance, 12);
 
-        let acc_balance = seq_acc_store.get_account_balance(&address2);
+        let acc_balance = seq_acc_store.get_account_balance(&[2; 32]);
 
         assert_eq!(acc_balance, 100);
     }
 
     #[test]
     fn account_sequencer_store_with_preset_accounts_2() {
-        let address1 = AccountAddress::new([6; 32]);
-        let address2 = AccountAddress::new([7; 32]);
-        let address3 = AccountAddress::new([8; 32]);
-
         let seq_acc_store =
-            SequencerAccountsStore::new(&[(address1, 120), (address2, 15), (address3, 10)]);
+            SequencerAccountsStore::new(&[([6; 32], 120), ([7; 32], 15), ([8; 32], 10)]);
 
-        assert!(seq_acc_store.contains_account(&address1));
-        assert!(seq_acc_store.contains_account(&address2));
-        assert!(seq_acc_store.contains_account(&address3));
+        assert!(seq_acc_store.contains_account(&[6; 32]));
+        assert!(seq_acc_store.contains_account(&[7; 32]));
+        assert!(seq_acc_store.contains_account(&[8; 32]));
 
-        let acc_balance = seq_acc_store.get_account_balance(&address1);
+        let acc_balance = seq_acc_store.get_account_balance(&[6; 32]);
 
         assert_eq!(acc_balance, 120);
 
-        let acc_balance = seq_acc_store.get_account_balance(&address2);
+        let acc_balance = seq_acc_store.get_account_balance(&[7; 32]);
 
         assert_eq!(acc_balance, 15);
 
-        let acc_balance = seq_acc_store.get_account_balance(&address3);
+        let acc_balance = seq_acc_store.get_account_balance(&[8; 32]);
 
         assert_eq!(acc_balance, 10);
     }
 
     #[test]
     fn account_sequencer_store_fetch_unknown_account() {
-        let address1 = AccountAddress::new([6; 32]);
-        let address2 = AccountAddress::new([7; 32]);
-        let address3 = AccountAddress::new([8; 32]);
-
-        let address4 = AccountAddress::new([9; 32]);
-
         let seq_acc_store =
-            SequencerAccountsStore::new(&[(address1, 120), (address2, 15), (address3, 10)]);
+            SequencerAccountsStore::new(&[([6; 32], 120), ([7; 32], 15), ([8; 32], 10)]);
 
-        let acc_balance = seq_acc_store.get_account_balance(&address4);
+        let acc_balance = seq_acc_store.get_account_balance(&[9; 32]);
 
         assert_eq!(acc_balance, 0);
     }
@@ -324,21 +293,19 @@ mod tests {
 
     #[test]
     fn account_sequencer_store_set_balance_to_unknown_account() {
-        let address = AccountAddress::new([1; 32]);
-
         let mut seq_acc_store = SequencerAccountsStore::default();
 
-        let ret = seq_acc_store.set_account_balance(&address, 100);
+        let ret = seq_acc_store.set_account_balance(&[1; 32], 100);
 
         assert_eq!(ret, 0);
-        assert!(seq_acc_store.contains_account(&address));
-        assert_eq!(seq_acc_store.get_account_balance(&address), 100);
+        assert!(seq_acc_store.contains_account(&[1; 32]));
+        assert_eq!(seq_acc_store.get_account_balance(&[1; 32]), 100);
     }
 
     #[test]
     fn test_increase_nonce() {
         let mut account_store = SequencerAccountsStore::default();
-        let address = AccountAddress::new([1; 32]);
+        let address = [1; 32];
         let first_nonce = account_store.increase_nonce(&address);
         assert_eq!(first_nonce, 0);
         let second_nonce = account_store.increase_nonce(&address);
