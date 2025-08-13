@@ -121,7 +121,7 @@ impl WitnessSet {
 
 impl PublicTransaction {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = self.message().to_bytes();
+        let mut bytes = self.message.to_bytes();
         bytes.extend_from_slice(&self.witness_set().to_bytes());
         bytes
     }

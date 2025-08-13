@@ -7,7 +7,3 @@ mod transaction;
 pub use message::Message;
 pub use witness_set::WitnessSet;
 pub use transaction::PublicTransaction;
-
-#[cfg(test)]
-pub use transaction::tests;
-
