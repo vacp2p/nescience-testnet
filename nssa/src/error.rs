@@ -21,4 +21,7 @@ pub enum NssaError {
 
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
+
+    #[error("Invalid Public Key")]
+    InvalidPublicKey,
 }

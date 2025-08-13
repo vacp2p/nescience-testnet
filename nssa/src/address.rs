@@ -4,7 +4,7 @@ use crate::signature::PublicKey;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Address {
-    pub(crate) value: [u8; 32],
+    value: [u8; 32],
 }
 
 impl Address {
@@ -14,7 +14,7 @@ impl Address {
 
     pub fn from_public_key(public_key: &PublicKey) -> Self {
         // TODO: Check specs
-        Address::new(public_key.0)
+        Address::new(*public_key.value())
     }
 
     pub fn value(&self) -> &[u8; 32] {

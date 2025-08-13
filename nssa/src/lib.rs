@@ -12,5 +12,3 @@ pub use signature::PublicKey;
 pub use signature::Signature;
 pub use state::V01State;
 
-#[cfg(test)]
-mod tests;

@@ -6,7 +6,7 @@ use crate::error::NssaError;
 // TODO: Remove Debug, Clone, Serialize, Deserialize, PartialEq and Eq for security reasons
 // TODO: Implement Zeroize
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PrivateKey(pub(crate) [u8; 32]);
+pub struct PrivateKey([u8; 32]);
 
 impl PrivateKey {
     fn is_valid_key(value: [u8; 32]) -> bool {
@@ -19,5 +19,9 @@ impl PrivateKey {
         } else {
             Err(NssaError::InvalidPrivateKey)
         }
+    }
+
+    pub fn value(&self) -> &[u8; 32] {
+        &self.0
     }
 }

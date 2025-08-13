@@ -19,12 +19,12 @@ pub struct TestVector {
 pub fn test_vectors() -> Vec<TestVector> {
     vec![
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "0000000000000000000000000000000000000000000000000000000000000003",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "F9308A019258C31049344F85F89D5229B531C845836F99B08601F113BCE036F9",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "0000000000000000000000000000000000000000000000000000000000000000",
             )),
@@ -40,12 +40,12 @@ pub fn test_vectors() -> Vec<TestVector> {
             verification_result: true,
         },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "B7E151628AED2A6ABF7158809CF4F3C762E7160F38B4DA56A784D9045190CFEF",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "0000000000000000000000000000000000000000000000000000000000000001",
             )),
@@ -61,12 +61,12 @@ pub fn test_vectors() -> Vec<TestVector> {
             verification_result: true,
         },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "C90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B14E5C9",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DD308AFEC5777E13121FA72B9CC1B7CC0139715309B086C960E18FD969774EB8",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "C87AA53824B4D7AE2EB035A2B5BBBCCC080E76CDC6D1692C4B0B62D798E6D906",
             )),
@@ -82,12 +82,12 @@ pub fn test_vectors() -> Vec<TestVector> {
             verification_result: true,
         },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "0B432B2677937381AEF05BB02A66ECD012773062CF3FA2549E44F58ED2401710",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "25D1DFF95105F5253C4022F628A996AD3A0D95FBF21D468A1B33F8C160D8F517",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
             )),
@@ -104,9 +104,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "D69C3509BB99E412E68B0FE8544E72837DFA30746D8BE2AA65975F29D22DC7B9",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("4DF3C3F68FCC83B27E9D42C90431A72499F17875C81A599B566C9889B9696703")
@@ -122,9 +122,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         // Test with invalid public key
         // TestVector {
         //     seckey: None,
-        //     pubkey: PublicKey(hex_to_bytes(
+        //     pubkey: PublicKey::new(hex_to_bytes(
         //                     "EEFDEA4CDB677750A420FEE807EACF21EB9898AE79B9768766E4FAA04A2D4A34",
-        //                 )),
+        //                 )).unwrap(),
         //     aux_rand: None,
         //     message: Some(
         //                     hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89").unwrap(),
@@ -138,9 +138,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         // },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -155,9 +155,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -172,9 +172,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -189,9 +189,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -206,9 +206,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -223,9 +223,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -240,9 +240,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -257,9 +257,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         },
         TestVector {
             seckey: None,
-            pubkey: PublicKey(hex_to_bytes(
+            pubkey: PublicKey::new(hex_to_bytes(
                 "DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659",
-            )),
+            )).unwrap(),
             aux_rand: None,
             message: Some(
                 hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89")
@@ -275,9 +275,9 @@ pub fn test_vectors() -> Vec<TestVector> {
         // Test with invalid public key
         // TestVector {
         //     seckey: None,
-        //     pubkey: PublicKey(hex_to_bytes(
+        //     pubkey: PublicKey::new(hex_to_bytes(
         //                     "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC30",
-        //                 )),
+        //                 )).unwrap(),
         //     aux_rand: None,
         //     message: Some(
         //                     hex::decode("243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89").unwrap(),
@@ -290,12 +290,12 @@ pub fn test_vectors() -> Vec<TestVector> {
         //     verification_result: false,
         // },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "0340034003400340034003400340034003400340034003400340034003400340",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "778CAA53B4393AC467774D09497A87224BF9FAB6F6E68B23086497324D6FD117",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "0000000000000000000000000000000000000000000000000000000000000000",
             )),
@@ -308,12 +308,12 @@ pub fn test_vectors() -> Vec<TestVector> {
             verification_result: true,
         },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "0340034003400340034003400340034003400340034003400340034003400340",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "778CAA53B4393AC467774D09497A87224BF9FAB6F6E68B23086497324D6FD117",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "0000000000000000000000000000000000000000000000000000000000000000",
             )),
@@ -326,12 +326,12 @@ pub fn test_vectors() -> Vec<TestVector> {
             verification_result: true,
         },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "0340034003400340034003400340034003400340034003400340034003400340",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "778CAA53B4393AC467774D09497A87224BF9FAB6F6E68B23086497324D6FD117",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "0000000000000000000000000000000000000000000000000000000000000000",
             )),
@@ -344,12 +344,12 @@ pub fn test_vectors() -> Vec<TestVector> {
             verification_result: true,
         },
         TestVector {
-            seckey: Some(PrivateKey(hex_to_bytes(
+            seckey: Some(PrivateKey::try_new(hex_to_bytes(
                 "0340034003400340034003400340034003400340034003400340034003400340",
-            ))),
-            pubkey: PublicKey(hex_to_bytes(
+            )).unwrap()),
+            pubkey: PublicKey::new(hex_to_bytes(
                 "778CAA53B4393AC467774D09497A87224BF9FAB6F6E68B23086497324D6FD117",
-            )),
+            )).unwrap(),
             aux_rand: Some(hex_to_bytes::<32>(
                 "0000000000000000000000000000000000000000000000000000000000000000",
             )),
