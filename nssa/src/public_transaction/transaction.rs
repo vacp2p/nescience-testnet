@@ -13,7 +13,6 @@ use crate::{
     public_transaction::{Message, WitnessSet},
 };
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublicTransaction {
     pub(crate) message: Message,
@@ -114,4 +113,3 @@ impl PublicTransaction {
         Ok(message.addresses.iter().cloned().zip(post_states).collect())
     }
 }
-

@@ -1,4 +1,4 @@
-use nssa_core::{account::Account, program::read_nssa_inputs};
+use nssa_core::program::read_nssa_inputs;
 use risc0_zkvm::guest::env;
 
 type Instruction = ();
@@ -17,4 +17,3 @@ fn main() {
 
     env::commit(&vec![account_post]);
 }
-

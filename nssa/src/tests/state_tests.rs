@@ -4,7 +4,7 @@ use crate::{
     Address, PublicKey, PublicTransaction, V01State, error::NssaError, program::Program,
     public_transaction, signature::PrivateKey,
 };
-use nssa_core::{account::Account, program::ProgramId};
+use nssa_core::account::Account;
 
 fn transfer_transaction(
     from: Address,
@@ -101,12 +101,6 @@ fn test_get_account_by_address_default_account() {
 #[test]
 fn test_builtin_programs_getter() {
     let state = V01State::new_with_genesis_accounts(&[]);
-    let program = Program::authenticated_transfer_program();
-    let expected_builtin_programs = {
-        let mut this = HashMap::new();
-        this.insert(program.id(), program);
-        this
-    };
 
     let builtin_programs = state.builtin_programs();
 

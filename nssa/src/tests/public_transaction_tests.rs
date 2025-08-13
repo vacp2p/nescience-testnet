@@ -16,7 +16,7 @@ fn keys_for_tests() -> (PrivateKey, PrivateKey, Address, Address) {
 }
 
 fn state_for_tests() -> V01State {
-    let (key1, key2, addr1, addr2) = keys_for_tests();
+    let (_, _, addr1, addr2) = keys_for_tests();
     let initial_data = [(*addr1.value(), 10000), (*addr2.value(), 20000)];
     V01State::new_with_genesis_accounts(&initial_data)
 }

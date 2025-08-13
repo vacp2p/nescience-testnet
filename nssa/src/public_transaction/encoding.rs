@@ -55,8 +55,8 @@ impl Message {
         assert_eq!(&prefix, MESSAGE_ENCODING_PREFIX);
         let program_id: ProgramId = {
             let mut this = [0u32; 8];
-            for i in 0..8 {
-                this[i] = u32_from_cursor(cursor)?;
+            for item in &mut this {
+                *item = u32_from_cursor(cursor)?;
             }
             this
         };
@@ -128,7 +128,7 @@ impl PublicTransaction {
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, NssaError> {
         let mut cursor = Cursor::new(bytes);
-        Ok(Self::from_cursor(&mut cursor)?)
+        Self::from_cursor(&mut cursor)
     }
 
     pub fn from_cursor(cursor: &mut Cursor<&[u8]>) -> Result<Self, NssaError> {
