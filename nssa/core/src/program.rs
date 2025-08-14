@@ -7,17 +7,25 @@ pub type ProgramId = [u32; 8];
 pub type InstructionData = Vec<u32>;
 pub const DEFAULT_PROGRAM_ID: ProgramId = [0; 8];
 
+pub struct ProgramInput<T> {
+    pub pre_states: Vec<AccountWithMetadata>,
+    pub instruction: T,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ProgramOutput {
     pub pre_states: Vec<AccountWithMetadata>,
     pub post_states: Vec<Account>,
 }
 
-pub fn read_nssa_inputs<T: DeserializeOwned>() -> (Vec<AccountWithMetadata>, T) {
+pub fn read_nssa_inputs<T: DeserializeOwned>() -> ProgramInput<T> {
     let pre_states: Vec<AccountWithMetadata> = env::read();
     let words: InstructionData = env::read();
-    let instruction_data = T::deserialize(&mut Deserializer::new(words.as_ref())).unwrap();
-    (pre_states, instruction_data)
+    let instruction = T::deserialize(&mut Deserializer::new(words.as_ref())).unwrap();
+    ProgramInput {
+        pre_states,
+        instruction,
+    }
 }
 
 pub fn write_nssa_outputs(pre_states: Vec<AccountWithMetadata>, post_states: Vec<Account>) {
