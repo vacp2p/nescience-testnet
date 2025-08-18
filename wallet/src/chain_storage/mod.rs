@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 //TODO: NOT USER DATA, ACCOUNT
-use key_protocol::key_protocol_core::NSSAUserData;
 use anyhow::Result;
 use common::merkle_tree_public::merkle_tree::UTXOCommitmentsMerkleTree;
+use key_protocol::key_protocol_core::NSSAUserData;
 use nssa::Address;
 use serde::{Deserialize, Serialize};
 

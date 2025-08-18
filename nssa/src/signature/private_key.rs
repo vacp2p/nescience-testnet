@@ -1,3 +1,4 @@
+use rand::{Rng, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 
 use crate::error::NssaError;
@@ -8,6 +9,17 @@ use crate::error::NssaError;
 pub struct PrivateKey([u8; 32]);
 
 impl PrivateKey {
+    pub fn new_os_random() -> Self {
+        let mut rng = OsRng;
+
+        loop {
+            match Self::try_new(rng.r#gen()) {
+                Ok(key) => break key,
+                Err(_) => continue,
+            };
+        }
+    }
+
     fn is_valid_key(value: [u8; 32]) -> bool {
         secp256k1::SecretKey::from_byte_array(value).is_ok()
     }
@@ -32,5 +44,11 @@ mod tests {
     fn test_value_getter() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
         assert_eq!(key.value(), &key.0);
+    }
+
+    #[test]
+    fn test_produce_key() {
+        let key = PrivateKey::new_os_random();
+        println!("{:?}", key.0);
     }
 }

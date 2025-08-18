@@ -32,7 +32,7 @@ pub struct WalletConfig {
     ///Sequencer polling duration for new blocks in seconds
     pub seq_poll_timeout_secs: u64,
     ///Initial accounts for wallet
-    /// 
+    ///
     /// TODO: NOT USRE DATA, ACCOUNT
     pub initial_accounts: Vec<NSSAUserData>,
 }

@@ -1,7 +1,7 @@
 use std::{fs::File, io::BufReader, path::PathBuf, str::FromStr};
 
-use key_protocol::key_protocol_core::NSSAUserData;
 use anyhow::Result;
+use key_protocol::key_protocol_core::NSSAUserData;
 use nssa::Address;
 
 use crate::{config::WalletConfig, HOME_DIR_ENV_VAR};
@@ -28,7 +28,7 @@ pub fn produce_account_addr_from_hex(hex_str: String) -> Result<Address> {
 ///Fetch list of accounts stored at `NSSA_WALLET_HOME_DIR/curr_accounts.json`
 ///
 /// If file not present, it is considered as empty list of persistent accounts
-/// 
+///
 /// ToDo: NOT USER DATA, ACCOUNT
 pub fn fetch_persistent_accounts() -> Result<Vec<NSSAUserData>> {
     let home = get_home()?;
