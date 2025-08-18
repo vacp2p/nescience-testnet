@@ -1,6 +1,7 @@
-use crate::{PrivateKey, PublicKey, Signature, privacy_preserving_transaction::message::Message};
-
-type Proof = ();
+use crate::{
+    PrivateKey, PublicKey, Signature, privacy_preserving_transaction::message::Message,
+    program::Proof,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WitnessSet {
@@ -10,18 +11,30 @@ pub struct WitnessSet {
 
 impl WitnessSet {
     pub fn for_message(message: &Message, proof: Proof, private_keys: &[&PrivateKey]) -> Self {
-        todo!()
+        let message_bytes = message.to_bytes();
+        let signatures_and_public_keys = private_keys
+            .iter()
+            .map(|&key| {
+                (
+                    Signature::new(key, &message_bytes),
+                    PublicKey::new_from_private_key(key),
+                )
+            })
+            .collect();
+        Self {
+            proof,
+            signatures_and_public_keys,
+        }
     }
 
     pub fn signatures_are_valid_for(&self, message: &Message) -> bool {
-        // let message_bytes = message.to_bytes();
-        // for (signature, public_key) in self.signatures_and_public_keys() {
-        //     if !signature.is_valid_for(&message_bytes, public_key) {
-        //         return false;
-        //     }
-        // }
-        // true
-        todo!()
+        let message_bytes = message.to_bytes();
+        for (signature, public_key) in self.signatures_and_public_keys() {
+            if !signature.is_valid_for(&message_bytes, public_key) {
+                return false;
+            }
+        }
+        true
     }
 
     pub fn signatures_and_public_keys(&self) -> &[(Signature, PublicKey)] {

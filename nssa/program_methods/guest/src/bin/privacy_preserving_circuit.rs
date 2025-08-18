@@ -11,7 +11,8 @@ fn main() {
     let PrivacyPreservingCircuitInput {
         program_output,
         visibility_mask,
-        private_account_data,
+        private_account_nonces,
+        private_account_keys,
         private_account_auth,
         program_id,
         commitment_set_digest,
@@ -36,7 +37,8 @@ fn main() {
     assert_eq!(visibility_mask.len(), n_accounts);
 
     let n_private_accounts = visibility_mask.iter().filter(|&&flag| flag != 0).count();
-    assert_eq!(private_account_data.len(), n_private_accounts);
+    assert_eq!(private_account_nonces.len(), n_private_accounts);
+    assert_eq!(private_account_keys.len(), n_private_accounts);
 
     let n_auth_private_accounts = visibility_mask.iter().filter(|&&flag| flag == 1).count();
     assert_eq!(private_account_auth.len(), n_auth_private_accounts);
@@ -57,7 +59,8 @@ fn main() {
             public_pre_states.push(pre_states[i].clone());
             public_post_states.push(post_states[i].clone());
         } else {
-            let (new_nonce, Npk, Ipk, esk) = &private_account_data[i];
+            let new_nonce = &private_account_nonces[i];
+            let (Npk, Ipk, esk) = &private_account_keys[i];
 
             // Verify authentication
             if visibility_mask[i] == 1 {

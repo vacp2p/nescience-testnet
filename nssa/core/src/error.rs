@@ -4,7 +4,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum NssaCoreError {
-    #[error("Invalid transaction: {0}")]
+    #[error("Deserialization error: {0}")]
     DeserializationError(String),
 
     #[error("IO error: {0}")]

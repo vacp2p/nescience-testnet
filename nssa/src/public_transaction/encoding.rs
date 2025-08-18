@@ -1,3 +1,5 @@
+// TODO: Consider switching to deriving Borsh
+
 use std::io::{Cursor, Read};
 
 use nssa_core::program::ProgramId;
@@ -8,9 +10,9 @@ use crate::{
     public_transaction::{Message, WitnessSet},
 };
 
-const MESSAGE_ENCODING_PREFIX_LEN: usize = 37;
+const MESSAGE_ENCODING_PREFIX_LEN: usize = 22;
 const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] =
-    b"NSSA/v0.1/TxMessage/Public\0\0\0\0\0\0\0\0\0\0\0";
+    b"\x00/NSSA/v0.1/TxMessage/";
 
 impl Message {
     /// Serializes a `Message` into bytes in the following layout:

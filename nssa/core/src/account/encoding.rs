@@ -1,3 +1,5 @@
+// TODO: Consider switching to deriving Borsh
+
 use risc0_zkvm::sha::{Impl, Sha256};
 
 #[cfg(feature = "host")]

@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use nssa_core::{CommitmentSetDigest, EncryptedAccountData};
 use nssa_core::account::{Account, AccountWithMetadata};
+use nssa_core::{CommitmentSetDigest, EncryptedAccountData};
 
 use crate::error::NssaError;
+use crate::program::Proof;
 use crate::{Address, V01State};
 
 use super::message::Message;
@@ -16,6 +17,13 @@ pub struct PrivacyPreservingTransaction {
 }
 
 impl PrivacyPreservingTransaction {
+    pub fn new(message: Message, witness_set: WitnessSet) -> Self {
+        Self {
+            message,
+            witness_set,
+        }
+    }
+
     pub(crate) fn validate_and_produce_public_state_diff(
         &self,
         state: &mut V01State,
@@ -89,7 +97,7 @@ impl PrivacyPreservingTransaction {
 
         // 4. Proof verification
         check_privacy_preserving_circuit_proof_is_valid(
-            witness_set.proof,
+            &witness_set.proof,
             &public_pre_states,
             &message.public_post_states,
             &message.encrypted_private_post_states,
@@ -130,7 +138,7 @@ impl PrivacyPreservingTransaction {
 }
 
 fn check_privacy_preserving_circuit_proof_is_valid(
-    proof: (),
+    proof: &Proof,
     public_pre_states: &[AccountWithMetadata],
     public_post_states: &[Account],
     encrypted_private_post_states: &[EncryptedAccountData],
@@ -149,5 +157,5 @@ fn n_unique<T: Eq + Hash>(data: &[T]) -> usize {
 
 #[cfg(test)]
 mod tests {
-
+    use crate::privacy_preserving_transaction::message::tests::message_for_tests;
 }

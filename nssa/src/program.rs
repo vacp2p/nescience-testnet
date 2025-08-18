@@ -1,14 +1,18 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use nssa_core::{
     account::{Account, AccountWithMetadata},
     program::{DEFAULT_PROGRAM_ID, InstructionData, ProgramId, ProgramOutput},
 };
 use program_methods::{AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID};
 use risc0_zkvm::{
-    ExecutorEnv, ExecutorEnvBuilder, Receipt, default_executor, default_prover, serde::to_vec,
+    ExecutorEnv, ExecutorEnvBuilder, Journal, Receipt, default_executor, default_prover,
+    serde::to_vec,
 };
 use serde::Serialize;
 
 use crate::error::NssaError;
+
+pub type Proof = Vec<u8>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Program {
@@ -56,11 +60,11 @@ impl Program {
 
     /// Executes and proves the program `P`.
     /// Returns the proof
-    fn execute_and_prove(
+    pub(crate) fn execute_and_prove(
         &self,
         pre_states: &[AccountWithMetadata],
         instruction_data: &InstructionData,
-    ) -> Result<Receipt, NssaError> {
+    ) -> Result<(Proof, ProgramOutput), NssaError> {
         // Write inputs to the program
         let mut env_builder = ExecutorEnv::builder();
         Self::write_inputs(pre_states, instruction_data, &mut env_builder)?;
@@ -71,7 +75,9 @@ impl Program {
         let prove_info = prover
             .prove(env, self.elf)
             .map_err(|e| NssaError::ProgramProveFailed(e.to_string()))?;
-        Ok(prove_info.receipt)
+        let proof = borsh::to_vec(&prove_info.receipt.inner).unwrap();
+        let program_output = prove_info.receipt.journal.decode().unwrap();
+        Ok((proof, program_output))
     }
 
     /// Writes inputs to `env_builder` in the order expected by the programs
@@ -101,6 +107,7 @@ mod tests {
         account::{Account, AccountWithMetadata},
         program::ProgramOutput,
     };
+    use risc0_zkvm::{InnerReceipt, Receipt, serde::to_vec};
 
     use crate::program::Program;
 
@@ -247,15 +254,20 @@ mod tests {
             ..Account::default()
         };
 
-        let receipt = program
+        let (proof, program_output) = program
             .execute_and_prove(&[sender, recipient], &instruction_data)
             .unwrap();
-        let ProgramOutput { post_states, .. } = receipt.journal.decode().unwrap();
+
+        let ProgramOutput { post_states, .. } = program_output.clone();
         let [sender_post, recipient_post] = post_states.try_into().unwrap();
 
-        let output = assert_eq!(sender_post, expected_sender_post);
-
+        assert_eq!(sender_post, expected_sender_post);
         assert_eq!(recipient_post, expected_recipient_post);
-        assert!(receipt.verify(program.id()).is_ok());
+
+        let journal = program_output.to_bytes().unwrap();
+        let inner: InnerReceipt = borsh::from_slice(&proof).unwrap();
+        let receipt = Receipt::new(inner, journal);
+
+        receipt.verify(program.id()).unwrap();
     }
 }

@@ -45,7 +45,7 @@ pub mod tests {
 
     use crate::{Address, privacy_preserving_transaction::message::Message};
 
-    fn message_for_tests() -> Message {
+    pub fn message_for_tests() -> Message {
         let account1 = Account::default();
         let account2 = Account::default();
 

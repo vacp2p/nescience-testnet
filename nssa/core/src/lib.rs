@@ -1,7 +1,9 @@
+use risc0_zkvm::serde::to_vec;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "host")]
 use crate::error::NssaCoreError;
+
 use crate::{
     account::{
         Account, AccountWithMetadata, Commitment, Nonce, Nullifier, NullifierPublicKey,
@@ -78,8 +80,8 @@ impl EncryptedAccountData {
 pub struct PrivacyPreservingCircuitInput {
     pub program_output: ProgramOutput,
     pub visibility_mask: Vec<u8>,
-    pub private_account_data: Vec<(
-        Nonce,
+    pub private_account_nonces: Vec<Nonce>,
+    pub private_account_keys: Vec<(
         NullifierPublicKey,
         IncomingViewingPublicKey,
         EphemeralSecretKey,
@@ -98,3 +100,4 @@ pub struct PrivacyPreservingCircuitOutput {
     pub new_nullifiers: Vec<Nullifier>,
     pub commitment_set_digest: CommitmentSetDigest,
 }
+

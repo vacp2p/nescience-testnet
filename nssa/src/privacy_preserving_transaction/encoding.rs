@@ -1,3 +1,5 @@
+// TODO: Consider switching to deriving Borsh
+
 use std::io::{Cursor, Read};
 
 use nssa_core::{
@@ -9,9 +11,9 @@ use crate::{Address, error::NssaError};
 
 use super::message::Message;
 
-const MESSAGE_ENCODING_PREFIX_LEN: usize = 37;
+const MESSAGE_ENCODING_PREFIX_LEN: usize = 22;
 const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] =
-    b"NSSA/v0.1/TxMessage/PrivacyPreserving";
+    b"\x01/NSSA/v0.1/TxMessage/";
 
 impl Message {
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
@@ -136,6 +138,3 @@ impl Message {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {}

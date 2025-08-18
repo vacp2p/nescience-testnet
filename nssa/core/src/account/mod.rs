@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::program::ProgramId;
 
 mod commitment;
-mod nullifier;
 mod encoding;
+mod nullifier;
 
 pub use commitment::Commitment;
 pub use nullifier::{Nullifier, NullifierPublicKey, NullifierSecretKey};
@@ -22,7 +22,7 @@ pub struct Account {
     pub nonce: Nonce,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountWithMetadata {
     pub account: Account,
     pub is_authorized: bool,
