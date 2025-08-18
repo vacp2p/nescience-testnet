@@ -6,7 +6,7 @@ mod commitment;
 mod nullifier;
 
 pub use commitment::Commitment;
-pub use nullifier::Nullifier;
+pub use nullifier::{Nullifier, NullifierPublicKey, NullifierSecretKey};
 
 pub type Nonce = u128;
 type Data = Vec<u8>;

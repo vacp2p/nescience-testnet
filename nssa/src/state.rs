@@ -4,13 +4,13 @@ use crate::{
     public_transaction::PublicTransaction,
 };
 use nssa_core::{
+    CommitmentSetDigest,
     account::{Account, Commitment, Nullifier},
     program::{DEFAULT_PROGRAM_ID, ProgramId},
 };
 use std::collections::{HashMap, HashSet};
 
 struct CommitmentSet(HashSet<Commitment>);
-pub type CommitmentSetDigest = [u32; 8];
 
 impl CommitmentSet {
     fn extend(&mut self, commitments: Vec<Commitment>) {
@@ -22,6 +22,7 @@ impl CommitmentSet {
         [0; 8]
     }
 }
+
 type NullifierSet = HashSet<Nullifier>;
 
 pub struct V01State {

@@ -1,9 +1,9 @@
-use nssa_core::account::{Account, Commitment, Nonce, Nullifier};
+use nssa_core::{
+    EncryptedAccountData,
+    account::{Account, Commitment, Nonce, Nullifier},
+};
 
 use crate::Address;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EncryptedAccountData;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {

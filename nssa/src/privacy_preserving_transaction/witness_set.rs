@@ -15,7 +15,7 @@ impl WitnessSet {
         todo!()
     }
 
-    pub fn is_valid_for(&self, message: &Message) -> bool {
+    pub fn signatures_are_valid_for(&self, message: &Message) -> bool {
         todo!()
     }
 

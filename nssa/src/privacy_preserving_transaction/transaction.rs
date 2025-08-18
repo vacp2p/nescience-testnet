@@ -1,10 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
+use nssa_core::{CommitmentSetDigest, EncryptedAccountData};
 use nssa_core::account::{Account, AccountWithMetadata};
 
 use crate::error::NssaError;
-use crate::privacy_preserving_transaction::message::EncryptedAccountData;
-use crate::state::CommitmentSetDigest;
 use crate::{Address, V01State};
 
 use super::message::Message;
@@ -45,7 +44,7 @@ impl PrivacyPreservingTransaction {
             ));
         }
 
-        // Check there are no duplicate commitments in the new_nullifiers list
+        // Check there are no duplicate commitments in the new_commitments list
         if n_unique(&message.new_commitments) != message.new_commitments.len() {
             return Err(NssaError::InvalidInput(
                 "Duplicate commitments found in message".into(),
@@ -61,7 +60,7 @@ impl PrivacyPreservingTransaction {
         }
 
         // Check the signatures are valid
-        if !witness_set.is_valid_for(message) {
+        if !witness_set.signatures_are_valid_for(message) {
             return Err(NssaError::InvalidInput(
                 "Invalid signature for given message and public key".into(),
             ));
@@ -89,7 +88,7 @@ impl PrivacyPreservingTransaction {
         let set_commitment = state.commitment_set_digest();
 
         // 4. Proof verification
-        check_privacy_preserving_circuit_execution_proof_is_valid(
+        check_privacy_preserving_circuit_proof_is_valid(
             witness_set.proof,
             &public_pre_states,
             &message.public_post_states,
@@ -130,7 +129,7 @@ impl PrivacyPreservingTransaction {
     }
 }
 
-fn check_privacy_preserving_circuit_execution_proof_is_valid(
+fn check_privacy_preserving_circuit_proof_is_valid(
     proof: (),
     public_pre_states: &[AccountWithMetadata],
     public_post_states: &[Account],
