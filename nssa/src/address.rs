@@ -1,11 +1,8 @@
 use std::{fmt::Display, str::FromStr};
 
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::signature::PublicKey;
-
-pub const LENGTH_MISMATCH_ERROR_MESSAGE: &str = "Slice length != 32 ";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Address {
@@ -25,18 +22,6 @@ impl Address {
 impl AsRef<[u8]> for Address {
     fn as_ref(&self) -> &[u8] {
         &self.value
-    }
-}
-
-impl TryFrom<Vec<u8>> for Address {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        let addr_val: [u8; 32] = value
-            .try_into()
-            .map_err(|_| anyhow!(LENGTH_MISMATCH_ERROR_MESSAGE))?;
-
-        Ok(Address::new(addr_val))
     }
 }
 

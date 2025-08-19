@@ -23,15 +23,7 @@ impl SequecerChainStore {
     ) -> Self {
         let init_accs: Vec<(Address, u128)> = initial_accounts
             .iter()
-            .map(|acc_data| {
-                (
-                    hex::decode(acc_data.addr.clone())
-                        .unwrap()
-                        .try_into()
-                        .unwrap(),
-                    acc_data.balance,
-                )
-            })
+            .map(|acc_data| (acc_data.addr.parse().unwrap(), acc_data.balance))
             .collect();
 
         let state = nssa::V01State::new_with_genesis_accounts(&init_accs);
