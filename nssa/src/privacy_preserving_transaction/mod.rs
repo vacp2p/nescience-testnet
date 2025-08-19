@@ -31,8 +31,6 @@ pub mod circuit {
         }
     }
 
-    /// Executes and proves the program `P`.
-    /// Returns the proof
     fn execute_and_prove_program(
         program: &Program,
         pre_states: &[AccountWithMetadata],
@@ -128,14 +126,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {
+    fn prove_privacy_preserving_execution_circuit_public_and_private_pre_accounts() {
         let sender = AccountWithMetadata {
             account: Account {
                 balance: 100,
                 ..Account::default()
             },
-            is_authorized: false,
+            is_authorized: true,
         };
+
         let recipient = AccountWithMetadata {
             account: Account::default(),
             is_authorized: false,
@@ -155,7 +154,7 @@ mod tests {
         let private_account_auth = vec![];
         let visibility_mask = vec![0, 2];
         let commitment_set_digest = [99; 8];
-        let program = Program::simple_balance_transfer();
+        let program = Program::authenticated_transfer_program();
         let (proof, output) = prove_privacy_preserving_execution_circuit(
             &pre_states,
             &instruction_data,
@@ -177,7 +176,61 @@ mod tests {
         assert_eq!(output.new_nullifiers.len(), 0);
         assert_eq!(output.commitment_set_digest, commitment_set_digest);
         assert_eq!(output.encrypted_private_post_states.len(), 1);
-        // TODO: replace with real assert when encryption is implemented
+        // TODO: replace with real assertion when encryption is implemented
         assert_eq!(output.encrypted_private_post_states[0].to_bytes(), vec![0]);
+    }
+
+    #[test]
+    fn prove_privacy_preserving_execution_circuit_fully_private() {
+        let sender = AccountWithMetadata {
+            account: Account {
+                balance: 100,
+                ..Account::default()
+            },
+            is_authorized: true,
+        };
+
+        let recipient = AccountWithMetadata {
+            account: Account::default(),
+            is_authorized: false,
+        };
+
+        let balance_to_move: u128 = 37;
+
+        let expected_sender_pre = sender.clone();
+        let pre_states = vec![sender, recipient];
+        let instruction_data = Program::serialize_instruction(balance_to_move).unwrap();
+        let private_key = [1; 32];
+        let private_account_keys = vec![
+            (NullifierPublicKey::from(&private_key), [2; 32], [3; 32]),
+            (NullifierPublicKey::from(&[2; 32]), [4; 32], [5; 32]),
+        ];
+        //  TODO: Replace dummy authentication path when implemented
+        let private_account_auth = vec![(private_key, vec![])];
+        let visibility_mask = vec![1, 2];
+        let commitment_set_digest = [99; 8];
+        let program = Program::authenticated_transfer_program();
+        let (proof, output) = prove_privacy_preserving_execution_circuit(
+            &pre_states,
+            &instruction_data,
+            &private_account_keys,
+            &private_account_auth,
+            &visibility_mask,
+            commitment_set_digest,
+            &program,
+        )
+        .unwrap();
+
+        assert!(proof.is_valid_for(&output));
+
+        assert_eq!(output.public_post_states.len(), 0);
+        assert_eq!(output.public_pre_states.len(), 0);
+        assert_eq!(output.new_commitments.len(), 2);
+        assert_eq!(output.new_nullifiers.len(), 1);
+        assert_eq!(output.commitment_set_digest, commitment_set_digest);
+        assert_eq!(output.encrypted_private_post_states.len(), 2);
+        // TODO: replace with real assertion when encryption is implemented
+        assert_eq!(output.encrypted_private_post_states[0].to_bytes(), vec![0]);
+        assert_eq!(output.encrypted_private_post_states[1].to_bytes(), vec![0]);
     }
 }

@@ -42,4 +42,7 @@ pub enum NssaError {
 
     #[error("Circuit output deserialization error: {0}")]
     CircuitOutputDeserializationError(String),
+
+    #[error("Invalid privacy preserving execution circuit proof")]
+    InvalidPrivacyPreservingProof,
 }

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use nssa_core::account::{Account, AccountWithMetadata};
-use nssa_core::{CommitmentSetDigest, EncryptedAccountData};
+use nssa_core::{CommitmentSetDigest, EncryptedAccountData, PrivacyPreservingCircuitOutput};
 
 use crate::error::NssaError;
 use crate::privacy_preserving_transaction::circuit::Proof;
@@ -146,7 +146,18 @@ fn check_privacy_preserving_circuit_proof_is_valid(
     new_nullifiers: &[nssa_core::account::Nullifier],
     commitment_set_digest: CommitmentSetDigest,
 ) -> Result<(), NssaError> {
-    todo!()
+    let output = PrivacyPreservingCircuitOutput {
+        public_pre_states: public_pre_states.to_vec(),
+        public_post_states: public_post_states.to_vec(),
+        encrypted_private_post_states: encrypted_private_post_states.to_vec(),
+        new_commitments: new_commitments.to_vec(),
+        new_nullifiers: new_nullifiers.to_vec(),
+        commitment_set_digest,
+    };
+    proof
+        .is_valid_for(&output)
+        .then_some(())
+        .ok_or(NssaError::InvalidPrivacyPreservingProof)
 }
 
 use std::hash::Hash;

@@ -38,19 +38,6 @@ fn main() {
         panic!();
     }
 
-    let n_private_accounts = visibility_mask.iter().filter(|&&flag| flag != 0).count();
-    if private_account_nonces.len() != n_private_accounts {
-        panic!();
-    }
-    if private_account_keys.len() != n_private_accounts {
-        panic!();
-    }
-
-    let n_auth_private_accounts = visibility_mask.iter().filter(|&&flag| flag == 1).count();
-    if private_account_auth.len() != n_auth_private_accounts {
-        panic!();
-    }
-
     // These lists will be the public outputs of this circuit
     // and will be populated next.
     let mut public_pre_states: Vec<AccountWithMetadata> = Vec::new();
@@ -104,9 +91,12 @@ fn main() {
                     let nullifier = Nullifier::new(&commitment_pre, nsk);
                     new_nullifiers.push(nullifier);
                 } else {
-                    // Private account marked as empty
-                    if pre_states[i].account != Account::default() || pre_states[i].is_authorized {
-                        panic!("Invalid empty private account pre-state");
+                    if pre_states[i].account != Account::default() {
+                        panic!("Found new private account with non default values.");
+                    }
+
+                    if pre_states[i].is_authorized {
+                        panic!("Found new private account marked as authorized.");
                     }
                 }
 
@@ -125,6 +115,18 @@ fn main() {
             }
             _ => panic!("Invalid visibility mask value"),
         }
+    }
+
+    if private_nonces_iter.next().is_some() {
+        panic!("Too many nonces.");
+    }
+
+    if private_keys_iter.next().is_some() {
+        panic!("Too many private accounts keys.");
+    }
+
+    if private_auth_iter.next().is_some() {
+        panic!("Too many private account authentication keys.");
     }
 
     let output = PrivacyPreservingCircuitOutput {

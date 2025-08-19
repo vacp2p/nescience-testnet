@@ -28,7 +28,8 @@ pub fn verify_membership_proof(
     proof: &MembershipProof,
     digest: &CommitmentSetDigest,
 ) -> bool {
-    todo!()
+    // TODO: implement
+    true
 }
 
 pub type IncomingViewingPublicKey = [u8; 32];
@@ -93,6 +94,7 @@ pub struct PrivacyPreservingCircuitInput {
 }
 
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
 pub struct PrivacyPreservingCircuitOutput {
     pub public_pre_states: Vec<AccountWithMetadata>,
     pub public_post_states: Vec<Account>,
@@ -111,5 +113,60 @@ impl PrivacyPreservingCircuitOutput {
             result.extend_from_slice(&word.to_le_bytes());
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use risc0_zkvm::serde::from_slice;
+
+    use crate::{
+        EncryptedAccountData, PrivacyPreservingCircuitOutput,
+        account::{Account, AccountWithMetadata, Commitment, Nullifier, NullifierPublicKey},
+    };
+
+    #[test]
+    fn test_privacy_preserving_circuit_output_to_bytes_is_compatible_with_from_slice() {
+        let output = PrivacyPreservingCircuitOutput {
+            public_pre_states: vec![
+                AccountWithMetadata {
+                    account: Account {
+                        program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
+                        balance: 12345678901234567890,
+                        data: b"test data".to_vec(),
+                        nonce: 18446744073709551614,
+                    },
+                    is_authorized: true,
+                },
+                AccountWithMetadata {
+                    account: Account {
+                        program_owner: [9, 9, 9, 8, 8, 8, 7, 7],
+                        balance: 123123123456456567112,
+                        data: b"test data".to_vec(),
+                        nonce: 9999999999999999999999,
+                    },
+                    is_authorized: false,
+                },
+            ],
+            public_post_states: vec![Account {
+                program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
+                balance: 100,
+                data: b"post state data".to_vec(),
+                nonce: 18446744073709551615,
+            }],
+            encrypted_private_post_states: vec![EncryptedAccountData(0)],
+            new_commitments: vec![Commitment::new(
+                &NullifierPublicKey::from(&[1; 32]),
+                &Account::default(),
+            )],
+            new_nullifiers: vec![Nullifier::new(
+                &Commitment::new(&NullifierPublicKey::from(&[2; 32]), &Account::default()),
+                &[1; 32],
+            )],
+            commitment_set_digest: [0, 1, 0, 1, 0, 1, 0, 1],
+        };
+        let bytes = output.to_bytes();
+        let output_from_slice: PrivacyPreservingCircuitOutput = from_slice(&bytes).unwrap();
+        assert_eq!(output, output_from_slice);
     }
 }
