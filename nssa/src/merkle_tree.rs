@@ -32,27 +32,31 @@ impl MerkleTree {
         *self.node_map.get(&0).unwrap()
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        let base_length = capacity.next_power_of_two();
-        let mut node_map = HashMap::<usize, Node>::new();
-        let mut current_layer_length = base_length;
-        let mut default_value_index = 0;
-        while current_layer_length > 0 {
-            let first_index = current_layer_length - 1;
-            let default_layer_value = default_values::DEFAULT_VALUES[default_value_index];
-            let new_layer = (first_index..(first_index + current_layer_length))
-                .map(|index| (index, default_layer_value))
-                .collect::<HashMap<_, _>>();
-            node_map.extend(new_layer);
+    fn get_node(&self, index: &usize) -> &Node {
+        self.node_map.get(&index).unwrap_or_else(|| {
+            let index_depth = usize::BITS as usize - (index + 1).leading_zeros() as usize - 1;
+            let total_levels = self.capacity.trailing_zeros() as usize;
+            if total_levels >= index_depth {
+                &default_values::DEFAULT_VALUES[total_levels - index_depth]
+            } else {
+                //TODO: implement error handling
+                panic!();
+            }
+        })
+    }
 
-            current_layer_length >>= 1;
-            default_value_index += 1;
-        }
+    fn set_node(&mut self, index: usize, node: Node) {
+        self.node_map.insert(index, node);
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let capacity = capacity.next_power_of_two();
+        let length = 0;
         Self {
             index_map: HashMap::new(),
-            node_map,
-            capacity: base_length,
-            length: 0,
+            node_map: HashMap::new(),
+            capacity,
+            length,
         }
     }
 
@@ -81,18 +85,17 @@ impl MerkleTree {
 
             let (parent_index, new_parent_node) = if is_left_child {
                 let parent_index = (layer_index - 1) >> 1;
-                let sibling = self.node_map.get(&(layer_index + 1)).unwrap();
+                let sibling = self.get_node(&(layer_index + 1));
                 let new_parent_node = hash_two(&layer_node, sibling);
                 (parent_index, new_parent_node)
             } else {
                 let parent_index = (layer_index - 2) >> 1;
-                let sibling = self.node_map.get(&(layer_index - 1)).unwrap();
+                let sibling = self.get_node(&(layer_index - 1));
                 let new_parent_node = hash_two(sibling, &layer_node);
                 (parent_index, new_parent_node)
             };
 
-            let node = self.node_map.get_mut(&parent_index).unwrap();
-            *node = new_parent_node;
+            self.set_node(parent_index, new_parent_node);
 
             layer -= 1;
             layer_index = parent_index;
@@ -103,75 +106,19 @@ impl MerkleTree {
     }
 
     pub fn new(values: Vec<Value>) -> Self {
-        let values = Self::deduplicate_values_and_keep_order(values);
-
-        let capacity = values.len().next_power_of_two();
-        let length = values.len();
-
-        let base_length = capacity;
-
-        let mut node_map: HashMap<usize, Node> = values
-            .iter()
-            .enumerate()
-            .map(|(index, value)| (index + base_length - 1, hash_value(value)))
-            .collect();
-        node_map.extend(
-            (values.len()..base_length)
-                .map(|index| (index + base_length - 1, [0; 32]))
-                .collect::<HashMap<_, _>>(),
-        );
-
-        let mut current_layer_length = base_length;
-        let mut current_layer_first_index = base_length - 1;
-
-        while current_layer_length > 1 {
-            let next_layer_length = current_layer_length >> 1;
-            let next_layer_first_index = current_layer_first_index >> 1;
-
-            let next_layer = (next_layer_first_index..(next_layer_first_index + next_layer_length))
-                .map(|index| {
-                    let left_child = node_map.get(&((index << 1) + 1)).unwrap();
-                    let right_child = node_map.get(&((index << 1) + 2)).unwrap();
-                    (index, hash_two(&left_child, &right_child))
-                })
-                .collect::<HashMap<_, _>>();
-
-            node_map.extend(&next_layer);
-
-            current_layer_length = next_layer_length;
-            current_layer_first_index = next_layer_first_index;
-        }
-
-        let index_map = values
-            .into_iter()
-            .enumerate()
-            .map(|(index, value)| (value, index))
-            .collect();
-
-        Self {
-            index_map,
-            node_map,
-            capacity,
-            length,
-        }
-    }
-
-    fn add_value(&mut self, new_value: Value) {
-        if self.capacity < self.length {
-        } else {
-        }
-    }
-
-    fn deduplicate_values_and_keep_order(values: Vec<Value>) -> Vec<Value> {
-        let mut result = Vec::new();
+        let mut deduplicated_values = Vec::with_capacity(values.len());
         let mut seen = HashSet::new();
         for value in values.into_iter() {
             if !seen.contains(&value) {
-                seen.insert(value.clone());
-                result.push(value);
+                deduplicated_values.push(value);
+                seen.insert(value);
             }
         }
-        result
+        let mut this = Self::with_capacity(deduplicated_values.len());
+        for value in deduplicated_values.into_iter() {
+            this.insert(value);
+        }
+        this
     }
 }
 
@@ -282,23 +229,14 @@ mod tests {
 
         assert_eq!(tree.length, 0);
         assert!(tree.index_map.is_empty());
-        assert_eq!(tree.node_map.len(), 7);
+        assert!(tree.node_map.is_empty());
         for i in 3..7 {
-            assert_eq!(
-                *tree.node_map.get(&i).unwrap(),
-                default_values::DEFAULT_VALUES[0]
-            )
+            assert_eq!(*tree.get_node(&i), default_values::DEFAULT_VALUES[0], "{i}");
         }
         for i in 1..3 {
-            assert_eq!(
-                *tree.node_map.get(&i).unwrap(),
-                default_values::DEFAULT_VALUES[1]
-            )
+            assert_eq!(*tree.get_node(&i), default_values::DEFAULT_VALUES[1], "{i}");
         }
-        assert_eq!(
-            *tree.node_map.get(&0).unwrap(),
-            default_values::DEFAULT_VALUES[2]
-        )
+        assert_eq!(*tree.get_node(&0), default_values::DEFAULT_VALUES[2]);
     }
 
     #[test]
@@ -307,29 +245,17 @@ mod tests {
 
         assert_eq!(tree.length, 0);
         assert!(tree.index_map.is_empty());
-        assert_eq!(tree.node_map.len(), 15);
+        assert!(tree.node_map.is_empty());
         for i in 7..15 {
-            assert_eq!(
-                *tree.node_map.get(&i).unwrap(),
-                default_values::DEFAULT_VALUES[0]
-            )
+            assert_eq!(*tree.get_node(&i), default_values::DEFAULT_VALUES[0])
         }
         for i in 3..7 {
-            assert_eq!(
-                *tree.node_map.get(&i).unwrap(),
-                default_values::DEFAULT_VALUES[1]
-            )
+            assert_eq!(*tree.get_node(&i), default_values::DEFAULT_VALUES[1])
         }
         for i in 1..3 {
-            assert_eq!(
-                *tree.node_map.get(&i).unwrap(),
-                default_values::DEFAULT_VALUES[2]
-            )
+            assert_eq!(*tree.get_node(&i), default_values::DEFAULT_VALUES[2])
         }
-        assert_eq!(
-            *tree.node_map.get(&0).unwrap(),
-            default_values::DEFAULT_VALUES[3]
-        )
+        assert_eq!(*tree.get_node(&0), default_values::DEFAULT_VALUES[3])
     }
 
     #[test]
