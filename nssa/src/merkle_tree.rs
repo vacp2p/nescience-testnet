@@ -161,6 +161,22 @@ impl MerkleTree {
     }
 }
 
+// Reference implementation
+fn verify_authentication_path(value: &Value, index: usize, path: &[Node], root: &Node) -> bool {
+    let mut result = hash_value(value);
+    let mut level_index = index;
+    for node in path {
+        let is_left_child = level_index & 1 == 0;
+        if is_left_child {
+            result = hash_two(&result, node);
+        } else {
+            result = hash_two(node, &result);
+        }
+        level_index >>= 1;
+    }
+    &result == root
+}
+
 #[cfg(test)]
 mod tests {
     use nssa_core::account::{Account, NullifierPublicKey};
@@ -339,7 +355,6 @@ mod tests {
         assert_eq!(tree.root(), expected_root);
     }
 
-
     #[test]
     fn test_with_capacity_8() {
         let mut tree = MerkleTree::with_capacity(1);
@@ -357,7 +372,6 @@ mod tests {
 
         assert_eq!(tree.root(), expected_root);
     }
-
 
     #[test]
     fn test_insert_value_1() {
@@ -494,6 +508,37 @@ mod tests {
 
         let authentication_path = tree.get_authentication_path_for(&[5; 32]).unwrap();
         assert_eq!(authentication_path, expected_authentication_path);
+    }
+
+    #[test]
+    fn test_authentication_path_4() {
+        let values = vec![[1; 32], [2; 32], [3; 32], [4; 32], [5; 32]];
+        let tree = MerkleTree::new(values);
+        let value = [6; 32];
+        assert!(tree.get_authentication_path_for(&value).is_none());
+    }
+
+
+    #[test]
+    fn test_authentication_path_5() {
+        let values = vec![[1; 32], [2; 32], [3; 32], [4; 32], [5; 32]];
+        let tree = MerkleTree::new(values);
+        let value = [0; 32];
+        assert!(tree.get_authentication_path_for(&value).is_none());
+    }
+
+    #[test]
+    fn test_authentication_path_6() {
+        let values = vec![[1; 32], [2; 32], [3; 32], [4; 32], [5; 32]];
+        let tree = MerkleTree::new(values);
+        let value = [5; 32];
+        let (index, path) = tree.get_authentication_path_for(&value).unwrap();
+        assert!(verify_authentication_path(
+            &value,
+            index,
+            &path,
+            &tree.root()
+        ));
     }
 }
 
