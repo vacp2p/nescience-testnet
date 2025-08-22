@@ -54,13 +54,15 @@ fn main() {
     for i in 0..n_accounts {
         match visibility_mask[i] {
             0 => {
+                // Public account
+                public_pre_states.push(pre_states[i].clone());
+
                 let mut post = post_states[i].clone();
+                post.nonce += 1;
                 if post.program_owner == DEFAULT_PROGRAM_ID {
                     // Claim account
                     post.program_owner = program_id;
                 }
-                // Public account
-                public_pre_states.push(pre_states[i].clone());
                 public_post_states.push(post);
             }
             1 | 2 => {
