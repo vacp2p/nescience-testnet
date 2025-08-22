@@ -27,7 +27,7 @@ pub struct Account {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AccountForSerialization {
     pub key_holder: AddressKeyHolder,
-    pub address: Address,
+    pub address: String,
     pub balance: u64,
     pub utxos: HashMap<String, UTXO>,
 }
@@ -36,8 +36,8 @@ impl From<Account> for AccountForSerialization {
     fn from(value: Account) -> Self {
         AccountForSerialization {
             key_holder: value.key_holder,
-            address: value.address,
             balance: value.balance,
+            address: value.address.to_string(),
             utxos: value
                 .utxos
                 .into_iter()
@@ -49,9 +49,12 @@ impl From<Account> for AccountForSerialization {
 
 impl From<AccountForSerialization> for Account {
     fn from(value: AccountForSerialization) -> Self {
+        let public_key =
+            nssa::PublicKey::new_from_private_key(value.key_holder.get_pub_account_signing_key());
+        let address = nssa::Address::from(&public_key);
         Account {
             key_holder: value.key_holder,
-            address: value.address,
+            address,
             balance: value.balance,
             utxos: value
                 .utxos
@@ -79,34 +82,6 @@ impl<'de> Deserialize<'de> for Account {
     {
         let account_for_serialization = <AccountForSerialization>::deserialize(deserializer)?;
         Ok(account_for_serialization.into())
-    }
-}
-
-///A strucure, which represents all the visible(public) information
-///
-/// known to each node about account `address`
-///
-/// Main usage is to encode data for other account
-#[derive(Serialize, Clone)]
-pub struct AccountPublicMask {
-    pub nullifier_public_key: AffinePoint,
-    pub viewing_public_key: AffinePoint,
-    pub address: Address,
-    pub balance: u64,
-}
-
-impl AccountPublicMask {
-    pub fn encrypt_data(
-        ephemeral_key_holder: &EphemeralKeyHolder,
-        viewing_public_key_receiver: AffinePoint,
-        data: &[u8],
-    ) -> (CipherText, Nonce) {
-        //Using of parent Account fuction
-        Account::encrypt_data(ephemeral_key_holder, viewing_public_key_receiver, data)
-    }
-
-    pub fn make_tag(&self) -> Tag {
-        self.address.value()[0]
     }
 }
 
@@ -201,16 +176,6 @@ impl Account {
     pub fn make_tag(&self) -> Tag {
         self.address.value()[0]
     }
-
-    ///Produce account public mask
-    pub fn make_account_public_mask(&self) -> AccountPublicMask {
-        AccountPublicMask {
-            nullifier_public_key: self.key_holder.nullifer_public_key,
-            viewing_public_key: self.key_holder.viewing_public_key,
-            address: self.address,
-            balance: self.balance,
-        }
-    }
 }
 
 impl Default for Account {
@@ -252,26 +217,5 @@ mod tests {
         account.update_public_balance(500);
 
         assert_eq!(account.balance, 500);
-    }
-
-    #[test]
-    fn test_add_asset() {
-        let mut account = Account::new();
-        let asset = "dummy_asset";
-        let amount = 1000u128;
-
-        let result = account.add_asset(asset, amount, false);
-
-        assert!(result.is_ok());
-        assert_eq!(account.utxos.len(), 1);
-    }
-
-    #[test]
-    fn accounts_accounts_mask_tag_consistency() {
-        let account = Account::new();
-
-        let account_mask = account.make_account_public_mask();
-
-        assert_eq!(account.make_tag(), account_mask.make_tag());
     }
 }
