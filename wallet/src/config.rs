@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use accounts::account_core::Account;
 use serde::{Deserialize, Serialize};
-use zkvm::gas_calculator::GasCalculator;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GasConfig {
@@ -20,20 +19,6 @@ pub struct GasConfig {
     pub gas_limit_deploy: u64,
     /// Gas limit for runtime
     pub gas_limit_runtime: u64,
-}
-
-impl From<GasConfig> for zkvm::gas_calculator::GasCalculator {
-    fn from(value: GasConfig) -> Self {
-        GasCalculator::new(
-            value.gas_fee_per_byte_deploy,
-            value.gas_fee_per_input_buffer_runtime,
-            value.gas_fee_per_byte_runtime,
-            value.gas_cost_runtime,
-            value.gas_cost_deploy,
-            value.gas_limit_deploy,
-            value.gas_limit_runtime,
-        )
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -132,7 +132,7 @@ impl PrivacyPreservingTransaction {
         self.witness_set
             .signatures_and_public_keys()
             .iter()
-            .map(|(_, public_key)| Address::from_public_key(public_key))
+            .map(|(_, public_key)| Address::from(public_key))
             .collect()
     }
 }

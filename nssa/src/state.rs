@@ -42,18 +42,17 @@ pub struct V01State {
 }
 
 impl V01State {
-    pub fn new_with_genesis_accounts(initial_data: &[([u8; 32], u128)]) -> Self {
+    pub fn new_with_genesis_accounts(initial_data: &[(Address, u128)]) -> Self {
         let authenticated_transfer_program = Program::authenticated_transfer_program();
         let public_state = initial_data
             .iter()
             .copied()
-            .map(|(address_value, balance)| {
+            .map(|(address, balance)| {
                 let account = Account {
                     balance,
                     program_owner: authenticated_transfer_program.id(),
                     ..Account::default()
                 };
-                let address = Address::new(address_value);
                 (address, account)
             })
             .collect();
@@ -215,9 +214,9 @@ mod tests {
     fn test_new_with_genesis() {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let addr1 = Address::from_public_key(&PublicKey::new_from_private_key(&key1));
-        let addr2 = Address::from_public_key(&PublicKey::new_from_private_key(&key2));
-        let initial_data = [(*addr1.value(), 100u128), (*addr2.value(), 151u128)];
+        let addr1 = Address::from(&PublicKey::new_from_private_key(&key1));
+        let addr2 = Address::from(&PublicKey::new_from_private_key(&key2));
+        let initial_data = [(addr1, 100u128), (addr2, 151u128)];
         let program = Program::authenticated_transfer_program();
         let expected_public_state = {
             let mut this = HashMap::new();
@@ -266,8 +265,8 @@ mod tests {
     #[test]
     fn test_get_account_by_address_non_default_account() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let addr = Address::from_public_key(&PublicKey::new_from_private_key(&key));
-        let initial_data = [(*addr.value(), 100u128)];
+        let addr = Address::from(&PublicKey::new_from_private_key(&key));
+        let initial_data = [(addr, 100u128)];
         let state = V01State::new_with_genesis_accounts(&initial_data);
         let expected_account = state.public_state.get(&addr).unwrap();
 
@@ -299,15 +298,15 @@ mod tests {
     #[test]
     fn transition_from_authenticated_transfer_program_invocation_default_account_destination() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let address = Address::from_public_key(&PublicKey::new_from_private_key(&key));
-        let initial_data = [(*address.value(), 100)];
+        let address = Address::from(&PublicKey::new_from_private_key(&key));
+        let initial_data = [(address, 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
         let from = address;
         let to = Address::new([2; 32]);
         assert_eq!(state.get_account_by_address(&to), Account::default());
         let balance_to_move = 5;
 
-        let tx = transfer_transaction(from.clone(), key, 0, to.clone(), balance_to_move);
+        let tx = transfer_transaction(from, key, 0, to, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
 
         assert_eq!(state.get_account_by_address(&from).balance, 95);
@@ -319,8 +318,8 @@ mod tests {
     #[test]
     fn transition_from_authenticated_transfer_program_invocation_insuficient_balance() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let address = Address::from_public_key(&PublicKey::new_from_private_key(&key));
-        let initial_data = [(*address.value(), 100)];
+        let address = Address::from(&PublicKey::new_from_private_key(&key));
+        let initial_data = [(address, 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
         let from = address;
         let from_key = key;
@@ -328,7 +327,7 @@ mod tests {
         let balance_to_move = 101;
         assert!(state.get_account_by_address(&from).balance < balance_to_move);
 
-        let tx = transfer_transaction(from.clone(), from_key, 0, to.clone(), balance_to_move);
+        let tx = transfer_transaction(from, from_key, 0, to, balance_to_move);
         let result = state.transition_from_public_transaction(&tx);
 
         assert!(matches!(result, Err(NssaError::ProgramExecutionFailed(_))));
@@ -342,9 +341,9 @@ mod tests {
     fn transition_from_authenticated_transfer_program_invocation_non_default_account_destination() {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let address1 = Address::from_public_key(&PublicKey::new_from_private_key(&key1));
-        let address2 = Address::from_public_key(&PublicKey::new_from_private_key(&key2));
-        let initial_data = [(*address1.value(), 100), (*address2.value(), 200)];
+        let address1 = Address::from(&PublicKey::new_from_private_key(&key1));
+        let address2 = Address::from(&PublicKey::new_from_private_key(&key2));
+        let initial_data = [(address1, 100), (address2, 200)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
         let from = address2;
         let from_key = key2;
@@ -352,7 +351,7 @@ mod tests {
         assert_ne!(state.get_account_by_address(&to), Account::default());
         let balance_to_move = 8;
 
-        let tx = transfer_transaction(from.clone(), from_key, 0, to.clone(), balance_to_move);
+        let tx = transfer_transaction(from, from_key, 0, to, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
 
         assert_eq!(state.get_account_by_address(&from).balance, 192);
@@ -364,18 +363,18 @@ mod tests {
     #[test]
     fn transition_from_chained_authenticated_transfer_program_invocations() {
         let key1 = PrivateKey::try_new([8; 32]).unwrap();
-        let address1 = Address::from_public_key(&PublicKey::new_from_private_key(&key1));
+        let address1 = Address::from(&PublicKey::new_from_private_key(&key1));
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let address2 = Address::from_public_key(&PublicKey::new_from_private_key(&key2));
-        let initial_data = [(*address1.value(), 100)];
+        let address2 = Address::from(&PublicKey::new_from_private_key(&key2));
+        let initial_data = [(address1, 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data);
         let address3 = Address::new([3; 32]);
         let balance_to_move = 5;
 
-        let tx = transfer_transaction(address1.clone(), key1, 0, address2.clone(), balance_to_move);
+        let tx = transfer_transaction(address1, key1, 0, address2, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
         let balance_to_move = 3;
-        let tx = transfer_transaction(address2.clone(), key2, 0, address3.clone(), balance_to_move);
+        let tx = transfer_transaction(address2, key2, 0, address3, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
 
         assert_eq!(state.get_account_by_address(&address1).balance, 95);
@@ -445,7 +444,7 @@ mod tests {
 
     #[test]
     fn test_program_should_fail_if_modifies_nonces() {
-        let initial_data = [([1; 32], 100)];
+        let initial_data = [(Address::new([1; 32]), 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
         let addresses = vec![Address::new([1; 32])];
         let program_id = Program::nonce_changer_program().id();
@@ -461,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_program_should_fail_if_output_accounts_exceed_inputs() {
-        let initial_data = [([1; 32], 100)];
+        let initial_data = [(Address::new([1; 32]), 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
         let addresses = vec![Address::new([1; 32])];
         let program_id = Program::extra_output_program().id();
@@ -477,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_program_should_fail_with_missing_output_accounts() {
-        let initial_data = [([1; 32], 100)];
+        let initial_data = [(Address::new([1; 32]), 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
         let addresses = vec![Address::new([1; 32]), Address::new([2; 32])];
         let program_id = Program::missing_output_program().id();
@@ -493,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_program_should_fail_if_modifies_program_owner_with_only_non_default_program_owner() {
-        let initial_data = [([1; 32], 0)];
+        let initial_data = [(Address::new([1; 32]), 0)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
         let address = Address::new([1; 32]);
         let account = state.get_account_by_address(&address);
@@ -587,7 +586,7 @@ mod tests {
 
     #[test]
     fn test_program_should_fail_if_transfers_balance_from_non_owned_account() {
-        let initial_data = [([1; 32], 100)];
+        let initial_data = [(Address::new([1; 32]), 100)];
         let mut state = V01State::new_with_genesis_accounts(&initial_data).with_test_programs();
         let sender_address = Address::new([1; 32]);
         let receiver_address = Address::new([2; 32]);
@@ -685,9 +684,9 @@ mod tests {
     fn test_transition_from_privacy_preserving_transaction() {
         let sender_signing_key = PrivateKey::try_new([1; 32]).unwrap();
         let sender_address =
-            Address::from_public_key(&PublicKey::new_from_private_key(&sender_signing_key));
+            Address::from(&PublicKey::new_from_private_key(&sender_signing_key));
 
-        let mut state = V01State::new_with_genesis_accounts(&[(*sender_address.value(), 200)]);
+        let mut state = V01State::new_with_genesis_accounts(&[(sender_address, 200)]);
 
         let sender = AccountWithMetadata {
             account: state.get_account_by_address(&sender_address),

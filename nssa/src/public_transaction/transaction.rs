@@ -39,7 +39,7 @@ impl PublicTransaction {
         self.witness_set
             .signatures_and_public_keys()
             .iter()
-            .map(|(_, public_key)| Address::from_public_key(public_key))
+            .map(|(_, public_key)| Address::from(public_key))
             .collect()
     }
 
@@ -130,14 +130,14 @@ pub mod tests {
     fn keys_for_tests() -> (PrivateKey, PrivateKey, Address, Address) {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let addr1 = Address::from_public_key(&PublicKey::new_from_private_key(&key1));
-        let addr2 = Address::from_public_key(&PublicKey::new_from_private_key(&key2));
+        let addr1 = Address::from(&PublicKey::new_from_private_key(&key1));
+        let addr2 = Address::from(&PublicKey::new_from_private_key(&key2));
         (key1, key2, addr1, addr2)
     }
 
     fn state_for_tests() -> V01State {
         let (_, _, addr1, addr2) = keys_for_tests();
-        let initial_data = [(*addr1.value(), 10000), (*addr2.value(), 20000)];
+        let initial_data = [(addr1, 10000), (addr2, 20000)];
         V01State::new_with_genesis_accounts(&initial_data)
     }
 
@@ -225,7 +225,7 @@ pub mod tests {
         let instruction = 1337;
         let message = Message::try_new(
             Program::authenticated_transfer_program().id(),
-            vec![addr1.clone(), addr1],
+            vec![addr1, addr1],
             nonces,
             instruction,
         )

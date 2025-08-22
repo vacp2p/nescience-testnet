@@ -343,7 +343,7 @@ mod tests {
 
         let public_key = nssa::PublicKey::new_from_private_key(&pub_account_signing_key);
 
-        let address = nssa::Address::from_public_key(&public_key);
+        let address = nssa::Address::from(&public_key);
 
         println!("======Prerequisites======");
         println!();

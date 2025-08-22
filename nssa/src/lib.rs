@@ -1,4 +1,4 @@
-mod address;
+pub mod address;
 pub mod error;
 mod privacy_preserving_transaction;
 pub mod program;

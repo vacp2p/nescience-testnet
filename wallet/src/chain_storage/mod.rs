@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
-use accounts::account_core::{address::AccountAddress, Account};
+use accounts::account_core::Account;
 use anyhow::Result;
 use common::merkle_tree_public::merkle_tree::UTXOCommitmentsMerkleTree;
-use sc_core::public_context::PublicSCContext;
+use nssa::Address;
 use serde::{Deserialize, Serialize};
 
 use crate::config::WalletConfig;
@@ -37,7 +37,7 @@ impl From<AccMap> for HashMap<[u8; 32], Account> {
 }
 
 pub struct WalletChainStore {
-    pub acc_map: HashMap<AccountAddress, Account>,
+    pub acc_map: HashMap<Address, Account>,
     pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
     pub wallet_config: WalletConfig,
 }
@@ -53,22 +53,6 @@ impl WalletChainStore {
             wallet_config: config,
         })
     }
-
-    pub fn produce_context(&self, caller: AccountAddress) -> PublicSCContext {
-        let mut account_masks = BTreeMap::new();
-
-        for (acc_addr, acc) in &self.acc_map {
-            account_masks.insert(*acc_addr, acc.make_account_public_mask());
-        }
-
-        PublicSCContext {
-            caller_address: caller,
-            caller_balance: self.acc_map.get(&caller).unwrap().balance,
-            account_masks,
-            comitment_store_root: self.utxo_commitments_store.get_root().unwrap_or([0; 32]),
-            commitments_tree: self.utxo_commitments_store.clone(),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -80,8 +64,9 @@ mod tests {
 
     fn create_initial_accounts() -> Vec<Account> {
         let initial_acc1 = serde_json::from_str(r#"{
-            "address": [27, 132, 197, 86, 123, 18, 100, 64, 153, 93, 62, 213, 170, 186, 5, 101, 215, 30, 24, 52, 96, 72, 25, 255, 156, 23, 245, 233, 213, 221, 7, 143],
+            "address": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
             "balance": 100,
+            "nonce": 0,
             "key_holder": {
                 "nullifer_public_key": "03A340BECA9FAAB444CED0140681D72EA1318B5C611704FEE017DA9836B17DB718",
                 "pub_account_signing_key": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -98,8 +83,9 @@ mod tests {
         }"#).unwrap();
 
         let initial_acc2 = serde_json::from_str(r#"{
-            "address": [77, 75, 108, 209, 54, 16, 50, 202, 155, 210, 174, 185, 217, 0, 170, 77, 69, 217, 234, 216, 10, 201, 66, 51, 116, 196, 81, 167, 37, 77, 7, 102],
+            "address": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
             "balance": 200,
+            "nonce": 0,
             "key_holder": {
                 "nullifer_public_key": "02172F50274DE67C4087C344F5D58E11DF761D90285B095060E0994FAA6BCDE271",
                 "pub_account_signing_key": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],

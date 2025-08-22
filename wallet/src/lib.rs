@@ -5,16 +5,18 @@ use common::{
     ExecutionFailureKind,
 };
 
-use accounts::account_core::{address::AccountAddress, Account};
+use accounts::account_core::Account;
 use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
 use log::info;
-use tokio::sync::RwLock;
+use nssa::Address;
 
 use clap::{Parser, Subcommand};
 
-use crate::helperfunctions::{fetch_config, produce_account_addr_from_hex};
+use crate::helperfunctions::{
+    fetch_config, fetch_persistent_accounts, produce_account_addr_from_hex,
+};
 
 pub const HOME_DIR_ENV_VAR: &str = "NSSA_WALLET_HOME_DIR";
 pub const BLOCK_GEN_DELAY_SECS: u64 = 20;
@@ -24,7 +26,7 @@ pub mod config;
 pub mod helperfunctions;
 
 pub struct WalletCore {
-    pub storage: Arc<RwLock<WalletChainStore>>,
+    pub storage: WalletChainStore,
     pub wallet_config: WalletConfig,
     pub sequencer_client: Arc<SequencerClient>,
 }
@@ -38,64 +40,60 @@ impl WalletCore {
             storage.acc_map.insert(acc.address, acc);
         }
 
-        let wrapped_storage = Arc::new(RwLock::new(storage));
+        //Persistent accounts take precedence for initial accounts
+        let persistent_accounts = fetch_persistent_accounts()?;
+        for acc in persistent_accounts {
+            storage.acc_map.insert(acc.address, acc);
+        }
 
         Ok(Self {
-            storage: wrapped_storage,
+            storage,
             wallet_config: config.clone(),
             sequencer_client: client.clone(),
         })
     }
 
-    pub async fn create_new_account(&mut self) -> AccountAddress {
+    pub async fn create_new_account(&mut self) -> Address {
         let account = Account::new();
         account.log();
 
         let addr = account.address;
 
-        {
-            let mut write_guard = self.storage.write().await;
-
-            write_guard.acc_map.insert(account.address, account);
-        }
+        self.storage.acc_map.insert(account.address, account);
 
         addr
     }
 
     pub async fn send_public_native_token_transfer(
         &self,
-        from: AccountAddress,
+        from: Address,
         nonce: u128,
-        to: AccountAddress,
+        to: Address,
         balance_to_move: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        {
-            let read_guard = self.storage.read().await;
+        let account = self.storage.acc_map.get(&from);
 
-            let account = read_guard.acc_map.get(&from);
+        if let Some(account) = account {
+            let addresses = vec![from, to];
+            let nonces = vec![nonce];
+            let program_id = nssa::program::Program::authenticated_transfer_program().id();
+            let message = nssa::public_transaction::Message::try_new(
+                program_id,
+                addresses,
+                nonces,
+                balance_to_move,
+            )
+            .unwrap();
 
-            if let Some(account) = account {
-                let addresses = vec![nssa::Address::new(from), nssa::Address::new(to)];
-                let nonces = vec![nonce];
-                let program_id = nssa::program::Program::authenticated_transfer_program().id();
-                let message = nssa::public_transaction::Message::try_new(
-                    program_id,
-                    addresses,
-                    nonces,
-                    balance_to_move,
-                )
-                .unwrap();
+            let signing_key = account.key_holder.get_pub_account_signing_key();
+            let witness_set =
+                nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
 
-                let signing_key = account.key_holder.get_pub_account_signing_key();
-                let witness_set =
-                    nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
+            let tx = nssa::PublicTransaction::new(message, witness_set);
 
-                let tx = nssa::PublicTransaction::new(message, witness_set);
-
-                Ok(self.sequencer_client.send_tx(tx).await?)
-            } else {
-                Err(ExecutionFailureKind::AmountMismatchError)
-            }
+            Ok(self.sequencer_client.send_tx(tx).await?)
+        } else {
+            Err(ExecutionFailureKind::AmountMismatchError)
         }
     }
 }
@@ -104,6 +102,7 @@ impl WalletCore {
 #[derive(Subcommand, Debug, Clone)]
 #[clap(about)]
 pub enum Command {
+    ///Send native token transfer from `from` to `to` for `amount`
     SendNativeTokenTransfer {
         ///from - valid 32 byte hex string
         #[arg(long)]
@@ -149,6 +148,8 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                 .await?;
 
             info!("Results of tx send is {res:#?}");
+
+            //ToDo: Insert transaction polling logic here
         }
     }
 
