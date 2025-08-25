@@ -1,6 +1,6 @@
 use nssa_core::{
-    CommitmentSetDigest, EphemeralSecretKey, IncomingViewingPublicKey, MembershipProof,
-    PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    CommitmentSetDigest, MembershipProof, PrivacyPreservingCircuitInput,
+    PrivacyPreservingCircuitOutput, SharedSecretKey,
     account::{Account, AccountWithMetadata, Nonce, NullifierPublicKey, NullifierSecretKey},
     program::{InstructionData, ProgramId, ProgramOutput},
 };
@@ -28,8 +28,9 @@ pub fn execute_and_prove(
     private_account_nonces: &[u128],
     private_account_keys: &[(
         NullifierPublicKey,
-        IncomingViewingPublicKey,
-        EphemeralSecretKey,
+        SharedSecretKey,
+        // IncomingViewingPublicKey,
+        // EphemeralSecretKey,
     )],
     private_account_auth: &[(NullifierSecretKey, MembershipProof)],
     program: &Program,
@@ -90,7 +91,7 @@ fn execute_and_prove_program(
 #[cfg(test)]
 mod tests {
     use nssa_core::{
-        EncryptedAccountData,
+        Ciphertext,
         account::{
             Account, AccountWithMetadata, Commitment, Nullifier, NullifierPublicKey,
             NullifierSecretKey,
@@ -101,7 +102,10 @@ mod tests {
     use crate::{
         Address, V01State,
         merkle_tree::MerkleTree,
-        privacy_preserving_transaction::circuit::{Proof, execute_and_prove},
+        privacy_preserving_transaction::{
+            circuit::{Proof, execute_and_prove},
+            message::{EncryptedAccountData, EphemeralPublicKey},
+        },
         program::Program,
         state::{
             CommitmentSet,
@@ -147,12 +151,18 @@ mod tests {
 
         let expected_sender_pre = sender.clone();
         let recipient_keys = test_private_account_keys_1();
+
+        let esk = [3; 32];
+        let shared_secret =
+            EncryptedAccountData::compute_shared_secret(&esk, &recipient_keys.ivk());
+        let epk = EphemeralPublicKey::from_scalar(esk);
+
         let (output, proof) = execute_and_prove(
             &[sender, recipient],
             &Program::serialize_instruction(balance_to_move).unwrap(),
             &[0, 2],
             &[0xdeadbeef],
-            &[(recipient_keys.npk(), recipient_keys.ivk(), [3; 32])],
+            &[(recipient_keys.npk(), shared_secret)],
             &[],
             &Program::authenticated_transfer_program(),
         )
@@ -166,11 +176,11 @@ mod tests {
         assert_eq!(sender_post, expected_sender_post);
         assert_eq!(output.new_commitments.len(), 1);
         assert_eq!(output.new_nullifiers.len(), 0);
-        assert_eq!(output.encrypted_private_post_states.len(), 1);
+        assert_eq!(output.ciphertexts.len(), 1);
 
-        let recipient_post = output.encrypted_private_post_states[0]
+        let recipient_post = output.ciphertexts[0]
             .clone()
-            .decrypt(&recipient_keys.isk, 0)
+            .decrypt(&shared_secret, 0)
             .unwrap();
         assert_eq!(recipient_post, expected_recipient_post);
     }
@@ -222,14 +232,24 @@ mod tests {
             Commitment::new(&recipient_keys.npk(), &expected_private_account_2),
         ];
 
+        let esk_1 = [3; 32];
+        let shared_secret_1 =
+            EncryptedAccountData::compute_shared_secret(&esk_1, &sender_keys.ivk());
+        let epk_1 = EphemeralPublicKey::from_scalar(esk_1);
+
+        let esk_2 = [5; 32];
+        let shared_secret_2 =
+            EncryptedAccountData::compute_shared_secret(&esk_2, &recipient_keys.ivk());
+        let epk_2 = EphemeralPublicKey::from_scalar(esk_2);
+
         let (output, proof) = execute_and_prove(
             &[sender_pre.clone(), recipient],
             &Program::serialize_instruction(balance_to_move).unwrap(),
             &[1, 2],
             &[0xdeadbeef1, 0xdeadbeef2],
             &[
-                (sender_keys.npk(), sender_keys.ivk(), [3; 32]),
-                (recipient_keys.npk(), recipient_keys.ivk(), [5; 32]),
+                (sender_keys.npk(), shared_secret_1),
+                (recipient_keys.npk(), shared_secret_2),
             ],
             &[(
                 sender_keys.nsk,
@@ -244,17 +264,17 @@ mod tests {
         assert!(output.public_post_states.is_empty());
         assert_eq!(output.new_commitments, expected_new_commitments);
         assert_eq!(output.new_nullifiers, expected_new_nullifiers);
-        assert_eq!(output.encrypted_private_post_states.len(), 2);
+        assert_eq!(output.ciphertexts.len(), 2);
 
-        let recipient_post_1 = output.encrypted_private_post_states[0]
+        let recipient_post_1 = output.ciphertexts[0]
             .clone()
-            .decrypt(&sender_keys.isk, 0)
+            .decrypt(&shared_secret_1, 0)
             .unwrap();
         assert_eq!(recipient_post_1, expected_private_account_1);
 
-        let recipient_post_2 = output.encrypted_private_post_states[1]
+        let recipient_post_2 = output.ciphertexts[1]
             .clone()
-            .decrypt(&recipient_keys.isk, 1)
+            .decrypt(&shared_secret_2, 1)
             .unwrap();
         assert_eq!(recipient_post_2, expected_private_account_2);
     }

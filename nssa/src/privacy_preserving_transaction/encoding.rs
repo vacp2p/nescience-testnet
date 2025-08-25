@@ -3,16 +3,49 @@
 use std::io::{Cursor, Read};
 
 use nssa_core::{
-    EncryptedAccountData,
+    Ciphertext,
     account::{Account, Commitment, Nullifier},
 };
 
-use crate::{Address, error::NssaError};
+use crate::{
+    Address,
+    error::NssaError,
+    privacy_preserving_transaction::message::{
+        EncryptedAccountData, EphemeralPublicKey, Secp256k1Point,
+    },
+};
 
 use super::message::Message;
 
 const MESSAGE_ENCODING_PREFIX_LEN: usize = 22;
 const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] = b"\x01/NSSA/v0.1/TxMessage/";
+
+impl EncryptedAccountData {
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = self.ciphertext.to_bytes();
+        bytes.extend_from_slice(&self.epk.0);
+        bytes.push(self.view_tag);
+        bytes
+    }
+
+    pub fn from_cursor(cursor: &mut Cursor<&[u8]>) -> Result<Self, NssaError> {
+        let ciphertext = Ciphertext::from_cursor(cursor)?;
+
+        let mut epk_bytes = vec![0; 33];
+        cursor.read_exact(&mut epk_bytes)?;
+        let epk = Secp256k1Point(epk_bytes);
+
+        let mut tag_bytes = [0; 1];
+        cursor.read_exact(&mut tag_bytes)?;
+        let view_tag = tag_bytes[0];
+
+        Ok(Self {
+            ciphertext,
+            epk,
+            view_tag,
+        })
+    }
+}
 
 impl Message {
     pub(crate) fn to_bytes(&self) -> Vec<u8> {

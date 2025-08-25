@@ -2,6 +2,7 @@ use chacha20::{
     ChaCha20,
     cipher::{KeyIvInit, StreamCipher},
 };
+
 use risc0_zkvm::{
     serde::to_vec,
     sha::{Impl, Sha256},
@@ -24,14 +25,6 @@ use std::io::{Cursor, Read};
 
 pub mod account;
 pub mod program;
-
-use k256::{
-    AffinePoint, EncodedPoint, FieldBytes, ProjectivePoint, PublicKey, Scalar,
-    elliptic_curve::{
-        PrimeField,
-        sec1::{FromEncodedPoint, ToEncodedPoint},
-    },
-};
 
 #[cfg(feature = "host")]
 pub mod error;
@@ -66,56 +59,23 @@ pub fn compute_root_associated_to_path(
     result
 }
 
-pub type EphemeralPublicKey = Secp256k1Point;
-pub type IncomingViewingPublicKey = Secp256k1Point;
-
-pub type EphemeralSecretKey = [u8; 32];
-
-impl From<&EphemeralSecretKey> for EphemeralPublicKey {
-    fn from(value: &EphemeralSecretKey) -> Self {
-        Secp256k1Point::from_scalar(*value)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
-pub struct Secp256k1Point(pub Vec<u8>);
-impl Secp256k1Point {
-    pub fn from_scalar(value: [u8; 32]) -> Secp256k1Point {
-        let x_bytes: FieldBytes = value.into();
-        let x = Scalar::from_repr(x_bytes).unwrap();
-
-        let p = ProjectivePoint::GENERATOR * x;
-        let q = AffinePoint::from(p);
-        let enc = q.to_encoded_point(true);
-
-        Self(enc.as_bytes().to_vec())
-    }
-}
+pub type SharedSecretKey = [u8; 32];
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, Clone, PartialEq, Eq))]
-pub struct EncryptedAccountData {
-    ciphertext: Vec<u8>,
-    epk: EphemeralPublicKey,
-    view_tag: u8,
-}
+pub struct Ciphertext(Vec<u8>);
 
-impl EncryptedAccountData {
+impl Ciphertext {
     #[cfg(feature = "host")]
-    pub fn decrypt(self, isk: &[u8; 32], output_index: u32) -> Option<Account> {
-        let ss_bytes = Self::ecdh(isk, &self.epk.0.clone().try_into().unwrap());
-        let ipk = IncomingViewingPublicKey::from_scalar(*isk);
-
+    pub fn decrypt(self, shared_secret: &[u8; 32], output_index: u32) -> Option<Account> {
         let key = Self::kdf(
-            ss_bytes,
-            &self.epk,
-            &ipk,
+            &shared_secret,
+            // &ipk,
             // &commitment.to_byte_array(),
             output_index,
         );
         let mut cipher = ChaCha20::new(&key.into(), &[0; 12].into());
-        let mut buffer = self.ciphertext;
+        let mut buffer = self.0;
 
         cipher.apply_keystream(&mut buffer);
         let mut cursor = Cursor::new(buffer.as_slice());
@@ -124,69 +84,43 @@ impl EncryptedAccountData {
 
     pub fn new(
         account: &Account,
-        // commitment: &Commitment,
-        esk: &EphemeralSecretKey,
-        npk: &NullifierPublicKey,
-        ipk: &IncomingViewingPublicKey,
+        shared_secret: &[u8; 32],
+        // npk: &NullifierPublicKey,
+        // ipk: &IncomingViewingPublicKey,
         output_index: u32,
     ) -> Self {
         let mut buffer = account.to_bytes().to_vec();
 
-        let ss_bytes = Self::ecdh(esk, &ipk.0.clone().try_into().unwrap());
-        let epk = EphemeralPublicKey::from(esk);
-
         let key = Self::kdf(
-            ss_bytes,
-            &epk,
-            ipk,
+            shared_secret,
+            // ipk,
             // &commitment.to_byte_array(),
             output_index,
         );
         let mut cipher = ChaCha20::new(&key.into(), &[0; 12].into());
         cipher.apply_keystream(&mut buffer);
 
-        let view_tag = Self::view_tag(&npk, &ipk);
-        Self {
-            ciphertext: buffer,
-            epk,
-            view_tag,
-        }
+        // let view_tag = Self::view_tag(&npk, &ipk);
+        Self(buffer)
     }
 
     pub fn kdf(
-        ss_bytes: [u8; 32],
-        epk: &EphemeralPublicKey,
-        ipk: &IncomingViewingPublicKey,
+        ss_bytes: &[u8; 32],
+        // epk: &EphemeralPublicKey,
+        // ipk: &IncomingViewingPublicKey,
         // commitment: &[u8; 32],
         output_index: u32,
     ) -> [u8; 32] {
         let mut bytes = Vec::new();
 
         bytes.extend_from_slice(b"NSSA/v0.1/KDF-SHA256");
-        bytes.extend_from_slice(&ss_bytes);
-        bytes.extend_from_slice(&epk.0[..]);
-        bytes.extend_from_slice(&ipk.0[..]);
+        bytes.extend_from_slice(ss_bytes);
+        // bytes.extend_from_slice(&epk.0[..]);
+        // bytes.extend_from_slice(&ipk.0[..]);
         // bytes.extend_from_slice(&commitment[..]);
         bytes.extend_from_slice(&output_index.to_le_bytes());
 
         Impl::hash_bytes(&bytes).as_bytes().try_into().unwrap()
-    }
-
-    pub fn ecdh(scalar: &[u8; 32], point: &[u8; 33]) -> [u8; 32] {
-        let scalar = Scalar::from_repr((*scalar).into()).unwrap();
-
-        let encoded = EncodedPoint::from_bytes(point).unwrap();
-        let pubkey_affine = AffinePoint::from_encoded_point(&encoded).unwrap();
-
-        let shared = ProjectivePoint::from(pubkey_affine) * scalar;
-        let shared_affine = shared.to_affine();
-
-        let encoded = shared_affine.to_encoded_point(false);
-        let x_bytes_slice = encoded.x().unwrap();
-        let mut x_bytes = [0u8; 32];
-        x_bytes.copy_from_slice(x_bytes_slice);
-
-        x_bytes
     }
 
     #[cfg(feature = "host")]
@@ -198,33 +132,24 @@ impl EncryptedAccountData {
         let mut ciphertext = vec![0; ciphertext_lenght as usize];
         cursor.read_exact(&mut ciphertext)?;
 
-        let mut epk_bytes = vec![0; 33];
-        cursor.read_exact(&mut epk_bytes)?;
+        // let mut epk_bytes = vec![0; 33];
+        // cursor.read_exact(&mut epk_bytes)?;
+        //
+        // let mut tag_bytes = [0; 1];
+        // cursor.read_exact(&mut tag_bytes)?;
 
-        let mut tag_bytes = [0; 1];
-        cursor.read_exact(&mut tag_bytes)?;
-
-        Ok(Self {
-            ciphertext,
-            epk: Secp256k1Point(epk_bytes),
-            view_tag: tag_bytes[0],
-        })
-    }
-
-    fn view_tag(npk: &NullifierPublicKey, ipk: &&IncomingViewingPublicKey) -> u8 {
-        // TODO: implement
-        0
+        Ok(Self(ciphertext))
     }
 }
 
-impl EncryptedAccountData {
+impl Ciphertext {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        let ciphertext_length: u32 = self.ciphertext.len() as u32;
+        let ciphertext_length: u32 = self.0.len() as u32;
         bytes.extend_from_slice(&ciphertext_length.to_le_bytes());
-        bytes.extend_from_slice(&self.ciphertext);
-        bytes.extend_from_slice(&self.epk.0);
-        bytes.push(self.view_tag);
+        bytes.extend_from_slice(&self.0);
+        // bytes.extend_from_slice(&self.epk.0);
+        // bytes.push(self.view_tag);
 
         bytes
     }
@@ -237,8 +162,9 @@ pub struct PrivacyPreservingCircuitInput {
     pub private_account_nonces: Vec<Nonce>,
     pub private_account_keys: Vec<(
         NullifierPublicKey,
-        IncomingViewingPublicKey,
-        EphemeralSecretKey,
+        SharedSecretKey,
+        // IncomingViewingPublicKey,
+        // EphemeralSecretKey,
     )>,
     pub private_account_auth: Vec<(NullifierSecretKey, MembershipProof)>,
     pub program_id: ProgramId,
@@ -249,7 +175,7 @@ pub struct PrivacyPreservingCircuitInput {
 pub struct PrivacyPreservingCircuitOutput {
     pub public_pre_states: Vec<AccountWithMetadata>,
     pub public_post_states: Vec<Account>,
-    pub encrypted_private_post_states: Vec<EncryptedAccountData>,
+    pub ciphertexts: Vec<Ciphertext>,
     pub new_commitments: Vec<Commitment>,
     pub new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)>,
 }
@@ -268,7 +194,7 @@ mod tests {
     use risc0_zkvm::serde::from_slice;
 
     use crate::{
-        EncryptedAccountData, EphemeralPublicKey, PrivacyPreservingCircuitOutput, Secp256k1Point,
+        Ciphertext, PrivacyPreservingCircuitOutput,
         account::{Account, AccountWithMetadata, Commitment, Nullifier, NullifierPublicKey},
     };
 
@@ -301,11 +227,10 @@ mod tests {
                 data: b"post state data".to_vec(),
                 nonce: 18446744073709551615,
             }],
-            encrypted_private_post_states: vec![EncryptedAccountData {
-                ciphertext: vec![255, 255, 1, 1, 2, 2],
-                epk: EphemeralPublicKey::from_scalar([123; 32]),
-                view_tag: 1,
-            }],
+            ciphertexts: vec![
+                Ciphertext(vec![255, 255, 1, 1, 2, 2]), // epk: EphemeralPublicKey::from_scalar([123; 32]),
+                                                        // view_tag: 1,
+            ],
             new_commitments: vec![Commitment::new(
                 &NullifierPublicKey::from(&[1; 32]),
                 &Account::default(),
@@ -324,15 +249,12 @@ mod tests {
     }
 
     #[test]
-    fn test_encrypted_account_data_to_bytes_roundtrip() {
-        let data = EncryptedAccountData {
-            ciphertext: vec![255, 255, 1, 1, 2, 2],
-            epk: EphemeralPublicKey::from_scalar([123; 32]),
-            view_tag: 95,
-        };
+    fn test_ciphertext_to_bytes_roundtrip() {
+        let data = Ciphertext(vec![255, 255, 1, 1, 2, 2]);
+
         let bytes = data.to_bytes();
         let mut cursor = Cursor::new(bytes.as_slice());
-        let data_from_cursor = EncryptedAccountData::from_cursor(&mut cursor).unwrap();
+        let data_from_cursor = Ciphertext::from_cursor(&mut cursor).unwrap();
         assert_eq!(data, data_from_cursor);
     }
 }

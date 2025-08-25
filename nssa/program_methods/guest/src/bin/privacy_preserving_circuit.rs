@@ -4,8 +4,7 @@ use nssa_core::{
     account::{Account, AccountWithMetadata, Commitment, Nullifier, NullifierPublicKey},
     compute_root_associated_to_path,
     program::{validate_execution, ProgramOutput, DEFAULT_PROGRAM_ID},
-    CommitmentSetDigest, EncryptedAccountData, EphemeralPublicKey, EphemeralSecretKey,
-    IncomingViewingPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Ciphertext, CommitmentSetDigest, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
 };
 
 fn main() {
@@ -42,7 +41,7 @@ fn main() {
     // and will be populated next.
     let mut public_pre_states: Vec<AccountWithMetadata> = Vec::new();
     let mut public_post_states: Vec<Account> = Vec::new();
-    let mut encrypted_private_post_states: Vec<EncryptedAccountData> = Vec::new();
+    let mut ciphertexts: Vec<Ciphertext> = Vec::new();
     let mut new_commitments: Vec<Commitment> = Vec::new();
     let mut new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)> = Vec::new();
 
@@ -67,7 +66,8 @@ fn main() {
             }
             1 | 2 => {
                 let new_nonce = private_nonces_iter.next().expect("Missing private nonce");
-                let (Npk, Ipk, esk) = private_keys_iter.next().expect("Missing private keys");
+                // let (Npk, Ipk, esk) = private_keys_iter.next().expect("Missing keys");
+                let (Npk, shared_secret) = private_keys_iter.next().expect("Missing keys");
 
                 if visibility_mask[i] == 1 {
                     // Private account with authentication
@@ -116,17 +116,18 @@ fn main() {
                 let commitment_post = Commitment::new(Npk, &post_with_updated_values);
 
                 // Encrypt and push post state
-                let encrypted_account = EncryptedAccountData::new(
+                let encrypted_account = Ciphertext::new(
                     &post_with_updated_values,
+                    shared_secret,
                     // &commitment_post,
-                    esk,
-                    Npk,
-                    Ipk,
+                    // esk,
+                    // Npk,
+                    // Ipk,
                     output_index,
                 );
 
                 new_commitments.push(commitment_post);
-                encrypted_private_post_states.push(encrypted_account);
+                ciphertexts.push(encrypted_account);
                 output_index += 1;
             }
             _ => panic!("Invalid visibility mask value"),
@@ -148,7 +149,7 @@ fn main() {
     let output = PrivacyPreservingCircuitOutput {
         public_pre_states,
         public_post_states,
-        encrypted_private_post_states,
+        ciphertexts,
         new_commitments,
         new_nullifiers,
     };

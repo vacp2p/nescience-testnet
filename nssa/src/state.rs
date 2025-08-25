@@ -222,14 +222,15 @@ pub mod tests {
         Address, PublicKey, PublicTransaction, V01State,
         error::NssaError,
         privacy_preserving_transaction::{
-            Message, PrivacyPreservingTransaction, WitnessSet, circuit,
+            EncryptedAccountData, EphemeralPublicKey, IncomingViewingPublicKey, Message,
+            PrivacyPreservingTransaction, WitnessSet, circuit,
         },
         program::Program,
         public_transaction,
         signature::PrivateKey,
     };
     use nssa_core::{
-        IncomingViewingPublicKey,
+        Ciphertext,
         account::{
             Account, AccountWithMetadata, Commitment, Nonce, Nullifier, NullifierPublicKey,
             NullifierSecretKey,
@@ -780,11 +781,11 @@ pub mod tests {
         balance_to_move: u128,
         state: &V01State,
     ) -> PrivacyPreservingTransaction {
-        let esk = [3; 32];
         let sender = AccountWithMetadata {
             account: state.get_account_by_address(&sender_keys.address()),
             is_authorized: true,
         };
+
         let sender_nonce = sender.account.nonce;
 
         let recipient = AccountWithMetadata {
@@ -792,25 +793,28 @@ pub mod tests {
             is_authorized: false,
         };
 
+        let esk = [3; 32];
+        let shared_secret =
+            EncryptedAccountData::compute_shared_secret(&esk, &recipient_keys.ivk());
+        let epk = EphemeralPublicKey::from_scalar(esk);
+
         let (output, proof) = circuit::execute_and_prove(
             &[sender, recipient],
             &Program::serialize_instruction(balance_to_move).unwrap(),
             &[0, 2],
             &[0xdeadbeef],
-            &[(recipient_keys.npk(), recipient_keys.ivk(), esk)],
+            &[(recipient_keys.npk(), shared_secret)],
             &[],
             &Program::authenticated_transfer_program(),
         )
         .unwrap();
 
-        let message = Message::new(
+        let message = Message::try_from_circuit_output(
             vec![sender_keys.address()],
             vec![sender_nonce],
-            output.public_post_states,
-            output.encrypted_private_post_states,
-            output.new_commitments.clone(),
-            output.new_nullifiers,
-        );
+            vec![epk],
+            output,
+        ).unwrap();
 
         let witness_set = WitnessSet::for_message(&message, proof, &[&sender_keys.signing_key]);
         PrivacyPreservingTransaction::new(message, witness_set)
@@ -835,14 +839,24 @@ pub mod tests {
             is_authorized: false,
         };
 
+        let esk_1 = [3; 32];
+        let shared_secret_1 =
+            EncryptedAccountData::compute_shared_secret(&esk_1, &sender_keys.ivk());
+        let epk_1 = EphemeralPublicKey::from_scalar(esk_1);
+
+        let esk_2 = [3; 32];
+        let shared_secret_2 =
+            EncryptedAccountData::compute_shared_secret(&esk_2, &recipient_keys.ivk());
+        let epk_2 = EphemeralPublicKey::from_scalar(esk_2);
+
         let (output, proof) = circuit::execute_and_prove(
             &[sender_pre, recipient_pre],
             &Program::serialize_instruction(balance_to_move).unwrap(),
             &[1, 2],
             &new_nonces,
             &[
-                (sender_keys.npk(), sender_keys.ivk(), [3; 32]),
-                (recipient_keys.npk(), recipient_keys.ivk(), [4; 32]),
+                (sender_keys.npk(), shared_secret_1),
+                (recipient_keys.npk(), shared_secret_2),
             ],
             &[(
                 sender_keys.nsk,
@@ -856,14 +870,7 @@ pub mod tests {
         )
         .unwrap();
 
-        let message = Message::new(
-            vec![],
-            vec![],
-            output.public_post_states,
-            output.encrypted_private_post_states,
-            output.new_commitments.clone(),
-            output.new_nullifiers,
-        );
+        let message = Message::try_from_circuit_output(vec![], vec![], vec![epk_1, epk_2], output).unwrap();
 
         let witness_set = WitnessSet::for_message(&message, proof, &[]);
 
@@ -889,12 +896,16 @@ pub mod tests {
             is_authorized: false,
         };
 
+        let esk = [3; 32];
+        let shared_secret = EncryptedAccountData::compute_shared_secret(&esk, &sender_keys.ivk());
+        let epk = EphemeralPublicKey::from_scalar(esk);
+
         let (output, proof) = circuit::execute_and_prove(
             &[sender_pre, recipient_pre],
             &Program::serialize_instruction(balance_to_move).unwrap(),
             &[1, 0],
             &[new_nonce],
-            &[(sender_keys.npk(), sender_keys.ivk(), [3; 32])],
+            &[(sender_keys.npk(), shared_secret)],
             &[(
                 sender_keys.nsk,
                 state
@@ -907,14 +918,12 @@ pub mod tests {
         )
         .unwrap();
 
-        let message = Message::new(
+        let message = Message::try_from_circuit_output(
             vec![recipient_address.clone()],
             vec![],
-            output.public_post_states,
-            output.encrypted_private_post_states,
-            output.new_commitments.clone(),
-            output.new_nullifiers,
-        );
+            vec![epk],
+            output,
+        ).unwrap();
 
         let witness_set = WitnessSet::for_message(&message, proof, &[]);
 

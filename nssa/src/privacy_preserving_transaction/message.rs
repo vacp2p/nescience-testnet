@@ -1,9 +1,80 @@
+use std::io::Cursor;
+
+use k256::{
+    AffinePoint, EncodedPoint, FieldBytes, ProjectivePoint, PublicKey, Scalar,
+    elliptic_curve::{
+        PrimeField,
+        sec1::{FromEncodedPoint, ToEncodedPoint},
+    },
+};
 use nssa_core::{
-    CommitmentSetDigest, EncryptedAccountData,
+    Ciphertext, CommitmentSetDigest, PrivacyPreservingCircuitOutput, SharedSecretKey,
     account::{Account, Commitment, Nonce, Nullifier},
 };
+use serde::{Deserialize, Serialize};
 
-use crate::Address;
+use crate::{Address, error::NssaError};
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct Secp256k1Point(pub(crate) Vec<u8>);
+impl Secp256k1Point {
+    pub fn from_scalar(value: [u8; 32]) -> Secp256k1Point {
+        let x_bytes: FieldBytes = value.into();
+        let x = Scalar::from_repr(x_bytes).unwrap();
+
+        let p = ProjectivePoint::GENERATOR * x;
+        let q = AffinePoint::from(p);
+        let enc = q.to_encoded_point(true);
+
+        Self(enc.as_bytes().to_vec())
+    }
+}
+
+pub type EphemeralSecretKey = [u8; 32];
+pub type EphemeralPublicKey = Secp256k1Point;
+pub type IncomingViewingPublicKey = Secp256k1Point;
+impl From<&EphemeralSecretKey> for EphemeralPublicKey {
+    fn from(value: &EphemeralSecretKey) -> Self {
+        Secp256k1Point::from_scalar(*value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EncryptedAccountData {
+    pub(crate) ciphertext: Ciphertext,
+    pub(crate) epk: EphemeralPublicKey,
+    pub(crate) view_tag: u8,
+}
+
+impl EncryptedAccountData {
+    pub fn decrypt(
+        self,
+        isk: &[u8; 32],
+        epk: &EphemeralPublicKey,
+        output_index: u32,
+    ) -> Option<Account> {
+        let shared_secret = Self::compute_shared_secret(isk, &epk);
+        self.ciphertext.decrypt(&shared_secret, output_index)
+    }
+
+    pub fn compute_shared_secret(scalar: &[u8; 32], point: &Secp256k1Point) -> SharedSecretKey {
+        let scalar = Scalar::from_repr((*scalar).into()).unwrap();
+        let point: [u8; 33] = point.0.clone().try_into().unwrap();
+
+        let encoded = EncodedPoint::from_bytes(point).unwrap();
+        let pubkey_affine = AffinePoint::from_encoded_point(&encoded).unwrap();
+
+        let shared = ProjectivePoint::from(pubkey_affine) * scalar;
+        let shared_affine = shared.to_affine();
+
+        let encoded = shared_affine.to_encoded_point(false);
+        let x_bytes_slice = encoded.x().unwrap();
+        let mut x_bytes = [0u8; 32];
+        x_bytes.copy_from_slice(x_bytes_slice);
+
+        x_bytes
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
@@ -16,22 +87,36 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new(
+    pub fn try_from_circuit_output(
         public_addresses: Vec<Address>,
         nonces: Vec<Nonce>,
-        public_post_states: Vec<Account>,
-        encrypted_private_post_states: Vec<EncryptedAccountData>,
-        new_commitments: Vec<Commitment>,
-        new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)>,
-    ) -> Self {
-        Self {
+        ephemeral_public_keys: Vec<EphemeralPublicKey>,
+        output: PrivacyPreservingCircuitOutput,
+    ) -> Result<Self, NssaError> {
+        if ephemeral_public_keys.len() != output.ciphertexts.len() {
+            return Err(NssaError::InvalidInput(
+                "Ephemeral public keys and ciphertexts length mismatch".into(),
+            ));
+        }
+
+        let encrypted_private_post_states = output
+            .ciphertexts
+            .into_iter()
+            .zip(ephemeral_public_keys)
+            .map(|(ciphertext, epk)| EncryptedAccountData {
+                ciphertext,
+                epk,
+                view_tag: 0, // TODO: implement
+            })
+            .collect();
+        Ok(Self {
             public_addresses,
             nonces,
-            public_post_states,
+            public_post_states: output.public_post_states,
             encrypted_private_post_states,
-            new_commitments,
-            new_nullifiers,
-        }
+            new_commitments: output.new_commitments,
+            new_nullifiers: output.new_nullifiers,
+        })
     }
 }
 
@@ -76,23 +161,6 @@ pub mod tests {
             new_commitments: new_commitments.clone(),
             new_nullifiers: new_nullifiers.clone(),
         }
-    }
-
-    #[test]
-    fn test_constructor() {
-        let message = message_for_tests();
-        let expected_message = message.clone();
-
-        let message = Message::new(
-            message.public_addresses,
-            message.nonces,
-            message.public_post_states,
-            message.encrypted_private_post_states,
-            message.new_commitments,
-            message.new_nullifiers,
-        );
-
-        assert_eq!(message, expected_message);
     }
 
     #[test]
