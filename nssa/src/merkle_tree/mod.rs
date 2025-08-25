@@ -184,12 +184,24 @@ mod tests {
     use nssa_core::account::{Account, NullifierPublicKey};
 
     use super::*;
+
+    #[test]
+    fn test_empty_merkle_tree() {
+        let tree = MerkleTree::with_capacity(4);
+        let expected_root =
+            hex!("0000000000000000000000000000000000000000000000000000000000000000");
+        assert_eq!(tree.root(), expected_root);
+        assert_eq!(tree.capacity, 4);
+        assert_eq!(tree.length, 0);
+    }
+
     #[test]
     fn test_merkle_tree_0() {
         let values = [[0; 32]];
         let tree = MerkleTree::new(&values);
-        let expected_root = assert_eq!(tree.length, 1);
         assert_eq!(tree.root(), hash_value(&[0; 32]));
+        assert_eq!(tree.capacity, 1);
+        assert_eq!(tree.length, 1);
     }
 
     #[test]
@@ -200,6 +212,7 @@ mod tests {
             hex!("48c73f7821a58a8d2a703e5b39c571c0aa20cf14abcd0af8f2b955bc202998de");
         assert_eq!(tree.root(), expected_root);
         assert_eq!(tree.capacity, 4);
+        assert_eq!(tree.length, 4)
     }
 
     #[test]
@@ -210,6 +223,7 @@ mod tests {
             hex!("c9bbb83096df85157a146e7d770455a98412dee0633187ee86fee6c8a45b831a");
         assert_eq!(tree.root(), expected_root);
         assert_eq!(tree.capacity, 4);
+        assert_eq!(tree.length, 4);
     }
 
     #[test]
@@ -220,6 +234,7 @@ mod tests {
             hex!("c8d3d8d2b13f27ceeccdc699119871f9f32ea7ed86ff45d0ad11f77b28cd7568");
         assert_eq!(tree.root(), expected_root);
         assert_eq!(tree.capacity, 4);
+        assert_eq!(tree.length, 3);
     }
 
     #[test]
@@ -231,6 +246,7 @@ mod tests {
 
         assert_eq!(tree.root(), expected_root);
         assert_eq!(tree.capacity, 8);
+        assert_eq!(tree.length, 5);
     }
 
     #[test]
@@ -241,9 +257,10 @@ mod tests {
         ];
         let tree = MerkleTree::new(&values);
         let expected_root =
-            hex!("ef418aed5aa20702d4d94c92da79a4012f2e36f1008bfdb3cd1e38749dca2499");
+            hex!("3f72d2ff55921a86c48e5988ec3e19ee9d0d5aa3e23197842970a903508ed767");
         assert_eq!(tree.root(), expected_root);
-        assert_eq!(tree.capacity, 8);
+        assert_eq!(tree.capacity, 16);
+        assert_eq!(tree.length, 11);
     }
 
     #[test]
