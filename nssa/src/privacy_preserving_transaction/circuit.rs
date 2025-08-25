@@ -33,7 +33,6 @@ pub fn execute_and_prove(
     )],
     private_account_auth: &[(NullifierSecretKey, MembershipProof)],
     program: &Program,
-    commitment_set_digest: &CommitmentSetDigest,
 ) -> Result<(PrivacyPreservingCircuitOutput, Proof), NssaError> {
     let inner_receipt = execute_and_prove_program(program, pre_states, instruction_data)?;
 
@@ -49,7 +48,6 @@ pub fn execute_and_prove(
         private_account_keys: private_account_keys.to_vec(),
         private_account_auth: private_account_auth.to_vec(),
         program_id: program.id(),
-        commitment_set_digest: *commitment_set_digest,
     };
 
     // Prove circuit.
@@ -157,7 +155,6 @@ mod tests {
             &[(recipient_keys.npk(), recipient_keys.ivk(), [3; 32])],
             &[],
             &Program::authenticated_transfer_program(),
-            &[99; 32],
         )
         .unwrap();
 
@@ -169,7 +166,6 @@ mod tests {
         assert_eq!(sender_post, expected_sender_post);
         assert_eq!(output.new_commitments.len(), 1);
         assert_eq!(output.new_nullifiers.len(), 0);
-        assert_eq!(output.commitment_set_digest, [99; 32]);
         assert_eq!(output.encrypted_private_post_states.len(), 1);
 
         let recipient_post = output.encrypted_private_post_states[0]
@@ -199,7 +195,13 @@ mod tests {
         };
         let balance_to_move: u128 = 37;
 
-        let expected_new_nullifiers = vec![Nullifier::new(&commitment_sender, &sender_keys.nsk)];
+        let mut commitment_set = CommitmentSet::with_capacity(2);
+        commitment_set.extend(&[commitment_sender.clone()]);
+
+        let expected_new_nullifiers = vec![(
+            Nullifier::new(&commitment_sender, &sender_keys.nsk),
+            commitment_set.digest(),
+        )];
 
         let program = Program::authenticated_transfer_program();
 
@@ -220,9 +222,6 @@ mod tests {
             Commitment::new(&recipient_keys.npk(), &expected_private_account_2),
         ];
 
-        let mut commitment_set = CommitmentSet::with_capacity(2);
-        commitment_set.extend(&[commitment_sender.clone()]);
-
         let (output, proof) = execute_and_prove(
             &[sender_pre.clone(), recipient],
             &Program::serialize_instruction(balance_to_move).unwrap(),
@@ -237,7 +236,6 @@ mod tests {
                 commitment_set.get_proof_for(&commitment_sender).unwrap(),
             )],
             &program,
-            &commitment_set.digest(),
         )
         .unwrap();
 
@@ -246,7 +244,6 @@ mod tests {
         assert!(output.public_post_states.is_empty());
         assert_eq!(output.new_commitments, expected_new_commitments);
         assert_eq!(output.new_nullifiers, expected_new_nullifiers);
-        assert_eq!(output.commitment_set_digest, commitment_set.digest());
         assert_eq!(output.encrypted_private_post_states.len(), 2);
 
         let recipient_post_1 = output.encrypted_private_post_states[0]

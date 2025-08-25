@@ -173,7 +173,7 @@ fn verify_authentication_path(value: &Value, index: usize, path: &[Node], root: 
 
 fn prev_power_of_two(x: usize) -> usize {
     if x == 0 {
-        return 0; // define as 0
+        return 0;
     }
     1 << (usize::BITS as usize - x.leading_zeros() as usize - 1)
 }
@@ -314,10 +314,10 @@ mod tests {
         let expected_root =
             hex!("48c73f7821a58a8d2a703e5b39c571c0aa20cf14abcd0af8f2b955bc202998de");
 
-        tree.insert(values[0]);
-        tree.insert(values[1]);
-        tree.insert(values[2]);
-        tree.insert(values[3]);
+        assert_eq!(0, tree.insert(values[0]));
+        assert_eq!(1, tree.insert(values[1]));
+        assert_eq!(2, tree.insert(values[2]));
+        assert_eq!(3, tree.insert(values[3]));
 
         assert_eq!(tree.root(), expected_root);
     }
@@ -331,9 +331,9 @@ mod tests {
         let expected_root =
             hex!("c8d3d8d2b13f27ceeccdc699119871f9f32ea7ed86ff45d0ad11f77b28cd7568");
 
-        tree.insert(values[0]);
-        tree.insert(values[1]);
-        tree.insert(values[2]);
+        assert_eq!(0, tree.insert(values[0]));
+        assert_eq!(1, tree.insert(values[1]));
+        assert_eq!(2, tree.insert(values[2]));
 
         assert_eq!(tree.root(), expected_root);
     }
@@ -347,9 +347,9 @@ mod tests {
         let expected_root =
             hex!("c8d3d8d2b13f27ceeccdc699119871f9f32ea7ed86ff45d0ad11f77b28cd7568");
 
-        tree.insert(values[0]);
-        tree.insert(values[1]);
-        tree.insert(values[2]);
+        assert_eq!(0, tree.insert(values[0]));
+        assert_eq!(1, tree.insert(values[1]));
+        assert_eq!(2, tree.insert(values[2]));
 
         assert_eq!(tree.root(), expected_root);
     }
@@ -361,9 +361,9 @@ mod tests {
         let values = [[1; 32], [2; 32], [3; 32]];
         let expected_tree = MerkleTree::new(&values);
 
-        tree.insert(values[0]);
-        tree.insert(values[1]);
-        tree.insert(values[2]);
+        assert_eq!(0, tree.insert(values[0]));
+        assert_eq!(1, tree.insert(values[1]));
+        assert_eq!(2, tree.insert(values[2]));
 
         assert_eq!(expected_tree, tree);
     }
@@ -375,10 +375,10 @@ mod tests {
         let values = [[1; 32], [2; 32], [3; 32], [4; 32]];
         let expected_tree = MerkleTree::new(&values);
 
-        tree.insert(values[0]);
-        tree.insert(values[1]);
-        tree.insert(values[2]);
-        tree.insert(values[3]);
+        assert_eq!(0, tree.insert(values[0]));
+        assert_eq!(1, tree.insert(values[1]));
+        assert_eq!(2, tree.insert(values[2]));
+        assert_eq!(3, tree.insert(values[3]));
 
         assert_eq!(expected_tree, tree);
     }

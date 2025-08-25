@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 pub(crate) struct CommitmentSet {
     merkle_tree: MerkleTree,
     commitments: HashMap<Commitment, usize>,
+    pub root_history: HashSet<CommitmentSetDigest>,
 }
 
 impl CommitmentSet {
@@ -22,9 +23,11 @@ impl CommitmentSet {
 
     pub(crate) fn get_proof_for(&self, commitment: &Commitment) -> Option<MembershipProof> {
         let index = *self.commitments.get(commitment)?;
-        self.merkle_tree
+        let proof = self
+            .merkle_tree
             .get_authentication_path_for(index)
-            .map(|path| (index, path))
+            .map(|path| (index, path));
+        proof
     }
 
     pub(crate) fn extend(&mut self, commitments: &[Commitment]) {
@@ -32,6 +35,7 @@ impl CommitmentSet {
             let index = self.merkle_tree.insert(commitment.to_byte_array());
             self.commitments.insert(commitment, index);
         }
+        self.root_history.insert(self.digest());
     }
 
     fn contains(&self, commitment: &Commitment) -> bool {
@@ -42,6 +46,7 @@ impl CommitmentSet {
         Self {
             merkle_tree: MerkleTree::with_capacity(capacity),
             commitments: HashMap::new(),
+            root_history: HashSet::new(),
         }
     }
 }
@@ -50,7 +55,7 @@ type NullifierSet = HashSet<Nullifier>;
 
 pub struct V01State {
     public_state: HashMap<Address, Account>,
-    private_state: (CommitmentSet, NullifierSet),
+    pub private_state: (CommitmentSet, NullifierSet),
     builtin_programs: HashMap<ProgramId, Program>,
 }
 
@@ -122,7 +127,13 @@ impl V01State {
         self.private_state.0.extend(&message.new_commitments);
 
         // 3. Add new nullifiers
-        self.private_state.1.extend(message.new_nullifiers.clone());
+        let new_nullifiers = message
+            .new_nullifiers
+            .iter()
+            .cloned()
+            .map(|(nullifier, _)| nullifier)
+            .collect::<Vec<Nullifier>>();
+        self.private_state.1.extend(new_nullifiers);
 
         // 4. Update public accounts
         for (address, post) in public_state_diff.into_iter() {
@@ -172,18 +183,33 @@ impl V01State {
         Ok(())
     }
 
-    pub(crate) fn check_nullifiers_are_new(
+    pub(crate) fn check_nullifiers_are_valid(
         &self,
-        new_nullifiers: &[Nullifier],
+        new_nullifiers: &[(Nullifier, CommitmentSetDigest)],
     ) -> Result<(), NssaError> {
-        for nullifier in new_nullifiers.iter() {
+        for (nullifier, digest) in new_nullifiers.iter() {
             if self.private_state.1.contains(nullifier) {
                 return Err(NssaError::InvalidInput(
                     "Nullifier already seen".to_string(),
                 ));
             }
+            if !self.private_state.0.root_history.contains(digest) {
+                return Err(NssaError::InvalidInput(
+                    "Unrecognized commitment set digest".to_string(),
+                ));
+            }
         }
         Ok(())
+    }
+
+    pub(crate) fn check_commitment_set_digest_is_valid(
+        &self,
+        commitment_set_digest: &CommitmentSetDigest,
+    ) -> bool {
+        self.private_state
+            .0
+            .root_history
+            .contains(commitment_set_digest)
     }
 }
 
@@ -774,7 +800,6 @@ pub mod tests {
             &[(recipient_keys.npk(), recipient_keys.ivk(), esk)],
             &[],
             &Program::authenticated_transfer_program(),
-            &state.commitment_set_digest(),
         )
         .unwrap();
 
@@ -828,7 +853,6 @@ pub mod tests {
                     .unwrap(),
             )],
             &program,
-            &state.private_state.0.digest(),
         )
         .unwrap();
 
@@ -880,7 +904,6 @@ pub mod tests {
                     .unwrap(),
             )],
             &program,
-            &state.private_state.0.digest(),
         )
         .unwrap();
 

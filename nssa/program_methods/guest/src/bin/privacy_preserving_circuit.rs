@@ -2,8 +2,9 @@ use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
     account::{Account, AccountWithMetadata, Commitment, Nullifier, NullifierPublicKey},
+    compute_root_associated_to_path,
     program::{validate_execution, ProgramOutput, DEFAULT_PROGRAM_ID},
-    verify_membership_proof, EncryptedAccountData, EphemeralPublicKey, EphemeralSecretKey,
+    CommitmentSetDigest, EncryptedAccountData, EphemeralPublicKey, EphemeralSecretKey,
     IncomingViewingPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
 };
 
@@ -15,7 +16,6 @@ fn main() {
         private_account_keys,
         private_account_auth,
         program_id,
-        commitment_set_digest,
     } = env::read();
 
     // TODO: Check that `program_execution_proof` is one of the allowed built-in programs
@@ -44,7 +44,7 @@ fn main() {
     let mut public_post_states: Vec<Account> = Vec::new();
     let mut encrypted_private_post_states: Vec<EncryptedAccountData> = Vec::new();
     let mut new_commitments: Vec<Commitment> = Vec::new();
-    let mut new_nullifiers: Vec<Nullifier> = Vec::new();
+    let mut new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)> = Vec::new();
 
     let mut private_nonces_iter = private_account_nonces.iter();
     let mut private_keys_iter = private_account_keys.iter();
@@ -80,15 +80,10 @@ fn main() {
                         panic!("Npk mismatch");
                     }
 
-                    // Verify pre-state commitment membership
+                    // Compute commitment set digest associated with provided auth path
                     let commitment_pre = Commitment::new(Npk, &pre_states[i].account);
-                    if !verify_membership_proof(
-                        &commitment_pre,
-                        membership_proof,
-                        &commitment_set_digest,
-                    ) {
-                        panic!("Membership proof invalid");
-                    }
+                    let set_digest =
+                        compute_root_associated_to_path(&commitment_pre, membership_proof);
 
                     // Check pre_state authorization
                     if !pre_states[i].is_authorized {
@@ -97,7 +92,7 @@ fn main() {
 
                     // Compute nullifier
                     let nullifier = Nullifier::new(&commitment_pre, nsk);
-                    new_nullifiers.push(nullifier);
+                    new_nullifiers.push((nullifier, set_digest));
                 } else {
                     if pre_states[i].account != Account::default() {
                         panic!("Found new private account with non default values.");
@@ -156,7 +151,6 @@ fn main() {
         encrypted_private_post_states,
         new_commitments,
         new_nullifiers,
-        commitment_set_digest,
     };
 
     env::commit(&output);

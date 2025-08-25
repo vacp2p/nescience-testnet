@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use nssa_core::account::{Account, AccountWithMetadata};
+use nssa_core::account::{Account, AccountWithMetadata, Commitment, Nullifier};
 use nssa_core::{CommitmentSetDigest, EncryptedAccountData, PrivacyPreservingCircuitOutput};
 
 use crate::error::NssaError;
@@ -93,8 +93,6 @@ impl PrivacyPreservingTransaction {
             })
             .collect();
 
-        let set_commitment = state.commitment_set_digest();
-
         // 4. Proof verification
         check_privacy_preserving_circuit_proof_is_valid(
             &witness_set.proof,
@@ -103,14 +101,13 @@ impl PrivacyPreservingTransaction {
             &message.encrypted_private_post_states,
             &message.new_commitments,
             &message.new_nullifiers,
-            set_commitment,
         )?;
 
         // 5. Commitment freshness
         state.check_commitments_are_new(&message.new_commitments)?;
 
         // 6. Nullifier uniqueness
-        state.check_nullifiers_are_new(&message.new_nullifiers)?;
+        state.check_nullifiers_are_valid(&message.new_nullifiers)?;
 
         Ok(message
             .public_addresses
@@ -142,9 +139,8 @@ fn check_privacy_preserving_circuit_proof_is_valid(
     public_pre_states: &[AccountWithMetadata],
     public_post_states: &[Account],
     encrypted_private_post_states: &[EncryptedAccountData],
-    new_commitments: &[nssa_core::account::Commitment],
-    new_nullifiers: &[nssa_core::account::Nullifier],
-    commitment_set_digest: CommitmentSetDigest,
+    new_commitments: &[Commitment],
+    new_nullifiers: &[(Nullifier, CommitmentSetDigest)],
 ) -> Result<(), NssaError> {
     let output = PrivacyPreservingCircuitOutput {
         public_pre_states: public_pre_states.to_vec(),
@@ -152,7 +148,6 @@ fn check_privacy_preserving_circuit_proof_is_valid(
         encrypted_private_post_states: encrypted_private_post_states.to_vec(),
         new_commitments: new_commitments.to_vec(),
         new_nullifiers: new_nullifiers.to_vec(),
-        commitment_set_digest,
     };
     proof
         .is_valid_for(&output)

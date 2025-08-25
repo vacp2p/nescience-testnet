@@ -1,5 +1,5 @@
 use nssa_core::{
-    EncryptedAccountData,
+    CommitmentSetDigest, EncryptedAccountData,
     account::{Account, Commitment, Nonce, Nullifier},
 };
 
@@ -12,7 +12,7 @@ pub struct Message {
     pub(crate) public_post_states: Vec<Account>,
     pub(crate) encrypted_private_post_states: Vec<EncryptedAccountData>,
     pub(crate) new_commitments: Vec<Commitment>,
-    pub(crate) new_nullifiers: Vec<Nullifier>,
+    pub(crate) new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)>,
 }
 
 impl Message {
@@ -22,7 +22,7 @@ impl Message {
         public_post_states: Vec<Account>,
         encrypted_private_post_states: Vec<EncryptedAccountData>,
         new_commitments: Vec<Commitment>,
-        new_nullifiers: Vec<Nullifier>,
+        new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)>,
     ) -> Self {
         Self {
             public_addresses,
@@ -66,7 +66,7 @@ pub mod tests {
         let new_commitments = vec![Commitment::new(&Npk2, &account2)];
 
         let old_commitment = Commitment::new(&Npk1, &account1);
-        let new_nullifiers = vec![Nullifier::new(&old_commitment, &nsk1)];
+        let new_nullifiers = vec![(Nullifier::new(&old_commitment, &nsk1), [0; 32])];
 
         Message {
             public_addresses: public_addresses.clone(),

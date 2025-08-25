@@ -12,8 +12,7 @@ use crate::{Address, error::NssaError};
 use super::message::Message;
 
 const MESSAGE_ENCODING_PREFIX_LEN: usize = 22;
-const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] =
-    b"\x01/NSSA/v0.1/TxMessage/";
+const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] = b"\x01/NSSA/v0.1/TxMessage/";
 
 impl Message {
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
@@ -56,9 +55,11 @@ impl Message {
         // New nullifiers
         let new_nullifiers_len: u32 = self.new_nullifiers.len() as u32;
         bytes.extend_from_slice(&new_nullifiers_len.to_le_bytes());
-        for nullifier in &self.new_nullifiers {
+        for (nullifier, commitment_set_digest) in &self.new_nullifiers {
             bytes.extend_from_slice(&nullifier.to_byte_array());
+            bytes.extend_from_slice(commitment_set_digest);
         }
+
         bytes
     }
 
@@ -125,7 +126,10 @@ impl Message {
         let new_nullifiers_len = u32::from_le_bytes(len_bytes) as usize;
         let mut new_nullifiers = Vec::with_capacity(new_nullifiers_len);
         for _ in 0..new_nullifiers_len {
-            new_nullifiers.push(Nullifier::from_cursor(cursor)?);
+            let nullifier = Nullifier::from_cursor(cursor)?;
+            let mut commitment_set_digest = [0; 32];
+            cursor.read_exact(&mut commitment_set_digest);
+            new_nullifiers.push((nullifier, commitment_set_digest));
         }
 
         Ok(Self {

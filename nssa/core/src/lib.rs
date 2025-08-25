@@ -38,11 +38,10 @@ pub mod error;
 
 pub type CommitmentSetDigest = [u8; 32];
 pub type MembershipProof = (usize, Vec<[u8; 32]>);
-pub fn verify_membership_proof(
+pub fn compute_root_associated_to_path(
     commitment: &Commitment,
     proof: &MembershipProof,
-    digest: &CommitmentSetDigest,
-) -> bool {
+) -> CommitmentSetDigest {
     let value_bytes = commitment.to_byte_array();
     let mut result: [u8; 32] = Impl::hash_bytes(&value_bytes)
         .as_bytes()
@@ -64,7 +63,7 @@ pub fn verify_membership_proof(
         }
         level_index >>= 1;
     }
-    &result == digest
+    result
 }
 
 pub type EphemeralPublicKey = Secp256k1Point;
@@ -243,7 +242,6 @@ pub struct PrivacyPreservingCircuitInput {
     )>,
     pub private_account_auth: Vec<(NullifierSecretKey, MembershipProof)>,
     pub program_id: ProgramId,
-    pub commitment_set_digest: CommitmentSetDigest,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -253,8 +251,7 @@ pub struct PrivacyPreservingCircuitOutput {
     pub public_post_states: Vec<Account>,
     pub encrypted_private_post_states: Vec<EncryptedAccountData>,
     pub new_commitments: Vec<Commitment>,
-    pub new_nullifiers: Vec<Nullifier>,
-    pub commitment_set_digest: CommitmentSetDigest,
+    pub new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)>,
 }
 
 #[cfg(feature = "host")]
@@ -313,11 +310,13 @@ mod tests {
                 &NullifierPublicKey::from(&[1; 32]),
                 &Account::default(),
             )],
-            new_nullifiers: vec![Nullifier::new(
-                &Commitment::new(&NullifierPublicKey::from(&[2; 32]), &Account::default()),
-                &[1; 32],
+            new_nullifiers: vec![(
+                Nullifier::new(
+                    &Commitment::new(&NullifierPublicKey::from(&[2; 32]), &Account::default()),
+                    &[1; 32],
+                ),
+                [0xab; 32],
             )],
-            commitment_set_digest: [0xab; 32],
         };
         let bytes = output.to_bytes();
         let output_from_slice: PrivacyPreservingCircuitOutput = from_slice(&bytes).unwrap();
