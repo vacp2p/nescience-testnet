@@ -1,9 +1,13 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use nssa_core::{
     account::{Account, AccountWithMetadata},
-    program::{DEFAULT_PROGRAM_ID, InstructionData, ProgramId},
+    program::{DEFAULT_PROGRAM_ID, InstructionData, ProgramId, ProgramOutput},
 };
 use program_methods::{AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID};
-use risc0_zkvm::{ExecutorEnv, ExecutorEnvBuilder, default_executor, serde::to_vec};
+use risc0_zkvm::{
+    ExecutorEnv, ExecutorEnvBuilder, Journal, Receipt, default_executor, default_prover,
+    serde::to_vec,
+};
 use serde::Serialize;
 
 use crate::error::NssaError;
@@ -17,6 +21,10 @@ pub struct Program {
 impl Program {
     pub fn id(&self) -> ProgramId {
         self.id
+    }
+
+    pub(crate) fn elf(&self) -> &'static [u8] {
+        self.elf
     }
 
     pub fn serialize_instruction<T: Serialize>(
@@ -42,23 +50,18 @@ impl Program {
             .map_err(|e| NssaError::ProgramExecutionFailed(e.to_string()))?;
 
         // Get outputs
-        let mut post_states: Vec<Account> = session_info
+        let ProgramOutput {
+            mut post_states, ..
+        } = session_info
             .journal
             .decode()
             .map_err(|e| NssaError::ProgramExecutionFailed(e.to_string()))?;
-
-        // Claim any output account with default program owner field
-        for account in post_states.iter_mut() {
-            if account.program_owner == DEFAULT_PROGRAM_ID {
-                account.program_owner = self.id;
-            }
-        }
 
         Ok(post_states)
     }
 
     /// Writes inputs to `env_builder` in the order expected by the programs
-    fn write_inputs(
+    pub(crate) fn write_inputs(
         pre_states: &[AccountWithMetadata],
         instruction_data: &[u32],
         env_builder: &mut ExecutorEnvBuilder,
@@ -66,7 +69,7 @@ impl Program {
         let pre_states = pre_states.to_vec();
         env_builder
             .write(&(pre_states, instruction_data))
-            .map_err(|e| NssaError::ProgramExecutionFailed(e.to_string()))?;
+            .map_err(|e| NssaError::ProgramWriteInputFailed(e.to_string()))?;
         Ok(())
     }
 
@@ -80,7 +83,11 @@ impl Program {
 
 #[cfg(test)]
 mod tests {
-    use nssa_core::account::{Account, AccountWithMetadata};
+    use nssa_core::{
+        account::{Account, AccountWithMetadata},
+        program::ProgramOutput,
+    };
+    use risc0_zkvm::{InnerReceipt, Receipt, serde::to_vec};
 
     use crate::program::Program;
 
@@ -185,13 +192,10 @@ mod tests {
 
         let expected_sender_post = Account {
             balance: 77665544332211 - balance_to_move,
-            program_owner: program.id(),
             ..Account::default()
         };
         let expected_recipient_post = Account {
             balance: balance_to_move,
-            // Program claims the account since the pre_state has default prorgam owner
-            program_owner: program.id(),
             ..Account::default()
         };
         let [sender_post, recipient_post] = program
