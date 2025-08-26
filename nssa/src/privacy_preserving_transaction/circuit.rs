@@ -180,7 +180,12 @@ mod tests {
 
         let recipient_post = output.ciphertexts[0]
             .clone()
-            .decrypt(&shared_secret, &recipient_keys.npk(), 0)
+            .decrypt(
+                &shared_secret,
+                &recipient_keys.npk(),
+                &output.new_commitments[0],
+                0,
+            )
             .unwrap();
         assert_eq!(recipient_post, expected_recipient_post);
     }
@@ -268,13 +273,23 @@ mod tests {
 
         let sender_post = output.ciphertexts[0]
             .clone()
-            .decrypt(&shared_secret_1, &sender_keys.npk(), 0)
+            .decrypt(
+                &shared_secret_1,
+                &sender_keys.npk(),
+                &expected_new_commitments[0],
+                0,
+            )
             .unwrap();
         assert_eq!(sender_post, expected_private_account_1);
 
         let recipient_post = output.ciphertexts[1]
             .clone()
-            .decrypt(&shared_secret_2, &recipient_keys.npk(), 1)
+            .decrypt(
+                &shared_secret_2,
+                &recipient_keys.npk(),
+                &expected_new_commitments[1],
+                1,
+            )
             .unwrap();
         assert_eq!(recipient_post, expected_private_account_2);
     }

@@ -71,15 +71,10 @@ impl Ciphertext {
         self,
         shared_secret: &[u8; 32],
         npk: &NullifierPublicKey,
+        commitment: &Commitment,
         output_index: u32,
     ) -> Option<Account> {
-        let key = Self::kdf(
-            &shared_secret,
-            npk,
-            // &ipk,
-            // &commitment.to_byte_array(),
-            output_index,
-        );
+        let key = Self::kdf(&shared_secret, npk, commitment, output_index);
         let mut cipher = ChaCha20::new(&key.into(), &[0; 12].into());
         let mut buffer = self.0;
 
@@ -92,31 +87,22 @@ impl Ciphertext {
         account: &Account,
         shared_secret: &[u8; 32],
         npk: &NullifierPublicKey,
-        // ipk: &IncomingViewingPublicKey,
+        commitment: &Commitment,
         output_index: u32,
     ) -> Self {
         let mut buffer = account.to_bytes().to_vec();
 
-        let key = Self::kdf(
-            shared_secret,
-            npk,
-            // ipk,
-            // &commitment.to_byte_array(),
-            output_index,
-        );
+        let key = Self::kdf(shared_secret, npk, commitment, output_index);
         let mut cipher = ChaCha20::new(&key.into(), &[0; 12].into());
         cipher.apply_keystream(&mut buffer);
 
-        // let view_tag = Self::view_tag(&npk, &ipk);
         Self(buffer)
     }
 
     pub fn kdf(
         ss_bytes: &[u8; 32],
         npk: &NullifierPublicKey,
-        // epk: &EphemeralPublicKey,
-        // ipk: &IncomingViewingPublicKey,
-        // commitment: &[u8; 32],
+        commitment: &Commitment,
         output_index: u32,
     ) -> [u8; 32] {
         let mut bytes = Vec::new();
@@ -124,9 +110,7 @@ impl Ciphertext {
         bytes.extend_from_slice(b"NSSA/v0.1/KDF-SHA256");
         bytes.extend_from_slice(ss_bytes);
         bytes.extend_from_slice(&npk.to_byte_array());
-        // bytes.extend_from_slice(&epk.0[..]);
-        // bytes.extend_from_slice(&ipk.0[..]);
-        // bytes.extend_from_slice(&commitment[..]);
+        bytes.extend_from_slice(&commitment.to_byte_array());
         bytes.extend_from_slice(&output_index.to_le_bytes());
 
         Impl::hash_bytes(&bytes).as_bytes().try_into().unwrap()
@@ -141,12 +125,6 @@ impl Ciphertext {
         let mut ciphertext = vec![0; ciphertext_lenght as usize];
         cursor.read_exact(&mut ciphertext)?;
 
-        // let mut epk_bytes = vec![0; 33];
-        // cursor.read_exact(&mut epk_bytes)?;
-        //
-        // let mut tag_bytes = [0; 1];
-        // cursor.read_exact(&mut tag_bytes)?;
-
         Ok(Self(ciphertext))
     }
 }
@@ -157,8 +135,6 @@ impl Ciphertext {
         let ciphertext_length: u32 = self.0.len() as u32;
         bytes.extend_from_slice(&ciphertext_length.to_le_bytes());
         bytes.extend_from_slice(&self.0);
-        // bytes.extend_from_slice(&self.epk.0);
-        // bytes.push(self.view_tag);
 
         bytes
     }
@@ -169,12 +145,7 @@ pub struct PrivacyPreservingCircuitInput {
     pub program_output: ProgramOutput,
     pub visibility_mask: Vec<u8>,
     pub private_account_nonces: Vec<Nonce>,
-    pub private_account_keys: Vec<(
-        NullifierPublicKey,
-        SharedSecretKey,
-        // IncomingViewingPublicKey,
-        // EphemeralSecretKey,
-    )>,
+    pub private_account_keys: Vec<(NullifierPublicKey, SharedSecretKey)>,
     pub private_account_auth: Vec<(NullifierSecretKey, MembershipProof)>,
     pub program_id: ProgramId,
 }
@@ -236,10 +207,7 @@ mod tests {
                 data: b"post state data".to_vec(),
                 nonce: 18446744073709551615,
             }],
-            ciphertexts: vec![
-                Ciphertext(vec![255, 255, 1, 1, 2, 2]), // epk: EphemeralPublicKey::from_scalar([123; 32]),
-                                                        // view_tag: 1,
-            ],
+            ciphertexts: vec![Ciphertext(vec![255, 255, 1, 1, 2, 2])],
             new_commitments: vec![Commitment::new(
                 &NullifierPublicKey::from(&[1; 32]),
                 &Account::default(),

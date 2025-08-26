@@ -119,10 +119,8 @@ fn main() {
                 let encrypted_account = Ciphertext::new(
                     &post_with_updated_values,
                     shared_secret,
-                    // &commitment_post,
-                    // esk,
                     Npk,
-                    // Ipk,
+                    &commitment_post,
                     output_index,
                 );
 

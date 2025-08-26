@@ -52,10 +52,11 @@ impl EncryptedAccountData {
         isk: &[u8; 32],
         epk: &EphemeralPublicKey,
         npk: &NullifierPublicKey,
+        commitment: &Commitment,
         output_index: u32,
     ) -> Option<Account> {
         let shared_secret = Self::compute_shared_secret(isk, &epk);
-        self.ciphertext.decrypt(&shared_secret, npk, output_index)
+        self.ciphertext.decrypt(&shared_secret, npk, commitment, output_index)
     }
 
     pub fn compute_shared_secret(scalar: &[u8; 32], point: &Secp256k1Point) -> SharedSecretKey {
