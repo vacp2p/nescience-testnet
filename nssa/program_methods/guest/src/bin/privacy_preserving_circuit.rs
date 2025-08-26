@@ -1,10 +1,12 @@
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
-    account::{Account, AccountWithMetadata, Commitment, Nullifier, NullifierPublicKey},
-    compute_root_associated_to_path,
+    account::{Account, AccountWithMetadata},
+    compute_digest_for_path,
+    encryption::Ciphertext,
     program::{validate_execution, ProgramOutput, DEFAULT_PROGRAM_ID},
-    Ciphertext, CommitmentSetDigest, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Commitment, CommitmentSetDigest, EncryptionScheme, Nullifier, NullifierPublicKey,
+    PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
 };
 
 fn main() {
@@ -82,8 +84,7 @@ fn main() {
 
                     // Compute commitment set digest associated with provided auth path
                     let commitment_pre = Commitment::new(Npk, &pre_states[i].account);
-                    let set_digest =
-                        compute_root_associated_to_path(&commitment_pre, membership_proof);
+                    let set_digest = compute_digest_for_path(&commitment_pre, membership_proof);
 
                     // Check pre_state authorization
                     if !pre_states[i].is_authorized {
@@ -116,10 +117,9 @@ fn main() {
                 let commitment_post = Commitment::new(Npk, &post_with_updated_values);
 
                 // Encrypt and push post state
-                let encrypted_account = Ciphertext::new(
+                let encrypted_account = EncryptionScheme::encrypt(
                     &post_with_updated_values,
                     shared_secret,
-                    Npk,
                     &commitment_post,
                     output_index,
                 );

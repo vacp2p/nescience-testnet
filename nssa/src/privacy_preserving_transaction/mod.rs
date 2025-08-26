@@ -5,6 +5,6 @@ mod witness_set;
 
 pub mod circuit;
 
-pub use message::{Message, IncomingViewingPublicKey, EphemeralPublicKey, EphemeralSecretKey, EncryptedAccountData};
+pub use message::{Message, EncryptedAccountData};
 pub use transaction::PrivacyPreservingTransaction;
 pub use witness_set::WitnessSet;

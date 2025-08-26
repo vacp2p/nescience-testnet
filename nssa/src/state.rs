@@ -4,9 +4,7 @@ use crate::{
     public_transaction::PublicTransaction,
 };
 use nssa_core::{
-    CommitmentSetDigest, MembershipProof,
-    account::{Account, Commitment, Nullifier},
-    program::{DEFAULT_PROGRAM_ID, ProgramId},
+    account::Account, program::{ProgramId, DEFAULT_PROGRAM_ID}, Commitment, CommitmentSetDigest, MembershipProof, Nullifier
 };
 use std::collections::{HashMap, HashSet};
 
@@ -222,19 +220,17 @@ pub mod tests {
         Address, PublicKey, PublicTransaction, V01State,
         error::NssaError,
         privacy_preserving_transaction::{
-            EncryptedAccountData, EphemeralPublicKey, IncomingViewingPublicKey, Message,
-            PrivacyPreservingTransaction, WitnessSet, circuit,
+            EncryptedAccountData, Message, PrivacyPreservingTransaction, WitnessSet, circuit,
         },
         program::Program,
         public_transaction,
         signature::PrivateKey,
     };
+
     use nssa_core::{
-        Ciphertext,
         account::{
-            Account, AccountWithMetadata, Commitment, Nonce, Nullifier, NullifierPublicKey,
-            NullifierSecretKey,
-        },
+            Account, AccountWithMetadata, Nonce,
+        }, encryption::{EphemeralPublicKey, IncomingViewingPublicKey}, Commitment, Nullifier, NullifierPublicKey, NullifierSecretKey, SharedSecretKey
     };
     use program_methods::AUTHENTICATED_TRANSFER_ID;
 
@@ -794,8 +790,7 @@ pub mod tests {
         };
 
         let esk = [3; 32];
-        let shared_secret =
-            EncryptedAccountData::compute_shared_secret(&esk, &recipient_keys.ivk());
+        let shared_secret = SharedSecretKey::new(&esk, &recipient_keys.ivk());
         let epk = EphemeralPublicKey::from_scalar(esk);
 
         let (output, proof) = circuit::execute_and_prove(
@@ -814,7 +809,8 @@ pub mod tests {
             vec![sender_nonce],
             vec![epk],
             output,
-        ).unwrap();
+        )
+        .unwrap();
 
         let witness_set = WitnessSet::for_message(&message, proof, &[&sender_keys.signing_key]);
         PrivacyPreservingTransaction::new(message, witness_set)
@@ -840,13 +836,11 @@ pub mod tests {
         };
 
         let esk_1 = [3; 32];
-        let shared_secret_1 =
-            EncryptedAccountData::compute_shared_secret(&esk_1, &sender_keys.ivk());
+        let shared_secret_1 = SharedSecretKey::new(&esk_1, &sender_keys.ivk());
         let epk_1 = EphemeralPublicKey::from_scalar(esk_1);
 
         let esk_2 = [3; 32];
-        let shared_secret_2 =
-            EncryptedAccountData::compute_shared_secret(&esk_2, &recipient_keys.ivk());
+        let shared_secret_2 = SharedSecretKey::new(&esk_2, &recipient_keys.ivk());
         let epk_2 = EphemeralPublicKey::from_scalar(esk_2);
 
         let (output, proof) = circuit::execute_and_prove(
@@ -870,7 +864,8 @@ pub mod tests {
         )
         .unwrap();
 
-        let message = Message::try_from_circuit_output(vec![], vec![], vec![epk_1, epk_2], output).unwrap();
+        let message =
+            Message::try_from_circuit_output(vec![], vec![], vec![epk_1, epk_2], output).unwrap();
 
         let witness_set = WitnessSet::for_message(&message, proof, &[]);
 
@@ -897,7 +892,7 @@ pub mod tests {
         };
 
         let esk = [3; 32];
-        let shared_secret = EncryptedAccountData::compute_shared_secret(&esk, &sender_keys.ivk());
+        let shared_secret = SharedSecretKey::new(&esk, &sender_keys.ivk());
         let epk = EphemeralPublicKey::from_scalar(esk);
 
         let (output, proof) = circuit::execute_and_prove(
@@ -923,7 +918,8 @@ pub mod tests {
             vec![],
             vec![epk],
             output,
-        ).unwrap();
+        )
+        .unwrap();
 
         let witness_set = WitnessSet::for_message(&message, proof, &[]);
 

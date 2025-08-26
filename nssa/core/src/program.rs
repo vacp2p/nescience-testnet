@@ -3,9 +3,6 @@ use risc0_zkvm::serde::Deserializer;
 use risc0_zkvm::{DeserializeOwned, guest::env};
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "host")]
-use crate::error::NssaCoreError;
-
 pub type ProgramId = [u32; 8];
 pub type InstructionData = Vec<u32>;
 pub const DEFAULT_PROGRAM_ID: ProgramId = [0; 8];

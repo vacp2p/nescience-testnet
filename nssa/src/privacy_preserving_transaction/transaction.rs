@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use nssa_core::account::{Account, AccountWithMetadata, Commitment, Nullifier};
-use nssa_core::{Ciphertext, CommitmentSetDigest, PrivacyPreservingCircuitOutput};
+use nssa_core::{
+    Commitment, CommitmentSetDigest, Nullifier, PrivacyPreservingCircuitOutput,
+    account::{Account, AccountWithMetadata},
+    encryption::Ciphertext,
+};
 
 use crate::error::NssaError;
 use crate::privacy_preserving_transaction::circuit::Proof;

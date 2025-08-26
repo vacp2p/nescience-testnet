@@ -1,18 +1,13 @@
-// TODO: Consider switching to deriving Borsh
-
 use std::io::{Cursor, Read};
 
 use nssa_core::{
-    Ciphertext,
-    account::{Account, Commitment, Nullifier},
+    Commitment, Nullifier,
+    account::Account,
+    encryption::{Ciphertext, EphemeralPublicKey},
 };
 
 use crate::{
-    Address,
-    error::NssaError,
-    privacy_preserving_transaction::message::{
-        EncryptedAccountData, EphemeralPublicKey, Secp256k1Point,
-    },
+    Address, error::NssaError, privacy_preserving_transaction::message::EncryptedAccountData,
 };
 
 use super::message::Message;
@@ -23,17 +18,14 @@ const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] = b"\x01/NSSA/
 impl EncryptedAccountData {
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = self.ciphertext.to_bytes();
-        bytes.extend_from_slice(&self.epk.0);
+        bytes.extend_from_slice(&self.epk.to_bytes());
         bytes.push(self.view_tag);
         bytes
     }
 
     pub fn from_cursor(cursor: &mut Cursor<&[u8]>) -> Result<Self, NssaError> {
         let ciphertext = Ciphertext::from_cursor(cursor)?;
-
-        let mut epk_bytes = vec![0; 33];
-        cursor.read_exact(&mut epk_bytes)?;
-        let epk = Secp256k1Point(epk_bytes);
+        let epk = EphemeralPublicKey::from_cursor(cursor)?;
 
         let mut tag_bytes = [0; 1];
         cursor.read_exact(&mut tag_bytes)?;

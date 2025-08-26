@@ -181,7 +181,6 @@ fn prev_power_of_two(x: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use hex_literal::hex;
-    use nssa_core::account::{Account, NullifierPublicKey};
 
     use super::*;
 

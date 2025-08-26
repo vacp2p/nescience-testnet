@@ -1,16 +1,24 @@
 // TODO: Consider switching to deriving Borsh
-
-use risc0_zkvm::sha::{Impl, Sha256};
-
 #[cfg(feature = "host")]
 use std::io::Cursor;
 
 #[cfg(feature = "host")]
 use std::io::Read;
 
-use crate::account::{Account, Commitment, Nullifier, NullifierPublicKey};
+use crate::account::Account;
+
+#[cfg(feature = "host")]
+use crate::encryption::shared_key_derivation::Secp256k1Point;
+
+use crate::encryption::Ciphertext;
+
 #[cfg(feature = "host")]
 use crate::error::NssaCoreError;
+
+use crate::Commitment;
+#[cfg(feature = "host")]
+use crate::Nullifier;
+use crate::NullifierPublicKey;
 
 impl Account {
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -90,6 +98,42 @@ impl Nullifier {
         let mut bytes = [0u8; 32];
         cursor.read_exact(&mut bytes)?;
         Ok(Self(bytes))
+    }
+}
+
+impl Ciphertext {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        let ciphertext_length: u32 = self.0.len() as u32;
+        bytes.extend_from_slice(&ciphertext_length.to_le_bytes());
+        bytes.extend_from_slice(&self.0);
+
+        bytes
+    }
+
+    #[cfg(feature = "host")]
+    pub fn from_cursor(cursor: &mut Cursor<&[u8]>) -> Result<Self, NssaCoreError> {
+        let mut u32_bytes = [0; 4];
+
+        cursor.read_exact(&mut u32_bytes)?;
+        let ciphertext_lenght = u32::from_le_bytes(u32_bytes);
+        let mut ciphertext = vec![0; ciphertext_lenght as usize];
+        cursor.read_exact(&mut ciphertext)?;
+
+        Ok(Self(ciphertext))
+    }
+}
+
+#[cfg(feature = "host")]
+impl Secp256k1Point {
+    pub fn to_bytes(&self) -> [u8; 33] {
+        self.0.clone().try_into().unwrap()
+    }
+
+    pub fn from_cursor(cursor: &mut Cursor<&[u8]>) -> Result<Self, NssaCoreError> {
+        let mut value = vec![0; 33];
+        cursor.read_exact(&mut value)?;
+        Ok(Self(value))
     }
 }
 

@@ -1,7 +1,7 @@
 use risc0_zkvm::sha::{Impl, Sha256};
 use serde::{Deserialize, Serialize};
 
-use crate::account::Commitment;
+use crate::Commitment;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, Clone, Hash))]
@@ -58,11 +58,11 @@ mod tests {
             57, 5, 64, 115, 153, 56, 184, 51, 207, 238, 99, 165, 147, 214, 213, 151, 30, 251, 30,
             196, 134, 22, 224, 211, 237, 120, 136, 225, 188, 220, 249, 28,
         ];
-        let expected_Npk = NullifierPublicKey([
+        let expected_npk = NullifierPublicKey([
             202, 120, 42, 189, 194, 218, 78, 244, 31, 6, 108, 169, 29, 61, 22, 221, 69, 138, 197,
             161, 241, 39, 142, 242, 242, 50, 188, 201, 99, 28, 176, 238,
         ]);
         let Npk = NullifierPublicKey::from(&nsk);
-        assert_eq!(Npk, expected_Npk);
+        assert_eq!(Npk, expected_npk);
     }
 }
