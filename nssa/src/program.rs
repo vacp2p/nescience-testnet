@@ -3,10 +3,7 @@ use nssa_core::{
     program::{InstructionData, ProgramId, ProgramOutput},
 };
 use program_methods::{AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID};
-use risc0_zkvm::{
-    ExecutorEnv, ExecutorEnvBuilder, default_executor,
-    serde::to_vec,
-};
+use risc0_zkvm::{ExecutorEnv, ExecutorEnvBuilder, default_executor, serde::to_vec};
 use serde::Serialize;
 
 use crate::error::NssaError;
@@ -49,9 +46,7 @@ impl Program {
             .map_err(|e| NssaError::ProgramExecutionFailed(e.to_string()))?;
 
         // Get outputs
-        let ProgramOutput {
-            post_states, ..
-        } = session_info
+        let ProgramOutput { post_states, .. } = session_info
             .journal
             .decode()
             .map_err(|e| NssaError::ProgramExecutionFailed(e.to_string()))?;
@@ -83,7 +78,6 @@ impl Program {
 #[cfg(test)]
 mod tests {
     use nssa_core::account::{Account, AccountWithMetadata};
-    
 
     use crate::program::Program;
 

@@ -10,6 +10,7 @@ use crate::{error::NssaError, program::Program};
 
 use program_methods::{PRIVACY_PRESERVING_CIRCUIT_ELF, PRIVACY_PRESERVING_CIRCUIT_ID};
 
+/// Proof of the privacy preserving execution circuit
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Proof(Vec<u8>);
 
@@ -21,17 +22,14 @@ impl Proof {
     }
 }
 
+/// Generates a proof of the execution of a NSSA program inside the privacy preserving execution
+/// circuit
 pub fn execute_and_prove(
     pre_states: &[AccountWithMetadata],
     instruction_data: &InstructionData,
     visibility_mask: &[u8],
     private_account_nonces: &[u128],
-    private_account_keys: &[(
-        NullifierPublicKey,
-        SharedSecretKey,
-        // IncomingViewingPublicKey,
-        // EphemeralSecretKey,
-    )],
+    private_account_keys: &[(NullifierPublicKey, SharedSecretKey)],
     private_account_auth: &[(NullifierSecretKey, MembershipProof)],
     program: &Program,
 ) -> Result<(PrivacyPreservingCircuitOutput, Proof), NssaError> {
