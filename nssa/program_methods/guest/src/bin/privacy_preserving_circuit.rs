@@ -68,8 +68,7 @@ fn main() {
             }
             1 | 2 => {
                 let new_nonce = private_nonces_iter.next().expect("Missing private nonce");
-                // let (Npk, Ipk, esk) = private_keys_iter.next().expect("Missing keys");
-                let (Npk, shared_secret) = private_keys_iter.next().expect("Missing keys");
+                let (npk, shared_secret) = private_keys_iter.next().expect("Missing keys");
 
                 if visibility_mask[i] == 1 {
                     // Private account with authentication
@@ -77,13 +76,13 @@ fn main() {
                         private_auth_iter.next().expect("Missing private auth");
 
                     // Verify Npk
-                    let expected_Npk = NullifierPublicKey::from(nsk);
-                    if &expected_Npk != Npk {
-                        panic!("Npk mismatch");
+                    let expected_npk = NullifierPublicKey::from(nsk);
+                    if &expected_npk != npk {
+                        panic!("Nullifier public key mismatch");
                     }
 
                     // Compute commitment set digest associated with provided auth path
-                    let commitment_pre = Commitment::new(Npk, &pre_states[i].account);
+                    let commitment_pre = Commitment::new(npk, &pre_states[i].account);
                     let set_digest = compute_digest_for_path(&commitment_pre, membership_proof);
 
                     // Check pre_state authorization
@@ -114,7 +113,7 @@ fn main() {
                 }
 
                 // Compute commitment
-                let commitment_post = Commitment::new(Npk, &post_with_updated_values);
+                let commitment_post = Commitment::new(npk, &post_with_updated_values);
 
                 // Encrypt and push post state
                 let encrypted_account = EncryptionScheme::encrypt(

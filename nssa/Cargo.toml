@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 thiserror = "2.0.12"
-risc0-zkvm = "2.3.1"
+risc0-zkvm = "3.0.3"
 nssa-core = { path = "core", features = ["host"] }
 program-methods = { path = "program_methods" }
 serde = "1.0.219"

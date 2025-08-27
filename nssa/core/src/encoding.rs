@@ -150,7 +150,7 @@ mod tests {
             data: b"hola mundo".to_vec(),
         };
 
-        // program owner || balance || nonce || hash(data)
+        // program owner || balance || nonce || data_len || data
         let expected_bytes = [
             1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0, 7, 0, 0, 0, 8,
             0, 0, 0, 192, 186, 220, 114, 113, 65, 236, 234, 222, 15, 215, 191, 227, 198, 23, 0, 42,
