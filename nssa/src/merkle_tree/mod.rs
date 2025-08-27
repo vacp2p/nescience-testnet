@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use sha2::{Digest, Sha256};
 
 mod default_values;
@@ -47,8 +45,7 @@ impl MerkleTree {
 
     /// Number of levels required to hold all values
     fn depth(&self) -> usize {
-        let result = self.length.next_power_of_two().trailing_zeros() as usize;
-        result
+        self.length.next_power_of_two().trailing_zeros() as usize
     }
 
     fn get_node(&self, index: usize) -> &Node {
@@ -108,7 +105,6 @@ impl MerkleTree {
         self.set_node(node_index, node_hash);
         self.length += 1;
 
-        let root_index = self.root_index();
         for _ in 0..self.depth() {
             let parent_index = (node_index - 1) >> 1;
             let left_child = self.get_node((parent_index << 1) + 1);
@@ -119,14 +115,6 @@ impl MerkleTree {
         }
 
         new_index
-    }
-
-    pub fn new(values: &[Value]) -> Self {
-        let mut this = Self::with_capacity(values.len());
-        for value in values.iter().cloned() {
-            this.insert(value);
-        }
-        this
     }
 
     pub fn get_authentication_path_for(&self, index: usize) -> Option<Vec<Node>> {
@@ -155,22 +143,6 @@ impl MerkleTree {
     }
 }
 
-// Reference implementation
-fn verify_authentication_path(value: &Value, index: usize, path: &[Node], root: &Node) -> bool {
-    let mut result = hash_value(value);
-    let mut level_index = index;
-    for node in path {
-        let is_left_child = level_index & 1 == 0;
-        if is_left_child {
-            result = hash_two(&result, node);
-        } else {
-            result = hash_two(node, &result);
-        }
-        level_index >>= 1;
-    }
-    &result == root
-}
-
 fn prev_power_of_two(x: usize) -> usize {
     if x == 0 {
         return 0;
@@ -180,10 +152,19 @@ fn prev_power_of_two(x: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    impl MerkleTree {
+        pub fn new(values: &[Value]) -> Self {
+            let mut this = Self::with_capacity(values.len());
+            for value in values.iter().cloned() {
+                this.insert(value);
+            }
+            this
+        }
+    }
+
     use hex_literal::hex;
 
     use super::*;
-
     #[test]
     fn test_empty_merkle_tree() {
         let tree = MerkleTree::with_capacity(4);
@@ -396,6 +377,22 @@ mod tests {
         tree.insert(values[4]);
 
         assert_eq!(expected_tree, tree);
+    }
+
+    // Reference implementation
+    fn verify_authentication_path(value: &Value, index: usize, path: &[Node], root: &Node) -> bool {
+        let mut result = hash_value(value);
+        let mut level_index = index;
+        for node in path {
+            let is_left_child = level_index & 1 == 0;
+            if is_left_child {
+                result = hash_two(&result, node);
+            } else {
+                result = hash_two(node, &result);
+            }
+            level_index >>= 1;
+        }
+        &result == root
     }
 
     #[test]

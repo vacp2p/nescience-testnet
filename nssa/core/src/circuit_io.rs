@@ -35,6 +35,7 @@ impl PrivacyPreservingCircuitOutput {
     }
 }
 
+#[cfg(feature = "host")]
 #[cfg(test)]
 mod tests {
     use super::*;

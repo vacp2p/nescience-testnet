@@ -62,7 +62,7 @@ mod tests {
             202, 120, 42, 189, 194, 218, 78, 244, 31, 6, 108, 169, 29, 61, 22, 221, 69, 138, 197,
             161, 241, 39, 142, 242, 242, 50, 188, 201, 99, 28, 176, 238,
         ]);
-        let Npk = NullifierPublicKey::from(&nsk);
-        assert_eq!(Npk, expected_npk);
+        let npk = NullifierPublicKey::from(&nsk);
+        assert_eq!(npk, expected_npk);
     }
 }

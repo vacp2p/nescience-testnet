@@ -1,7 +1,7 @@
 use risc0_zkvm::sha::{Impl, Sha256};
 use serde::{Deserialize, Serialize};
 
-use crate::{account::Account, NullifierPublicKey};
+use crate::{NullifierPublicKey, account::Account};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, Clone, PartialEq, Eq, Hash))]

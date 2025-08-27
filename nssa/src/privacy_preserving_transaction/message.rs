@@ -1,11 +1,8 @@
-use std::io::Cursor;
-
 use nssa_core::{
     Commitment, CommitmentSetDigest, Nullifier, PrivacyPreservingCircuitOutput,
     account::{Account, Nonce},
     encryption::{Ciphertext, EphemeralPublicKey},
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{Address, error::NssaError};
 
@@ -64,7 +61,7 @@ impl Message {
 pub mod tests {
     use std::io::Cursor;
 
-    use nssa_core::{account::Account, Commitment, Nullifier, NullifierPublicKey};
+    use nssa_core::{Commitment, Nullifier, NullifierPublicKey, account::Account};
 
     use crate::{Address, privacy_preserving_transaction::message::Message};
 
@@ -75,8 +72,8 @@ pub mod tests {
         let nsk1 = [11; 32];
         let nsk2 = [12; 32];
 
-        let Npk1 = NullifierPublicKey::from(&nsk1);
-        let Npk2 = NullifierPublicKey::from(&nsk2);
+        let npk1 = NullifierPublicKey::from(&nsk1);
+        let npk2 = NullifierPublicKey::from(&nsk2);
 
         let public_addresses = vec![Address::new([1; 32])];
 
@@ -86,9 +83,9 @@ pub mod tests {
 
         let encrypted_private_post_states = Vec::new();
 
-        let new_commitments = vec![Commitment::new(&Npk2, &account2)];
+        let new_commitments = vec![Commitment::new(&npk2, &account2)];
 
-        let old_commitment = Commitment::new(&Npk1, &account1);
+        let old_commitment = Commitment::new(&npk1, &account1);
         let new_nullifiers = vec![(Nullifier::new(&old_commitment, &nsk1), [0; 32])];
 
         Message {

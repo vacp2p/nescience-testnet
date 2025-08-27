@@ -11,8 +11,7 @@ use crate::{
 };
 
 const MESSAGE_ENCODING_PREFIX_LEN: usize = 22;
-const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] =
-    b"\x00/NSSA/v0.1/TxMessage/";
+const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] = b"\x00/NSSA/v0.1/TxMessage/";
 
 impl Message {
     /// Serializes a `Message` into bytes in the following layout:

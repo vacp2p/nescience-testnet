@@ -1,8 +1,8 @@
 use nssa_core::{
-    CommitmentSetDigest, MembershipProof, NullifierPublicKey, NullifierSecretKey,
-    PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput, SharedSecretKey,
-    account::{Account, AccountWithMetadata, Nonce},
-    program::{InstructionData, ProgramId, ProgramOutput},
+    MembershipProof, NullifierPublicKey, NullifierSecretKey, PrivacyPreservingCircuitInput,
+    PrivacyPreservingCircuitOutput, SharedSecretKey,
+    account::AccountWithMetadata,
+    program::{InstructionData, ProgramOutput},
 };
 use risc0_zkvm::{ExecutorEnv, InnerReceipt, Receipt, default_prover};
 
@@ -91,27 +91,18 @@ fn execute_and_prove_program(
 #[cfg(test)]
 mod tests {
     use nssa_core::{
-        Commitment, EncryptionScheme, Nullifier, NullifierPublicKey, NullifierSecretKey,
+        Commitment, EncryptionScheme, Nullifier,
         account::{Account, AccountWithMetadata},
-        encryption::EphemeralPublicKey,
     };
-    use risc0_zkvm::{InnerReceipt, Journal, Receipt};
 
     use crate::{
-        Address, V01State,
-        merkle_tree::MerkleTree,
-        privacy_preserving_transaction::{
-            circuit::{Proof, execute_and_prove},
-            message::EncryptedAccountData,
-        },
+        privacy_preserving_transaction::circuit::execute_and_prove,
         program::Program,
         state::{
             CommitmentSet,
             tests::{test_private_account_keys_1, test_private_account_keys_2},
         },
     };
-
-    use rand::{Rng, RngCore, rngs::OsRng};
 
     use super::*;
 
@@ -152,7 +143,6 @@ mod tests {
 
         let esk = [3; 32];
         let shared_secret = SharedSecretKey::new(&esk, &recipient_keys.ivk());
-        let epk = EphemeralPublicKey::from_scalar(esk);
 
         let (output, proof) = execute_and_prove(
             &[sender, recipient],
@@ -206,7 +196,7 @@ mod tests {
         let balance_to_move: u128 = 37;
 
         let mut commitment_set = CommitmentSet::with_capacity(2);
-        commitment_set.extend(&[commitment_sender.clone()]);
+        commitment_set.extend(std::slice::from_ref(&commitment_sender));
 
         let expected_new_nullifiers = vec![(
             Nullifier::new(&commitment_sender, &sender_keys.nsk),
@@ -234,11 +224,9 @@ mod tests {
 
         let esk_1 = [3; 32];
         let shared_secret_1 = SharedSecretKey::new(&esk_1, &sender_keys.ivk());
-        let epk_1 = EphemeralPublicKey::from_scalar(esk_1);
 
         let esk_2 = [5; 32];
         let shared_secret_2 = SharedSecretKey::new(&esk_2, &recipient_keys.ivk());
-        let epk_2 = EphemeralPublicKey::from_scalar(esk_2);
 
         let (output, proof) = execute_and_prove(
             &[sender_pre.clone(), recipient],

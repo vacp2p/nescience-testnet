@@ -88,6 +88,7 @@ impl Message {
         bytes
     }
 
+    #[allow(unused)]
     pub(crate) fn from_cursor(cursor: &mut Cursor<&[u8]>) -> Result<Self, NssaError> {
         let prefix = {
             let mut this = [0u8; MESSAGE_ENCODING_PREFIX_LEN];
@@ -115,7 +116,7 @@ impl Message {
         // Nonces
         cursor.read_exact(&mut len_bytes)?;
         let nonces_len = u32::from_le_bytes(len_bytes) as usize;
-        let mut nonces = Vec::with_capacity(nonces_len as usize);
+        let mut nonces = Vec::with_capacity(nonces_len);
         for _ in 0..nonces_len {
             let mut buf = [0u8; 16];
             cursor.read_exact(&mut buf)?;
@@ -153,7 +154,7 @@ impl Message {
         for _ in 0..new_nullifiers_len {
             let nullifier = Nullifier::from_cursor(cursor)?;
             let mut commitment_set_digest = [0; 32];
-            cursor.read_exact(&mut commitment_set_digest);
+            cursor.read_exact(&mut commitment_set_digest)?;
             new_nullifiers.push((nullifier, commitment_set_digest));
         }
 

@@ -171,6 +171,7 @@ mod tests {
         assert_eq!(expected_bytes, bytes);
     }
 
+    #[cfg(feature = "host")]
     #[test]
     fn test_nullifier_to_bytes() {
         let nullifier = Nullifier((0..32).collect::<Vec<u8>>().try_into().unwrap());

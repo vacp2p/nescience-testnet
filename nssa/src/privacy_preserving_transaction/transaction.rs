@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use nssa_core::{
     Commitment, CommitmentSetDigest, Nullifier, PrivacyPreservingCircuitOutput,
     account::{Account, AccountWithMetadata},
-    encryption::Ciphertext,
 };
 
 use crate::error::NssaError;

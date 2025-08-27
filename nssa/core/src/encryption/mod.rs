@@ -11,7 +11,7 @@ pub(crate) mod shared_key_derivation;
 #[cfg(feature = "host")]
 pub use shared_key_derivation::{EphemeralPublicKey, EphemeralSecretKey, IncomingViewingPublicKey};
 
-use crate::{Commitment, NullifierPublicKey, account::Account};
+use crate::{Commitment, account::Account};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SharedSecretKey([u8; 32]);

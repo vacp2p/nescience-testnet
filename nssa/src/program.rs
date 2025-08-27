@@ -1,11 +1,10 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use nssa_core::{
     account::{Account, AccountWithMetadata},
-    program::{DEFAULT_PROGRAM_ID, InstructionData, ProgramId, ProgramOutput},
+    program::{InstructionData, ProgramId, ProgramOutput},
 };
 use program_methods::{AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID};
 use risc0_zkvm::{
-    ExecutorEnv, ExecutorEnvBuilder, Journal, Receipt, default_executor, default_prover,
+    ExecutorEnv, ExecutorEnvBuilder, default_executor,
     serde::to_vec,
 };
 use serde::Serialize;
@@ -51,7 +50,7 @@ impl Program {
 
         // Get outputs
         let ProgramOutput {
-            mut post_states, ..
+            post_states, ..
         } = session_info
             .journal
             .decode()
@@ -83,11 +82,8 @@ impl Program {
 
 #[cfg(test)]
 mod tests {
-    use nssa_core::{
-        account::{Account, AccountWithMetadata},
-        program::ProgramOutput,
-    };
-    use risc0_zkvm::{InnerReceipt, Receipt, serde::to_vec};
+    use nssa_core::account::{Account, AccountWithMetadata};
+    
 
     use crate::program::Program;
 
