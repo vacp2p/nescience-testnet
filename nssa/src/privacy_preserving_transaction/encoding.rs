@@ -16,7 +16,7 @@ const MESSAGE_ENCODING_PREFIX_LEN: usize = 22;
 const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] = b"\x01/NSSA/v0.1/TxMessage/";
 
 impl EncryptedAccountData {
-    pub(crate) fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = self.ciphertext.to_bytes();
         bytes.extend_from_slice(&self.epk.to_bytes());
         bytes.push(self.view_tag);

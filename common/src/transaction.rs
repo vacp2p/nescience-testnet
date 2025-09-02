@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use k256::ecdsa::{
     signature::{Signer, Verifier},
     Signature, SigningKey, VerifyingKey,
@@ -240,10 +242,48 @@ impl Transaction {
     }
 }
 
+impl Transaction {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        let body_bytes = self.body.to_bytes();
+        let signature_bytes = self.signature.to_bytes();
+        let public_key_bytes = self.public_key.to_sec1_bytes();
+
+        let body_bytes_len = body_bytes.len() as u32;
+        let signature_bytes_len = signature_bytes.len() as u32;
+        let public_key_bytes_len = public_key_bytes.len() as u32;
+
+        bytes.extend_from_slice(&body_bytes_len.to_le_bytes());
+        bytes.extend_from_slice(&signature_bytes_len.to_le_bytes());
+        bytes.extend_from_slice(&public_key_bytes_len.to_le_bytes());
+
+        bytes.extend_from_slice(&self.body.to_bytes());
+        bytes.extend_from_slice(&self.signature.to_bytes());
+        bytes.extend_from_slice(&self.public_key.to_sec1_bytes());
+
+        bytes
+    }
+
+    // TODO: Improve error handling. Remove unwraps.
+    pub fn from_bytes(data: &[u8]) -> Self {
+        let mut cursor = Cursor::new(data);
+
+        let body_bytes_len = u32_from_cursor(&mut cursor) as usize;
+        let signature_bytes_len = u32_from_cursor(&mut cursor) as usize;
+        let public_key_bytes_len = u32_from_cursor(&mut cursor) as usize;
+
+        let body_bytes = Vec::with_capacity(body_bytes_len);
+        let signature_bytes = Vec::with_capacity(signature_bytes_len);
+        let public_key_bytes = Vec::with_capacity(public_key_bytes_len);
+
+        
+    }
+}
+
 /// A transaction with a valid signature over the hash of its body.
 /// Can only be constructed from an `Transaction`
 /// if the signature is valid
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedTransaction {
     hash: TransactionHash,
     transaction: Transaction,
@@ -262,6 +302,15 @@ impl AuthenticatedTransaction {
     /// Returns the precomputed hash over the body of the transaction
     pub fn hash(&self) -> &TransactionHash {
         &self.hash
+    }
+}
+
+impl AuthenticatedTransaction {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&self.hash);
+        bytes.extend_from_slice(&self.transaction.to_bytes());
+        bytes
     }
 }
 
