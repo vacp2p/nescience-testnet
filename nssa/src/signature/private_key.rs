@@ -48,7 +48,6 @@ mod tests {
 
     #[test]
     fn test_produce_key() {
-        let key = PrivateKey::new_os_random();
-        println!("{:?}", key.0);
+        let _key = PrivateKey::new_os_random();
     }
 }

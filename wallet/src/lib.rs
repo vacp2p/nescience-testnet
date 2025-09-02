@@ -13,6 +13,7 @@ use log::info;
 use nssa::Address;
 
 use clap::{Parser, Subcommand};
+use nssa_core::account::Account;
 
 use crate::{
     helperfunctions::{
@@ -36,7 +37,7 @@ pub struct WalletCore {
 }
 
 impl WalletCore {
-    pub async fn start_from_config_update_chain(config: WalletConfig) -> Result<Self> {
+    pub fn start_from_config_update_chain(config: WalletConfig) -> Result<Self> {
         let client = Arc::new(SequencerClient::new(config.sequencer_addr.clone())?);
         let tx_poller = TxPoller {
             polling_delay_millis: config.seq_poll_timeout_millis,
@@ -46,15 +47,7 @@ impl WalletCore {
             client: client.clone(),
         };
 
-        let mut storage = WalletChainStore::new(config)?;
-
-        //Updating user data with stored accounts
-        //We do not store/update any key data connected to private executions
-        //ToDo: Add this into persistent data
-        let persistent_accounts = fetch_persistent_accounts()?;
-        for acc in persistent_accounts {
-            storage.insert_account_data(acc);
-        }
+        let storage = WalletChainStore::new(config)?;
 
         Ok(Self {
             storage,
@@ -83,6 +76,15 @@ impl WalletCore {
         self.storage.user_data.generate_new_account()
     }
 
+    pub fn search_for_initial_account(&self, acc_addr: Address) -> Option<Account> {
+        for initial_acc in &self.storage.wallet_config.initial_accounts {
+            if initial_acc.address == acc_addr {
+                return Some(initial_acc.account.clone());
+            }
+        }
+        None
+    }
+
     pub async fn send_public_native_token_transfer(
         &self,
         from: Address,
@@ -90,7 +92,7 @@ impl WalletCore {
         to: Address,
         balance_to_move: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let account = self.storage.user_data.get_account(&from);
+        let account = self.search_for_initial_account(from);
 
         if let Some(account) = account {
             if account.balance >= balance_to_move {
