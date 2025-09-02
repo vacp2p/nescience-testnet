@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit};
 use constants_types::{CipherText, Nonce};
 use elliptic_curve::point::AffineCoordinates;
@@ -18,6 +20,8 @@ pub mod secret_holders;
 pub struct KeyChain {
     top_secret_key_holder: TopSecretKeyHolder,
     pub utxo_secret_key_holder: UTXOSecretKeyHolder,
+    ///Map for all users accounts
+    pub pub_account_signing_keys: HashMap<nssa::Address, nssa::PrivateKey>,
     pub nullifer_public_key: PublicKey,
     pub viewing_public_key: PublicKey,
 }
@@ -39,7 +43,45 @@ impl KeyChain {
             utxo_secret_key_holder,
             nullifer_public_key,
             viewing_public_key,
+            pub_account_signing_keys: HashMap::new(),
         }
+    }
+
+    pub fn new_os_random_with_accounts(accounts: HashMap<nssa::Address, nssa::PrivateKey>) -> Self {
+        //Currently dropping SeedHolder at the end of initialization.
+        //Now entirely sure if we need it in the future.
+        let seed_holder = SeedHolder::new_os_random();
+        let top_secret_key_holder = seed_holder.produce_top_secret_key_holder();
+
+        let utxo_secret_key_holder = top_secret_key_holder.produce_utxo_secret_holder();
+
+        let nullifer_public_key = utxo_secret_key_holder.generate_nullifier_public_key();
+        let viewing_public_key = utxo_secret_key_holder.generate_viewing_public_key();
+
+        Self {
+            top_secret_key_holder,
+            utxo_secret_key_holder,
+            nullifer_public_key,
+            viewing_public_key,
+            pub_account_signing_keys: accounts,
+        }
+    }
+
+    pub fn generate_new_private_key(&mut self) -> nssa::Address {
+        let private_key = nssa::PrivateKey::new_os_random();
+        let address = nssa::Address::from(&nssa::PublicKey::new_from_private_key(&private_key));
+
+        self.pub_account_signing_keys.insert(address, private_key);
+
+        address
+    }
+
+    /// Returns the signing key for public transaction signatures
+    pub fn get_pub_account_signing_key(
+        &self,
+        address: &nssa::Address,
+    ) -> Option<&nssa::PrivateKey> {
+        self.pub_account_signing_keys.get(address)
     }
 
     pub fn calculate_shared_secret_receiver(

@@ -84,7 +84,6 @@ pub async fn post_test(residual: (ServerHandle, JoinHandle<Result<()>>, TempDir)
 pub async fn test_success() {
     let command = Command::SendNativeTokenTransfer {
         from: ACC_SENDER.to_string(),
-        nonce: 0,
         to: ACC_RECEIVER.to_string(),
         amount: 100,
     };
@@ -144,7 +143,6 @@ pub async fn test_success_move_to_another_account() {
 
     let command = Command::SendNativeTokenTransfer {
         from: ACC_SENDER.to_string(),
-        nonce: 0,
         to: new_persistent_account_addr.clone(),
         amount: 100,
     };
@@ -176,7 +174,6 @@ pub async fn test_success_move_to_another_account() {
 pub async fn test_failure() {
     let command = Command::SendNativeTokenTransfer {
         from: ACC_SENDER.to_string(),
-        nonce: 0,
         to: ACC_RECEIVER.to_string(),
         amount: 1000000,
     };
@@ -214,7 +211,6 @@ pub async fn test_failure() {
 pub async fn test_success_two_transactions() {
     let command = Command::SendNativeTokenTransfer {
         from: ACC_SENDER.to_string(),
-        nonce: 0,
         to: ACC_RECEIVER.to_string(),
         amount: 100,
     };
@@ -248,7 +244,6 @@ pub async fn test_success_two_transactions() {
 
     let command = Command::SendNativeTokenTransfer {
         from: ACC_SENDER.to_string(),
-        nonce: 1,
         to: ACC_RECEIVER.to_string(),
         amount: 100,
     };

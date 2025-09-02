@@ -49,7 +49,7 @@ impl NSSAUserData {
     }
 
     pub fn get_account_signing_key(&self, address: &nssa::Address) -> Option<&nssa::PrivateKey> {
-        self.accounts.get(address).map(|(key, _)| key)
+        self.key_holder.get_pub_account_signing_key(address)
     }
 }
 

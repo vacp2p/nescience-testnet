@@ -9,6 +9,12 @@ pub struct InitialAccountData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersistentAccountData {
+    pub address: nssa::Address,
+    pub pub_sign_key: nssa::PrivateKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GasConfig {
     /// Gas spent per deploying one byte of data
     pub gas_fee_per_byte_deploy: u64,

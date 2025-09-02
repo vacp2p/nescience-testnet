@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::PathBuf, sync::Arc};
+use std::{fs::File, io::Write, path::PathBuf, str::FromStr, sync::Arc};
 
 use base64::Engine;
 use common::{
@@ -47,7 +47,12 @@ impl WalletCore {
             client: client.clone(),
         };
 
-        let storage = WalletChainStore::new(config)?;
+        let mut storage = WalletChainStore::new(config)?;
+
+        let persistent_accounts = fetch_persistent_accounts()?;
+        for pers_acc_data in persistent_accounts {
+            storage.insert_account_data(pers_acc_data);
+        }
 
         Ok(Self {
             storage,
@@ -88,43 +93,63 @@ impl WalletCore {
     pub async fn send_public_native_token_transfer(
         &self,
         from: Address,
-        nonce: u128,
         to: Address,
         balance_to_move: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let account = self.search_for_initial_account(from);
+        if let Ok(balance) = self.get_account_balance(from).await {
+            if balance >= balance_to_move {
+                if let Ok(nonces) = self.get_accounts_nonces(vec![from]).await {
+                    let addresses = vec![from, to];
+                    let program_id = nssa::program::Program::authenticated_transfer_program().id();
+                    let message = nssa::public_transaction::Message::try_new(
+                        program_id,
+                        addresses,
+                        nonces,
+                        balance_to_move,
+                    )
+                    .unwrap();
 
-        if let Some(account) = account {
-            if account.balance >= balance_to_move {
-                let addresses = vec![from, to];
-                let nonces = vec![nonce];
-                let program_id = nssa::program::Program::authenticated_transfer_program().id();
-                let message = nssa::public_transaction::Message::try_new(
-                    program_id,
-                    addresses,
-                    nonces,
-                    balance_to_move,
-                )
-                .unwrap();
+                    let signing_key = self.storage.user_data.get_account_signing_key(&from);
 
-                let signing_key = self.storage.user_data.get_account_signing_key(&from);
+                    if let Some(signing_key) = signing_key {
+                        let witness_set = nssa::public_transaction::WitnessSet::for_message(
+                            &message,
+                            &[signing_key],
+                        );
 
-                if let Some(signing_key) = signing_key {
-                    let witness_set =
-                        nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
+                        let tx = nssa::PublicTransaction::new(message, witness_set);
 
-                    let tx = nssa::PublicTransaction::new(message, witness_set);
-
-                    Ok(self.sequencer_client.send_tx(tx).await?)
+                        Ok(self.sequencer_client.send_tx(tx).await?)
+                    } else {
+                        Err(ExecutionFailureKind::KeyNotFoundError)
+                    }
                 } else {
-                    Err(ExecutionFailureKind::KeyNotFoundError)
+                    Err(ExecutionFailureKind::SequencerError)
                 }
             } else {
                 Err(ExecutionFailureKind::InsufficientFundsError)
             }
         } else {
-            Err(ExecutionFailureKind::AmountMismatchError)
+            Err(ExecutionFailureKind::SequencerError)
         }
+    }
+
+    ///Get account balance
+    pub async fn get_account_balance(&self, acc: Address) -> Result<u128> {
+        Ok(self
+            .sequencer_client
+            .get_account_balance(acc.to_string())
+            .await?
+            .balance)
+    }
+
+    ///Get accounts nonces
+    pub async fn get_accounts_nonces(&self, accs: Vec<Address>) -> Result<Vec<u128>> {
+        Ok(self
+            .sequencer_client
+            .get_accounts_nonces(accs.into_iter().map(|acc| acc.to_string()).collect())
+            .await?
+            .nonces)
     }
 
     ///Poll transactions
@@ -139,27 +164,6 @@ impl WalletCore {
 
         Ok(pub_tx)
     }
-
-    ///Execute native token transfer at wallet accounts
-    pub fn execute_native_token_transfer(
-        &mut self,
-        from: Address,
-        to: Address,
-        balance_to_move: u128,
-    ) {
-        self.storage.user_data.increment_account_nonce(from);
-        self.storage.user_data.increment_account_nonce(to);
-
-        let from_bal = self.storage.user_data.get_account_balance(&from);
-        let to_bal = self.storage.user_data.get_account_balance(&to);
-
-        self.storage
-            .user_data
-            .update_account_balance(from, from_bal - balance_to_move);
-        self.storage
-            .user_data
-            .update_account_balance(to, to_bal + balance_to_move);
-    }
 }
 
 ///Represents CLI command for a wallet
@@ -171,9 +175,6 @@ pub enum Command {
         ///from - valid 32 byte hex string
         #[arg(long)]
         from: String,
-        ///nonce - u128 integer
-        #[arg(long)]
-        nonce: u128,
         ///to - valid 32 byte hex string
         #[arg(long)]
         to: String,
@@ -188,6 +189,16 @@ pub enum Command {
         #[arg(short, long)]
         tx_hash: String,
     },
+    ///Get account `addr` balance
+    GetAccountBalance {
+        #[arg(short, long)]
+        addr: String,
+    },
+    ///Get account `addr` nonce
+    GetAccountNonce {
+        #[arg(short, long)]
+        addr: String,
+    },
 }
 
 ///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
@@ -201,20 +212,15 @@ pub struct Args {
 
 pub async fn execute_subcommand(command: Command) -> Result<()> {
     let wallet_config = fetch_config()?;
-    let mut wallet_core = WalletCore::start_from_config_update_chain(wallet_config).await?;
+    let mut wallet_core = WalletCore::start_from_config_update_chain(wallet_config)?;
 
     match command {
-        Command::SendNativeTokenTransfer {
-            from,
-            nonce,
-            to,
-            amount,
-        } => {
+        Command::SendNativeTokenTransfer { from, to, amount } => {
             let from = produce_account_addr_from_hex(from)?;
             let to = produce_account_addr_from_hex(to)?;
 
             let res = wallet_core
-                .send_public_native_token_transfer(from, nonce, to, amount)
+                .send_public_native_token_transfer(from, to, amount)
                 .await?;
 
             info!("Results of tx send is {res:#?}");
@@ -224,8 +230,6 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                 .await?;
 
             info!("Transaction data is {transfer_tx:?}");
-
-            wallet_core.execute_native_token_transfer(from, to, amount);
         }
         Command::RegisterAccount {} => {
             let addr = wallet_core.create_new_account();
@@ -242,6 +246,18 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                 .await?;
 
             info!("Transaction object {tx_obj:#?}");
+        }
+        Command::GetAccountBalance { addr } => {
+            let addr = Address::from_str(&addr)?;
+
+            let balance = wallet_core.get_account_balance(addr).await?;
+            info!("Accounts {addr:#?} balance is {balance}");
+        }
+        Command::GetAccountNonce { addr } => {
+            let addr = Address::from_str(&addr)?;
+
+            let nonce = wallet_core.get_accounts_nonces(vec![addr]).await?[0];
+            info!("Accounts {addr:#?} nonce is {nonce}");
         }
     }
 
