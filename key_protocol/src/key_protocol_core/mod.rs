@@ -17,9 +17,7 @@ impl NSSAUserData {
     pub fn new() -> Self {
         let key_holder = KeyChain::new_os_random();
 
-        Self {
-            key_holder,
-        }
+        Self { key_holder }
     }
 
     fn valid_key_transaction_pairing_check(
@@ -43,9 +41,7 @@ impl NSSAUserData {
 
         let key_holder = KeyChain::new_os_random_with_accounts(accounts_keys);
 
-        Ok(Self {
-            key_holder,
-        })
+        Ok(Self { key_holder })
     }
 
     pub fn generate_new_account(&mut self) -> nssa::Address {

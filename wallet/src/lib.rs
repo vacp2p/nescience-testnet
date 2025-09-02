@@ -14,9 +14,7 @@ use nssa::Address;
 use clap::{Parser, Subcommand};
 use nssa_core::account::Account;
 
-use crate::helperfunctions::{
-    fetch_config, produce_account_addr_from_hex,
-};
+use crate::helperfunctions::{fetch_config, produce_account_addr_from_hex};
 
 pub const HOME_DIR_ENV_VAR: &str = "NSSA_WALLET_HOME_DIR";
 pub const BLOCK_GEN_DELAY_SECS: u64 = 20;
