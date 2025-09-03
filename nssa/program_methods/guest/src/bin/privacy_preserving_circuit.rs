@@ -61,7 +61,9 @@ fn main() {
                 public_pre_states.push(pre_states[i].clone());
 
                 let mut post = post_states[i].clone();
-                post.nonce += 1;
+                if pre_states[i].is_authorized {
+                    post.nonce += 1;
+                }
                 if post.program_owner == DEFAULT_PROGRAM_ID {
                     // Claim account
                     post.program_owner = program_id;

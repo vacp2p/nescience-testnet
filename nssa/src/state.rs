@@ -140,12 +140,6 @@ impl V01State {
             *current_account = post;
         }
 
-        // // 5. Increment nonces
-        for address in tx.signer_addresses() {
-            let current_account = self.get_account_by_address_mut(address);
-            current_account.nonce += 1;
-        }
-
         Ok(())
     }
 
@@ -925,6 +919,13 @@ pub mod tests {
             &state,
         );
 
+        let expected_sender_post = {
+            let mut this = state.get_account_by_address(&sender_keys.address());
+            this.balance -= balance_to_move;
+            this.nonce += 1;
+            this
+        };
+
         let [expected_new_commitment] = tx.message().new_commitments.clone().try_into().unwrap();
         assert!(!state.private_state.0.contains(&expected_new_commitment));
 
@@ -932,6 +933,8 @@ pub mod tests {
             .transition_from_privacy_preserving_transaction(&tx)
             .unwrap();
 
+        let sender_post = state.get_account_by_address(&sender_keys.address());
+        assert_eq!(sender_post, expected_sender_post);
         assert!(state.private_state.0.contains(&expected_new_commitment));
 
         assert_eq!(
@@ -1024,6 +1027,12 @@ pub mod tests {
 
         let balance_to_move = 37;
 
+        let expected_recipient_post = {
+            let mut this = state.get_account_by_address(&recipient_keys.address());
+            this.balance += balance_to_move;
+            this
+        };
+
         let tx = deshielded_balance_transfer_for_tests(
             &sender_keys,
             &sender_private_account,
@@ -1054,6 +1063,9 @@ pub mod tests {
             .transition_from_privacy_preserving_transaction(&tx)
             .unwrap();
 
+
+        let recipient_post = state.get_account_by_address(&recipient_keys.address());
+        assert_eq!(recipient_post, expected_recipient_post);
         assert!(state.private_state.0.contains(&sender_pre_commitment));
         assert!(state.private_state.0.contains(&expected_new_commitment));
         assert!(state.private_state.1.contains(&expected_new_nullifier));
