@@ -7,7 +7,11 @@ use nssa_core::{
 };
 
 use crate::{
-    error::NssaError, privacy_preserving_transaction::{circuit::Proof, message::EncryptedAccountData, witness_set::WitnessSet}, Address, PrivacyPreservingTransaction, PublicKey, Signature
+    Address, PrivacyPreservingTransaction, PublicKey, Signature,
+    error::NssaError,
+    privacy_preserving_transaction::{
+        circuit::Proof, message::EncryptedAccountData, witness_set::WitnessSet,
+    },
 };
 
 use super::message::Message;

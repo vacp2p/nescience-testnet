@@ -15,6 +15,7 @@ elliptic-curve.workspace = true
 k256.workspace = true
 tiny-keccak.workspace = true
 tempfile.workspace = true
+chrono.workspace = true
 
 [dependencies.storage]
 path = "../storage"

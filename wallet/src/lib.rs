@@ -3,6 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf, str::FromStr, sync::Arc};
 use base64::Engine;
 use common::{
     sequencer_client::{json::SendTxResponse, SequencerClient},
+    transaction::TransactionBody,
     ExecutionFailureKind,
 };
 
@@ -108,7 +109,6 @@ impl WalletCore {
                         balance_to_move,
                     )
                     .unwrap();
-
                     let signing_key = self.storage.user_data.get_account_signing_key(&from);
 
                     if let Some(signing_key) = signing_key {
@@ -119,7 +119,7 @@ impl WalletCore {
 
                         let tx = nssa::PublicTransaction::new(message, witness_set);
 
-                        Ok(self.sequencer_client.send_tx(tx).await?)
+                        Ok(self.sequencer_client.send_tx_public(tx).await?)
                     } else {
                         Err(ExecutionFailureKind::KeyNotFoundError)
                     }
@@ -156,13 +156,13 @@ impl WalletCore {
     pub async fn poll_public_native_token_transfer(
         &self,
         hash: String,
-    ) -> Result<nssa::PublicTransaction> {
+    ) -> Result<nssa::NSSATransaction> {
         let transaction_encoded = self.poller.poll_tx(hash).await?;
         let tx_base64_decode =
             base64::engine::general_purpose::STANDARD.decode(transaction_encoded)?;
-        let pub_tx = nssa::PublicTransaction::from_bytes(&tx_base64_decode)?;
+        let pub_tx = TransactionBody::from_bytes(tx_base64_decode);
 
-        Ok(pub_tx)
+        Ok(nssa::NSSATransaction::try_from(&pub_tx)?)
     }
 }
 

@@ -6,7 +6,6 @@ use serde_json::Value;
 
 use common::{
     block::HashableBlockData,
-    merkle_tree_public::TreeHashType,
     rpc_primitives::{
         errors::RpcError,
         message::{Message, Request},
@@ -17,6 +16,8 @@ use common::{
             GetTransactionByHashRequest, GetTransactionByHashResponse,
         },
     },
+    transaction::TransactionBody,
+    TreeHashType,
 };
 
 use common::rpc_primitives::requests::{
@@ -72,8 +73,7 @@ impl JsonHandler {
 
     async fn process_send_tx(&self, request: Request) -> Result<Value, RpcErr> {
         let send_tx_req = SendTxRequest::parse(Some(request.params))?;
-        let tx = nssa::PublicTransaction::from_bytes(&send_tx_req.transaction)
-            .map_err(|e| RpcError::serialization_error(&e.to_string()))?;
+        let tx = TransactionBody::from_bytes(send_tx_req.transaction);
         let tx_hash = hex::encode(tx.hash());
 
         {
@@ -254,7 +254,10 @@ mod tests {
 
     use crate::{rpc_handler, JsonHandler};
     use base64::{engine::general_purpose, Engine};
-    use common::rpc_primitives::RpcPollingConfig;
+    use common::{
+        rpc_primitives::RpcPollingConfig, test_utils::sequencer_sign_key_for_testing,
+        transaction::TransactionBody,
+    };
 
     use sequencer_core::{
         config::{AccountInitialData, SequencerConfig},
@@ -298,14 +301,11 @@ mod tests {
             block_create_timeout_millis: 1000,
             port: 8080,
             initial_accounts,
+            signing_key: *sequencer_sign_key_for_testing().value(),
         }
     }
 
-    fn components_for_tests() -> (
-        JsonHandler,
-        Vec<AccountInitialData>,
-        nssa::PublicTransaction,
-    ) {
+    fn components_for_tests() -> (JsonHandler, Vec<AccountInitialData>, TransactionBody) {
         let config = sequencer_config_for_tests();
         let mut sequencer_core = SequencerCore::start_from_config(config);
         let initial_accounts = sequencer_core.sequencer_config.initial_accounts.clone();

@@ -1,9 +1,7 @@
+use rs_merkle::Hasher;
 use std::io::{Cursor, Read};
 
-use k256::ecdsa::Signature;
-use rs_merkle::Hasher;
-
-use crate::{merkle_tree_public::hasher::OwnHasher, transaction::AuthenticatedTransaction};
+use crate::{transaction::TransactionBody, OwnHasher};
 
 pub type BlockHash = [u8; 32];
 pub type BlockId = u64;
@@ -16,12 +14,12 @@ pub struct BlockHeader {
     pub prev_block_hash: BlockHash,
     pub hash: BlockHash,
     pub timestamp: TimeStamp,
-    pub signature: Signature,
+    pub signature: nssa::Signature,
 }
 
 #[derive(Debug, Clone)]
 pub struct BlockBody {
-    pub transactions: Vec<AuthenticatedTransaction>,
+    pub transactions: Vec<TransactionBody>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,26 +34,25 @@ pub struct HashableBlockData {
     pub prev_block_id: BlockId,
     pub prev_block_hash: BlockHash,
     pub timestamp: TimeStamp,
-    pub signature: Signature,
-    pub transactions: Vec<AuthenticatedTransaction>,
+    pub transactions: Vec<TransactionBody>,
 }
 
-impl From<HashableBlockData> for Block {
-    fn from(value: HashableBlockData) -> Self {
-        let data = value.to_bytes();
-        let hash = OwnHasher::hash(&data);
-
-        Self {
+impl HashableBlockData {
+    pub fn into_block(self, signing_key: &nssa::PrivateKey) -> Block {
+        let data_bytes = self.to_bytes();
+        let signature = nssa::Signature::new(signing_key, &data_bytes);
+        let hash = OwnHasher::hash(&data_bytes);
+        Block {
             header: BlockHeader {
-                block_id: value.block_id,
-                prev_block_id: value.prev_block_id,
-                prev_block_hash: value.prev_block_hash,
+                block_id: self.block_id,
+                prev_block_id: self.prev_block_id,
+                prev_block_hash: self.prev_block_hash,
                 hash,
-                timestamp: value.timestamp,
-                signature: value.signature,
+                timestamp: self.timestamp,
+                signature,
             },
             body: BlockBody {
-                transactions: value.transactions,
+                transactions: self.transactions,
             },
         }
     }
@@ -68,7 +65,6 @@ impl From<Block> for HashableBlockData {
             prev_block_id: value.header.prev_block_id,
             prev_block_hash: value.header.prev_block_hash,
             timestamp: value.header.timestamp,
-            signature: value.header.signature,
             transactions: value.body.transactions,
         }
     }
@@ -81,10 +77,13 @@ impl HashableBlockData {
         bytes.extend_from_slice(&self.prev_block_id.to_le_bytes());
         bytes.extend_from_slice(&self.prev_block_hash);
         bytes.extend_from_slice(&self.timestamp.to_le_bytes());
-        bytes.extend_from_slice(&self.signature.to_bytes());
         let num_transactions: u32 = self.transactions.len() as u32;
         bytes.extend_from_slice(&num_transactions.to_le_bytes());
         for tx in &self.transactions {
+            let transaction_bytes = tx.to_bytes();
+            let num_transaction_bytes: u32 = transaction_bytes.len() as u32;
+
+            bytes.extend_from_slice(&num_transaction_bytes.to_le_bytes());
             bytes.extend_from_slice(&tx.to_bytes());
         }
         bytes
@@ -101,17 +100,21 @@ impl HashableBlockData {
         cursor.read_exact(&mut prev_block_hash).unwrap();
 
         let timestamp = u64_from_cursor(&mut cursor);
-        
-        let signature_bytes_len = u32_from_cursor(&mut cursor) as usize;
-        let mut signature_bytes = Vec::with_capacity(signature_bytes_len);
-        cursor.read_exact(&mut signature_bytes).unwrap();
-        let signature = Signature::from_bytes(signature_bytes.as_slice().try_into().unwrap()).unwrap();
 
         let num_transactions = u32_from_cursor(&mut cursor) as usize;
 
         let mut transactions = Vec::with_capacity(num_transactions);
         for _ in 0..num_transactions {
-            let tx = AuthenticatedTransaction::from_cursor(&mut cursor);
+            let tx_len = u32_from_cursor(&mut cursor) as usize;
+            let mut tx_bytes = Vec::with_capacity(tx_len);
+
+            for _ in 0..tx_len {
+                let mut buff = [0; 1];
+                cursor.read_exact(&mut buff).unwrap();
+                tx_bytes.push(buff[0]);
+            }
+
+            let tx = TransactionBody::from_bytes(tx_bytes);
             transactions.push(tx);
         }
 
@@ -120,7 +123,6 @@ impl HashableBlockData {
             prev_block_id,
             prev_block_hash,
             timestamp,
-            signature,
             transactions,
         }
     }

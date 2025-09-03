@@ -248,7 +248,7 @@ impl RocksDBIO {
         Ok(())
     }
 
-    pub fn get_block(&self, block_id: u64) -> DbResult<Block> {
+    pub fn get_block(&self, block_id: u64) -> DbResult<HashableBlockData> {
         let cf_block = self.block_column();
         let res = self
             .db
@@ -256,7 +256,7 @@ impl RocksDBIO {
             .map_err(|rerr| DbError::rocksdb_cast_message(rerr, None))?;
 
         if let Some(data) = res {
-            Ok(HashableBlockData::from_bytes(&data).into())
+            Ok(HashableBlockData::from_bytes(&data))
         } else {
             Err(DbError::db_interaction_error(
                 "Block on this id not found".to_string(),
