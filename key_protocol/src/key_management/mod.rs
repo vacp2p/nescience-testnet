@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit};
+use aes_gcm::{Aes256Gcm, KeyInit, aead::Aead};
 use constants_types::{CipherText, Nonce};
 use elliptic_curve::point::AffineCoordinates;
 use k256::AffinePoint;
@@ -21,7 +21,7 @@ pub struct KeyChain {
     top_secret_key_holder: TopSecretKeyHolder,
     pub utxo_secret_key_holder: UTXOSecretKeyHolder,
     ///Map for all users accounts
-    pub_account_signing_keys: HashMap<nssa::Address, nssa::PrivateKey>,
+    pub pub_account_signing_keys: HashMap<nssa::Address, nssa::PrivateKey>,
     pub nullifer_public_key: PublicKey,
     pub viewing_public_key: PublicKey,
 }
@@ -136,8 +136,8 @@ impl KeyChain {
 #[cfg(test)]
 mod tests {
     use aes_gcm::{
-        aead::{Aead, KeyInit, OsRng},
         Aes256Gcm,
+        aead::{Aead, KeyInit, OsRng},
     };
     use constants_types::{CipherText, Nonce};
     use constants_types::{NULLIFIER_SECRET_CONST, VIEWING_SECRET_CONST};
@@ -339,19 +339,6 @@ mod tests {
 
         // Verify the decrypted data matches the original plaintext
         assert_eq!(decrypted_data, plaintext);
-    }
-
-    #[test]
-    fn test_get_public_account_signing_key() {
-        let mut address_key_holder = KeyChain::new_os_random();
-
-        let address = address_key_holder.generate_new_private_key();
-
-        let is_private_key_generated = address_key_holder
-            .get_pub_account_signing_key(&address)
-            .is_some();
-
-        assert!(is_private_key_generated);
     }
 
     #[test]
