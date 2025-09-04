@@ -4,6 +4,8 @@ use anyhow::Result;
 use common::sequencer_client::SequencerClient;
 use log::{info, warn};
 
+use crate::config::WalletConfig;
+
 #[derive(Clone)]
 ///Helperstruct to poll transactions
 pub struct TxPoller {
@@ -15,6 +17,16 @@ pub struct TxPoller {
 }
 
 impl TxPoller {
+    pub fn new(config: WalletConfig, client: Arc<SequencerClient>) -> Self {
+        Self {
+            polling_delay_millis: config.seq_poll_timeout_millis,
+            polling_max_blocks_to_query: config.seq_poll_max_blocks,
+            polling_max_error_attempts: config.seq_poll_max_retries,
+            polling_error_delay_millis: config.seq_poll_retry_delay_millis,
+            client: client.clone(),
+        }
+    }
+
     pub async fn poll_tx(&self, tx_hash: String) -> Result<String> {
         let max_blocks_to_query = self.polling_max_blocks_to_query;
 

@@ -12,9 +12,10 @@ use common::{
         message::{Message, Request},
         parser::RpcRequest,
         requests::{
-            GetAccountBalanceRequest, GetAccountBalanceResponse, GetAccountsNoncesRequest,
-            GetAccountsNoncesResponse, GetInitialTestnetAccountsRequest,
-            GetTransactionByHashRequest, GetTransactionByHashResponse,
+            GetAccountBalanceRequest, GetAccountBalanceResponse, GetAccountDataRequest,
+            GetAccountDataResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
+            GetInitialTestnetAccountsRequest, GetTransactionByHashRequest,
+            GetTransactionByHashResponse,
         },
     },
 };
@@ -35,6 +36,7 @@ pub const GET_LAST_BLOCK: &str = "get_last_block";
 pub const GET_ACCOUNT_BALANCE: &str = "get_account_balance";
 pub const GET_TRANSACTION_BY_HASH: &str = "get_transaction_by_hash";
 pub const GET_ACCOUNTS_NONCES: &str = "get_accounts_nonces";
+pub const GET_ACCOUNT_DATA: &str = "get_account_data";
 
 pub const HELLO_FROM_SEQUENCER: &str = "HELLO_FROM_SEQUENCER";
 
@@ -181,14 +183,9 @@ impl JsonHandler {
         let get_account_nonces_req = GetAccountsNoncesRequest::parse(Some(request.params))?;
         let mut addresses = vec![];
         for address_raw in get_account_nonces_req.addresses {
-            let address_bytes = hex::decode(address_raw)
-                .map_err(|_| RpcError::invalid_params("invalid hex".to_string()))?;
-
-            let address = nssa::Address::new(
-                address_bytes
-                    .try_into()
-                    .map_err(|_| RpcError::invalid_params("invalid length".to_string()))?,
-            );
+            let address = address_raw
+                .parse::<nssa::Address>()
+                .map_err(|e| RpcError::invalid_params(e.to_string()))?;
 
             addresses.push(address);
         }
@@ -203,6 +200,32 @@ impl JsonHandler {
         };
 
         let helperstruct = GetAccountsNoncesResponse { nonces };
+
+        respond(helperstruct)
+    }
+
+    ///Returns account struct for give address.
+    /// Address must be a valid hex string of the correct length.
+    async fn process_get_account_data(&self, request: Request) -> Result<Value, RpcErr> {
+        let get_account_nonces_req = GetAccountDataRequest::parse(Some(request.params))?;
+
+        let address = get_account_nonces_req
+            .address
+            .parse::<nssa::Address>()
+            .map_err(|e| RpcError::invalid_params(e.to_string()))?;
+
+        let account = {
+            let state = self.sequencer_state.lock().await;
+
+            state.store.state.get_account_by_address(&address)
+        };
+
+        let helperstruct = GetAccountDataResponse {
+            balance: account.balance,
+            nonce: account.nonce,
+            program_owner: account.program_owner,
+            data: account.data,
+        };
 
         respond(helperstruct)
     }
@@ -242,6 +265,7 @@ impl JsonHandler {
             GET_INITIAL_TESTNET_ACCOUNTS => self.get_initial_testnet_accounts(request).await,
             GET_ACCOUNT_BALANCE => self.process_get_account_balance(request).await,
             GET_ACCOUNTS_NONCES => self.process_get_accounts_nonces(request).await,
+            GET_ACCOUNT_DATA => self.process_get_account_data(request).await,
             GET_TRANSACTION_BY_HASH => self.process_get_transaction_by_hash(request).await,
             _ => Err(RpcErr(RpcError::method_not_found(request.method))),
         }
@@ -497,6 +521,60 @@ mod tests {
             "jsonrpc": "2.0",
             "result": {
                 "nonces": [ 1, 0 ]
+            }
+        });
+
+        let response = call_rpc_handler_with_json(json_handler, request).await;
+
+        assert_eq!(response, expected_response);
+    }
+
+    #[actix_web::test]
+    async fn test_get_account_data_for_non_existent_account() {
+        let (json_handler, _, _) = components_for_tests();
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "get_account_data",
+            "params": { "address": "efac".repeat(16) },
+            "id": 1
+        });
+        let expected_response = serde_json::json!({
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+                "balance": 0,
+                "nonce": 0,
+                "program_owner": [ 0, 0, 0, 0, 0, 0, 0, 0],
+                "data": [],
+            }
+        });
+
+        let response = call_rpc_handler_with_json(json_handler, request).await;
+
+        assert_eq!(response, expected_response);
+    }
+
+    #[actix_web::test]
+    async fn test_get_account_data_for_existent_account() {
+        let (json_handler, initial_accounts, _) = components_for_tests();
+
+        let acc_1_addr = initial_accounts[0].addr.clone();
+
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "get_account_data",
+            "params": { "address": acc_1_addr },
+            "id": 1
+        });
+
+        let expected_response = serde_json::json!({
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+                "balance": 9990,
+                "nonce": 1,
+                "program_owner": [ 1793544791, 852173979, 3315478100u32, 4158236927u32, 146723505, 3793635251u32, 999304864, 2535706995u32],
+                "data": [],
             }
         });
 

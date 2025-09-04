@@ -48,6 +48,11 @@ pub struct GetAccountsNoncesRequest {
     pub addresses: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetAccountDataRequest {
+    pub address: String,
+}
+
 parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
@@ -58,6 +63,7 @@ parse_request!(GetInitialTestnetAccountsRequest);
 parse_request!(GetAccountBalanceRequest);
 parse_request!(GetTransactionByHashRequest);
 parse_request!(GetAccountsNoncesRequest);
+parse_request!(GetAccountDataRequest);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HelloResponse {
@@ -103,4 +109,12 @@ pub struct GetAccountsNoncesResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetTransactionByHashResponse {
     pub transaction: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetAccountDataResponse {
+    pub balance: u128,
+    pub nonce: u128,
+    pub program_owner: [u32; 8],
+    pub data: Vec<u8>,
 }

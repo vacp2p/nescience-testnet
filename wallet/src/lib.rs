@@ -39,13 +39,7 @@ pub struct WalletCore {
 impl WalletCore {
     pub fn start_from_config_update_chain(config: WalletConfig) -> Result<Self> {
         let client = Arc::new(SequencerClient::new(config.sequencer_addr.clone())?);
-        let tx_poller = TxPoller {
-            polling_delay_millis: config.seq_poll_timeout_millis,
-            polling_max_blocks_to_query: config.seq_poll_max_blocks,
-            polling_max_error_attempts: config.seq_poll_max_retries,
-            polling_error_delay_millis: config.seq_poll_retry_delay_millis,
-            client: client.clone(),
-        };
+        let tx_poller = TxPoller::new(config.clone(), client.clone());
 
         let mut storage = WalletChainStore::new(config)?;
 
@@ -61,7 +55,7 @@ impl WalletCore {
         })
     }
 
-    ///Stre persistent accounts at home
+    ///Store persistent accounts at home
     pub fn store_persistent_accounts(&self) -> Result<PathBuf> {
         let home = get_home()?;
         let accs_path = home.join("curr_accounts.json");
@@ -96,41 +90,39 @@ impl WalletCore {
         to: Address,
         balance_to_move: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        if let Ok(balance) = self.get_account_balance(from).await {
-            if balance >= balance_to_move {
-                if let Ok(nonces) = self.get_accounts_nonces(vec![from]).await {
-                    let addresses = vec![from, to];
-                    let program_id = nssa::program::Program::authenticated_transfer_program().id();
-                    let message = nssa::public_transaction::Message::try_new(
-                        program_id,
-                        addresses,
-                        nonces,
-                        balance_to_move,
-                    )
-                    .unwrap();
+        let Ok(balance) = self.get_account_balance(from).await else {
+            return Err(ExecutionFailureKind::SequencerError);
+        };
 
-                    let signing_key = self.storage.user_data.get_account_signing_key(&from);
+        if balance >= balance_to_move {
+            let Ok(nonces) = self.get_accounts_nonces(vec![from]).await else {
+                return Err(ExecutionFailureKind::SequencerError);
+            };
 
-                    if let Some(signing_key) = signing_key {
-                        let witness_set = nssa::public_transaction::WitnessSet::for_message(
-                            &message,
-                            &[signing_key],
-                        );
+            let addresses = vec![from, to];
+            let program_id = nssa::program::Program::authenticated_transfer_program().id();
+            let message = nssa::public_transaction::Message::try_new(
+                program_id,
+                addresses,
+                nonces,
+                balance_to_move,
+            )
+            .unwrap();
 
-                        let tx = nssa::PublicTransaction::new(message, witness_set);
+            let signing_key = self.storage.user_data.get_account_signing_key(&from);
 
-                        Ok(self.sequencer_client.send_tx(tx).await?)
-                    } else {
-                        Err(ExecutionFailureKind::KeyNotFoundError)
-                    }
-                } else {
-                    Err(ExecutionFailureKind::SequencerError)
-                }
-            } else {
-                Err(ExecutionFailureKind::InsufficientFundsError)
-            }
+            let Some(signing_key) = signing_key else {
+                return Err(ExecutionFailureKind::KeyNotFoundError);
+            };
+
+            let witness_set =
+                nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
+
+            let tx = nssa::PublicTransaction::new(message, witness_set);
+
+            Ok(self.sequencer_client.send_tx(tx).await?)
         } else {
-            Err(ExecutionFailureKind::SequencerError)
+            Err(ExecutionFailureKind::InsufficientFundsError)
         }
     }
 
