@@ -109,7 +109,7 @@ impl MerkleTree {
         self.set_node(node_index, node_hash);
         self.length += 1;
 
-        //updates Merkle path of the newly inserted node
+        // Update upper levels for the newly inserted node
         for _ in 0..self.depth() {
             let parent_index = (node_index - 1) >> 1;
             let left_child = self.get_node((parent_index << 1) + 1);
