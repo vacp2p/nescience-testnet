@@ -43,7 +43,7 @@ impl CommitmentSet {
         self.commitments.contains_key(commitment)
     }
 
-    /// Initializes a CommitmentState with a given capacity.
+    /// Initializes an empty `CommitmentSet` with a given capacity.
     /// If the capacity is not a power_of_two, then capacity is taken
     /// to be the next power_of_two.
     pub(crate) fn with_capacity(capacity: usize) -> CommitmentSet {
