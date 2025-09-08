@@ -1,11 +1,7 @@
-use aes_gcm::{AeadCore, Aes256Gcm, KeyInit, aead::Aead};
 use elliptic_curve::PrimeField;
-use elliptic_curve::point::AffineCoordinates;
-use k256::{AffinePoint, FieldBytes, Scalar};
+use k256::{AffinePoint, Scalar};
 use log::info;
-use rand::{RngCore, rngs::OsRng};
-
-use super::constants_types::{CipherText, Nonce};
+use sha2::Digest;
 
 #[derive(Debug)]
 ///Ephemeral secret key holder. Non-clonable as intended for one-time use. Produces ephemeral public keys. Can produce shared secret for sender.

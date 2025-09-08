@@ -32,7 +32,6 @@ impl WalletChainStore {
 
     pub(crate) fn insert_account_data(&mut self, acc_data: PersistentAccountData) {
         self.user_data
-            .key_holder
             .pub_account_signing_keys
             .insert(acc_data.address, acc_data.pub_sign_key);
     }
