@@ -1,7 +1,7 @@
 use rs_merkle::Hasher;
 use std::io::{Cursor, Read};
 
-use crate::{transaction::TransactionBody, OwnHasher};
+use crate::{OwnHasher, transaction::TransactionBody};
 
 pub type BlockHash = [u8; 32];
 pub type BlockId = u64;

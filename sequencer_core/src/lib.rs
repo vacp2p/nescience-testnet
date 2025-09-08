@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use common::{block::HashableBlockData, transaction::TransactionBody, TreeHashType};
+use common::{TreeHashType, block::HashableBlockData, transaction::TransactionBody};
 use config::SequencerConfig;
 use log::{info, warn};
 use mempool::MemPool;

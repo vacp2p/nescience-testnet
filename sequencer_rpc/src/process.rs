@@ -5,6 +5,7 @@ use sequencer_core::config::AccountInitialData;
 use serde_json::Value;
 
 use common::{
+    TreeHashType,
     block::HashableBlockData,
     rpc_primitives::{
         errors::RpcError,
@@ -18,7 +19,6 @@ use common::{
         },
     },
     transaction::TransactionBody,
-    TreeHashType,
 };
 
 use common::rpc_primitives::requests::{
@@ -276,8 +276,8 @@ impl JsonHandler {
 mod tests {
     use std::sync::Arc;
 
-    use crate::{rpc_handler, JsonHandler};
-    use base64::{engine::general_purpose, Engine};
+    use crate::{JsonHandler, rpc_handler};
+    use base64::{Engine, engine::general_purpose};
     use common::{
         rpc_primitives::RpcPollingConfig, test_utils::sequencer_sign_key_for_testing,
         transaction::TransactionBody,

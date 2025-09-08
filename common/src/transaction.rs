@@ -1,7 +1,4 @@
-use k256::ecdsa::{
-    Signature, SigningKey, VerifyingKey,
-    signature::{Signer, Verifier},
-};
+use k256::ecdsa::{Signature, SigningKey, VerifyingKey};
 use log::info;
 use serde::{Deserialize, Serialize};
 
@@ -188,14 +185,11 @@ pub type SignaturePrivateKey = SigningKey;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use k256::{FieldBytes, ecdsa::signature::Signer};
-    use secp256k1_zkp::{Tweak, constants::SECRET_KEY_SIZE};
     use sha2::{Digest, digest::FixedOutput};
 
     use crate::{
-        transaction::{TransactionBody, TxKind},
         TreeHashType,
+        transaction::{TransactionBody, TxKind},
     };
 
     fn test_transaction_body() -> TransactionBody {
@@ -228,62 +222,5 @@ mod tests {
         let body_new = TransactionBody::from_bytes(body_bytes);
 
         assert_eq!(body, body_new);
-    #[test]
-    fn test_into_authenticated_succeeds_for_valid_signature() {
-        let transaction = test_transaction();
-        let authenticated_tx = transaction.clone().into_authenticated().unwrap();
-
-        let signature = authenticated_tx.transaction().signature;
-        let hash = authenticated_tx.hash();
-
-        assert_eq!(authenticated_tx.transaction(), &transaction);
-        assert_eq!(hash, &transaction.body.hash());
-        assert!(
-            authenticated_tx
-                .transaction()
-                .public_key
-                .verify(&transaction.body.to_bytes(), &signature)
-                .is_ok()
-        );
-    }
-
-    #[test]
-    fn test_into_authenticated_fails_for_invalid_signature() {
-        let body = test_transaction_body();
-        let key_bytes = FieldBytes::from_slice(&[37; 32]);
-        let private_key: SigningKey = SigningKey::from_bytes(key_bytes).unwrap();
-        let transaction = {
-            let mut this = Transaction::new(body, private_key.clone());
-            // Modify the signature to make it invalid
-            // We do this by changing it to the signature of something else
-            this.signature = private_key.sign(b"deadbeef");
-            this
-        };
-
-        matches!(
-            transaction.into_authenticated(),
-            Err(TransactionSignatureError::InvalidSignature)
-        );
-    }
-
-    #[test]
-    fn test_authenticated_transaction_getter() {
-        let transaction = test_transaction();
-        let authenticated_tx = transaction.clone().into_authenticated().unwrap();
-        assert_eq!(authenticated_tx.transaction(), &transaction);
-    }
-
-    #[test]
-    fn test_authenticated_transaction_hash_getter() {
-        let transaction = test_transaction();
-        let authenticated_tx = transaction.clone().into_authenticated().unwrap();
-        assert_eq!(authenticated_tx.hash(), &transaction.body.hash());
-    }
-
-    #[test]
-    fn test_authenticated_transaction_into_transaction() {
-        let transaction = test_transaction();
-        let authenticated_tx = transaction.clone().into_authenticated().unwrap();
-        assert_eq!(authenticated_tx.into_transaction(), transaction);
     }
 }

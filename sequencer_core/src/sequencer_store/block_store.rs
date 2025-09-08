@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
-use common::{block::Block, transaction::TransactionBody, TreeHashType};
+use common::{TreeHashType, block::Block, transaction::TransactionBody};
 use storage::RocksDBIO;
 
 pub struct SequecerBlockStore {

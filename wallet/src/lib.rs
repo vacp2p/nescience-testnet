@@ -2,10 +2,9 @@ use std::{fs::File, io::Write, path::PathBuf, str::FromStr, sync::Arc};
 
 use base64::Engine;
 use common::{
-    sequencer_client::{json::SendTxResponse, SequencerClient},
-    transaction::TransactionBody,
     ExecutionFailureKind,
     sequencer_client::{SequencerClient, json::SendTxResponse},
+    transaction::TransactionBody,
 };
 
 use anyhow::Result;
@@ -122,7 +121,7 @@ impl WalletCore {
 
             let tx = nssa::PublicTransaction::new(message, witness_set);
 
-            Ok(self.sequencer_client.send_tx(tx).await?)
+            Ok(self.sequencer_client.send_tx_public(tx).await?)
         } else {
             Err(ExecutionFailureKind::InsufficientFundsError)
         }

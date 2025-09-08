@@ -1,6 +1,6 @@
 use rs_merkle::Hasher;
 use serde::Deserialize;
-use sha2::{digest::FixedOutput, Digest, Sha256};
+use sha2::{Digest, Sha256, digest::FixedOutput};
 
 pub mod block;
 pub mod commitment;
