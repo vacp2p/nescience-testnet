@@ -56,6 +56,7 @@ mod tests {
                         data: b"test data".to_vec(),
                         nonce: 18446744073709551614,
                     },
+                    is_authorized: true, 
                     fingerprint: [0; 32],
                 },
                 AccountWithMetadata {
@@ -65,6 +66,7 @@ mod tests {
                         data: b"test data".to_vec(),
                         nonce: 9999999999999999999999,
                     },
+                    is_authorized: false, 
                     fingerprint: [1; 32],
                 },
             ],

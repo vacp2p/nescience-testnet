@@ -93,6 +93,7 @@ impl PublicTransaction {
             .iter()
             .map(|address| AccountWithMetadata {
                 account: state.get_account_by_address(address),
+                is_authorized: signer_addresses.contains(address),
                 fingerprint: *address.value()
             })
             .collect();

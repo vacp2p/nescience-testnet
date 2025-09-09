@@ -20,6 +20,7 @@ pub type FingerPrint = [u8; 32];
 #[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
 pub struct AccountWithMetadata {
     pub account: Account,
+    pub is_authorized: bool,
     pub fingerprint: FingerPrint,
 }
 

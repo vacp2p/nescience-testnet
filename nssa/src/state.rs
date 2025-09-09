@@ -778,6 +778,7 @@ pub mod tests {
     ) -> PrivacyPreservingTransaction {
         let sender = AccountWithMetadata {
             account: state.get_account_by_address(&sender_keys.address()),
+            is_authorized: true,
             fingerprint: *sender_keys.address().value(),
         };
 
@@ -785,6 +786,7 @@ pub mod tests {
 
         let recipient = AccountWithMetadata {
             account: Account::default(),
+            is_authorized: false,
             fingerprint: recipient_keys.npk().to_byte_array(),
         };
 
@@ -827,10 +829,12 @@ pub mod tests {
         let sender_commitment = Commitment::new(&sender_keys.npk(), sender_private_account);
         let sender_pre = AccountWithMetadata {
             account: sender_private_account.clone(),
+            is_authorized: true,
             fingerprint: sender_keys.npk().to_byte_array(),
         };
         let recipient_pre = AccountWithMetadata {
             account: Account::default(),
+            is_authorized: false,
             fingerprint: recipient_keys.npk().to_byte_array(),
         };
 
@@ -887,10 +891,12 @@ pub mod tests {
         let sender_commitment = Commitment::new(&sender_keys.npk(), sender_private_account);
         let sender_pre = AccountWithMetadata {
             account: sender_private_account.clone(),
+            is_authorized: true,
             fingerprint: sender_keys.npk().to_byte_array(),
         };
         let recipient_pre = AccountWithMetadata {
             account: state.get_account_by_address(recipient_address),
+            is_authorized: false,
             fingerprint: *recipient_address.value(),
         };
 
