@@ -117,7 +117,7 @@ pub async fn test_success() {
 }
 
 pub async fn test_success_move_to_another_account() {
-    let command = Command::RegisterAccount {};
+    let command = Command::RegisterAccountPublic {};
 
     let wallet_config = fetch_config().unwrap();
 
@@ -130,10 +130,10 @@ pub async fn test_success_move_to_another_account() {
     let mut new_persistent_account_addr = String::new();
 
     for per_acc in persistent_accounts {
-        if (per_acc.address.to_string() != ACC_RECEIVER)
-            && (per_acc.address.to_string() != ACC_SENDER)
+        if (per_acc.address().to_string() != ACC_RECEIVER)
+            && (per_acc.address().to_string() != ACC_SENDER)
         {
-            new_persistent_account_addr = per_acc.address.to_string();
+            new_persistent_account_addr = per_acc.address().to_string();
         }
     }
 

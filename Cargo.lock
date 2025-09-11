@@ -2333,6 +2333,7 @@ dependencies = [
  "lazy_static",
  "log",
  "nssa",
+ "nssa-core",
  "rand 0.8.5",
  "serde",
  "serde_json",

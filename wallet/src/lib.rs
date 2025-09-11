@@ -10,11 +10,11 @@ use common::{
 use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
+use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use log::info;
 use nssa::Address;
 
 use clap::{Parser, Subcommand};
-use nssa_core::account::Account;
 
 use crate::{
     helperfunctions::{
@@ -30,8 +30,6 @@ pub mod chain_storage;
 pub mod config;
 pub mod helperfunctions;
 pub mod poller;
-
-//
 
 pub struct WalletCore {
     pub storage: WalletChainStore,
@@ -74,19 +72,16 @@ impl WalletCore {
         Ok(accs_path)
     }
 
-    pub fn create_new_account(&mut self) -> Address {
+    pub fn create_new_account_public(&mut self) -> Address {
         self.storage
             .user_data
             .generate_new_public_transaction_private_key()
     }
 
-    pub fn search_for_initial_account(&self, acc_addr: Address) -> Option<Account> {
-        for initial_acc in &self.storage.wallet_config.initial_accounts {
-            if initial_acc.address == acc_addr {
-                return Some(initial_acc.account.clone());
-            }
-        }
-        None
+    pub fn create_new_account_private(&mut self) -> Address {
+        self.storage
+            .user_data
+            .generate_new_privacy_preserving_transaction_key_chain()
     }
 
     pub async fn send_public_native_token_transfer(
@@ -124,6 +119,92 @@ impl WalletCore {
                 nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
 
             let tx = nssa::PublicTransaction::new(message, witness_set);
+
+            Ok(self.sequencer_client.send_tx_public(tx).await?)
+        } else {
+            Err(ExecutionFailureKind::InsufficientFundsError)
+        }
+    }
+
+    pub async fn send_private_native_token_transfer(
+        &self,
+        from: Address,
+        to: Address,
+        balance_to_move: u128,
+    ) -> Result<SendTxResponse, ExecutionFailureKind> {
+        let from_data = self.storage.user_data.get_private_account(&from);
+        let to_data = self.storage.user_data.get_private_account(&to);
+
+        let Some((from_keys, from_acc)) = from_data else {
+            return Err(ExecutionFailureKind::KeyNotFoundError);
+        };
+
+        let Some((to_keys, to_acc)) = to_data else {
+            return Err(ExecutionFailureKind::KeyNotFoundError);
+        };
+
+        if from_acc.balance >= balance_to_move {
+            let program = nssa::program::Program::authenticated_transfer_program();
+            let sender_commitment = nssa_core::Commitment::new(
+                &nssa_core::NullifierPublicKey(from_keys.nullifer_public_key),
+                from_acc,
+            );
+
+            let sender_pre = nssa_core::account::AccountWithMetadata {
+                account: from_acc.clone(),
+                is_authorized: true,
+            };
+            let recipient_pre = nssa_core::account::AccountWithMetadata {
+                account: to_acc.clone(),
+                is_authorized: false,
+            };
+
+            let eph_holder = EphemeralKeyHolder::new(
+                to_keys.nullifer_public_key,
+                from_keys.private_key_holder.outgoing_viewing_secret_key,
+                from_acc.nonce.try_into().unwrap(),
+            );
+
+            let shared_secret =
+                eph_holder.calculate_shared_secret_sender(to_keys.incoming_viewing_public_key);
+
+            let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
+                &[sender_pre, recipient_pre],
+                &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
+                &[1, 2],
+                &[from_acc.nonce + 1, to_acc.nonce + 1],
+                &[
+                    (
+                        nssa_core::NullifierPublicKey(from_keys.nullifer_public_key),
+                        shared_secret,
+                    ),
+                    (
+                        nssa_core::NullifierPublicKey(to_keys.nullifer_public_key),
+                        shared_secret,
+                    ),
+                ],
+                &[(
+                    from_keys.private_key_holder.nullifier_secret_key,
+                    state.get_proof_for_commitment(&sender_commitment).unwrap(),
+                )],
+                &program,
+            )
+            .unwrap();
+
+            let message = Message::try_from_circuit_output(
+                vec![],
+                vec![],
+                vec![
+                    (sender_keys.npk(), sender_keys.ivk(), epk_1),
+                    (recipient_keys.npk(), recipient_keys.ivk(), epk_2),
+                ],
+                output,
+            )
+            .unwrap();
+
+            let witness_set = WitnessSet::for_message(&message, proof, &[]);
+
+            let tx = PrivacyPreservingTransaction::new(message, witness_set);
 
             Ok(self.sequencer_client.send_tx_public(tx).await?)
         } else {
@@ -176,8 +257,10 @@ pub enum Command {
         #[arg(long)]
         amount: u128,
     },
-    ///Register new account
-    RegisterAccount {},
+    ///Register new public account
+    RegisterAccountPublic {},
+    ///Register new private account
+    RegisterAccountPrivate {},
     ///Fetch transaction by `hash`
     FetchTx {
         #[arg(short, long)]
@@ -225,8 +308,8 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
 
             info!("Transaction data is {transfer_tx:?}");
         }
-        Command::RegisterAccount {} => {
-            let addr = wallet_core.create_new_account();
+        Command::RegisterAccountPublic {} => {
+            let addr = wallet_core.create_new_account_public();
 
             let key = wallet_core
                 .storage
@@ -235,6 +318,19 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
 
             info!("Generated new account with addr {addr:#?}");
             info!("With key {key:#?}");
+        }
+        Command::RegisterAccountPrivate {} => {
+            let addr = wallet_core.create_new_account_private();
+
+            let (key, account) = wallet_core
+                .storage
+                .user_data
+                .get_private_account(&addr)
+                .unwrap();
+
+            info!("Generated new account with addr {addr:#?}");
+            info!("With key {key:#?}");
+            info!("With account {account:#?}");
         }
         Command::FetchTx { tx_hash } => {
             let tx_obj = wallet_core

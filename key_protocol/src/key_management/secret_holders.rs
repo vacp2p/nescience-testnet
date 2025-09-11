@@ -23,9 +23,9 @@ pub struct TopSecretKeyHolder {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 ///Private key holder. Produces public keys. Can produce address. Can produce shared secret for recepient.
 pub struct PrivateKeyHolder {
-    pub(crate) nullifier_secret_key: [u8; 32],
+    pub nullifier_secret_key: [u8; 32],
     pub(crate) incoming_viewing_secret_key: Scalar,
-    pub(crate) outgoing_viewing_secret_key: Scalar,
+    pub outgoing_viewing_secret_key: Scalar,
 }
 
 impl SeedHolder {

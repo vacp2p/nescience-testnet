@@ -147,6 +147,26 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
+    ///Send transaction to sequencer
+    pub async fn send_tx_private(
+        &self,
+        transaction: nssa::PrivacyPreservingTransaction,
+    ) -> Result<SendTxResponse, SequencerClientError> {
+        let transaction = EncodedTransaction::from(NSSATransaction::PrivacyPreserving(transaction));
+
+        let tx_req = SendTxRequest {
+            transaction: transaction.to_bytes(),
+        };
+
+        let req = serde_json::to_value(tx_req)?;
+
+        let resp = self.call_method_with_payload("send_tx", req).await?;
+
+        let resp_deser = serde_json::from_value(resp)?;
+
+        Ok(resp_deser)
+    }
+
     ///Get genesis id from sequencer
     pub async fn get_genesis_id(&self) -> Result<GetGenesisIdResponse, SequencerClientError> {
         let genesis_req = GetGenesisIdRequest {};
