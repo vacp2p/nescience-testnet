@@ -90,6 +90,8 @@ impl From<&Address> for AccountId {
 
 #[cfg(test)]
 mod tests {
+    use nssa_core::account::AccountId;
+
     use crate::{Address, address::AddressError};
 
     #[test]
@@ -118,5 +120,15 @@ mod tests {
         let hex_str = "00".repeat(33); // 66 chars = 33 bytes
         let result = hex_str.parse::<Address>().unwrap_err();
         assert!(matches!(result, AddressError::InvalidLength(_)));
+    }
+
+    #[test]
+    fn test_account_id_from_address() {
+        let address: Address = "37".repeat(32).parse().unwrap();
+        let expected_account_id = AccountId::new([55; 32]);
+        
+        let account_id = AccountId::from(&address);
+
+        assert_eq!(account_id, expected_account_id);
     }
 }
