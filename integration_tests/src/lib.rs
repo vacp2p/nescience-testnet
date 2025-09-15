@@ -294,7 +294,10 @@ pub async fn test_get_account_wallet_command() {
         .unwrap()
         .account;
 
-    assert_eq!(account.program_owner, Program::authenticated_transfer_program().id());
+    assert_eq!(
+        account.program_owner,
+        Program::authenticated_transfer_program().id()
+    );
     assert_eq!(account.balance, 10000);
     assert!(account.data.is_empty());
     assert_eq!(account.nonce, 0);

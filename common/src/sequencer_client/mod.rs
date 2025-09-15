@@ -8,8 +8,8 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::rpc_primitives::requests::{
-    GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest,
-    GetAccountsNoncesResponse, GetTransactionByHashRequest, GetTransactionByHashResponse,
+    GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
+    GetTransactionByHashRequest, GetTransactionByHashResponse,
 };
 use crate::sequencer_client::json::AccountInitialData;
 use crate::{SequencerClientError, SequencerRpcError};
@@ -116,9 +116,7 @@ impl SequencerClient {
 
         let req = serde_json::to_value(block_req)?;
 
-        let resp = self
-            .call_method_with_payload("get_account", req)
-            .await?;
+        let resp = self.call_method_with_payload("get_account", req).await?;
 
         let resp_deser = serde_json::from_value(resp)?;
 
