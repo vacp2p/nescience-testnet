@@ -1,8 +1,4 @@
-use aes_gcm::{Aes256Gcm, KeyInit, aead::Aead};
 use common::TreeHashType;
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::point::AffineCoordinates;
-use k256::AffinePoint;
 use log::info;
 use nssa_core::{
     NullifierPublicKey, SharedSecretKey,

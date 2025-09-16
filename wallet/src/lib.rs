@@ -2,17 +2,13 @@ use std::{fs::File, io::Write, path::PathBuf, str::FromStr, sync::Arc};
 
 use base64::Engine;
 use common::{
-    ExecutionFailureKind,
-    sequencer_client::{SequencerClient, json::SendTxResponse},
+    sequencer_client::SequencerClient,
     transaction::{EncodedTransaction, NSSATransaction},
 };
 
 use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
-use k256::elliptic_curve::group::GroupEncoding;
-use k256::elliptic_curve::sec1::ToEncodedPoint;
-use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use log::info;
 use nssa::Address;
 
@@ -32,6 +28,7 @@ pub mod chain_storage;
 pub mod config;
 pub mod helperfunctions;
 pub mod poller;
+pub mod token_transfers;
 
 pub struct WalletCore {
     pub storage: WalletChainStore,
@@ -84,183 +81,6 @@ impl WalletCore {
         self.storage
             .user_data
             .generate_new_privacy_preserving_transaction_key_chain()
-    }
-
-    pub async fn send_public_native_token_transfer(
-        &self,
-        from: Address,
-        to: Address,
-        balance_to_move: u128,
-    ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let Ok(balance) = self.get_account_balance(from).await else {
-            return Err(ExecutionFailureKind::SequencerError);
-        };
-
-        if balance >= balance_to_move {
-            let Ok(nonces) = self.get_accounts_nonces(vec![from]).await else {
-                return Err(ExecutionFailureKind::SequencerError);
-            };
-
-            let addresses = vec![from, to];
-            let program_id = nssa::program::Program::authenticated_transfer_program().id();
-            let message = nssa::public_transaction::Message::try_new(
-                program_id,
-                addresses,
-                nonces,
-                balance_to_move,
-            )
-            .unwrap();
-
-            let signing_key = self.storage.user_data.get_pub_account_signing_key(&from);
-
-            let Some(signing_key) = signing_key else {
-                return Err(ExecutionFailureKind::KeyNotFoundError);
-            };
-
-            let witness_set =
-                nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
-
-            let tx = nssa::PublicTransaction::new(message, witness_set);
-
-            Ok(self.sequencer_client.send_tx_public(tx).await?)
-        } else {
-            Err(ExecutionFailureKind::InsufficientFundsError)
-        }
-    }
-
-    pub async fn send_private_native_token_transfer(
-        &self,
-        from: Address,
-        to: Address,
-        balance_to_move: u128,
-    ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let from_data = self.storage.user_data.get_private_account(&from);
-        let to_data = self.storage.user_data.get_private_account(&to);
-
-        let Some((from_keys, from_acc)) = from_data else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
-
-        let Some((to_keys, to_acc)) = to_data else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
-
-        if from_acc.balance >= balance_to_move {
-            let program = nssa::program::Program::authenticated_transfer_program();
-            let sender_commitment = nssa_core::Commitment::new(
-                &nssa_core::NullifierPublicKey(from_keys.nullifer_public_key),
-                from_acc,
-            );
-
-            let sender_pre = nssa_core::account::AccountWithMetadata {
-                account: from_acc.clone(),
-                is_authorized: true,
-            };
-            let recipient_pre = nssa_core::account::AccountWithMetadata {
-                account: to_acc.clone(),
-                is_authorized: false,
-            };
-
-            let eph_holder = EphemeralKeyHolder::new(
-                to_keys.nullifer_public_key,
-                from_keys.private_key_holder.outgoing_viewing_secret_key,
-                from_acc.nonce.try_into().unwrap(),
-            );
-
-            let shared_secret =
-                eph_holder.calculate_shared_secret_sender(to_keys.incoming_viewing_public_key);
-
-            let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
-                &[sender_pre, recipient_pre],
-                &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
-                &[1, 2],
-                &[from_acc.nonce + 1, to_acc.nonce + 1],
-                &[
-                    (
-                        nssa_core::NullifierPublicKey(from_keys.nullifer_public_key),
-                        nssa_core::SharedSecretKey(
-                            shared_secret.to_bytes().as_slice().try_into().unwrap(),
-                        ),
-                    ),
-                    (
-                        nssa_core::NullifierPublicKey(to_keys.nullifer_public_key),
-                        nssa_core::SharedSecretKey(
-                            shared_secret.to_bytes().as_slice().try_into().unwrap(),
-                        ),
-                    ),
-                ],
-                &[(
-                    from_keys.private_key_holder.nullifier_secret_key,
-                    self.sequencer_client
-                        .get_proof_for_commitment(sender_commitment)
-                        .await
-                        .unwrap()
-                        .unwrap(),
-                )],
-                &program,
-            )
-            .unwrap();
-
-            let message =
-                nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
-                    vec![],
-                    vec![],
-                    vec![
-                        (
-                            nssa_core::NullifierPublicKey(from_keys.nullifer_public_key),
-                            nssa_core::encryption::shared_key_derivation::Secp256k1Point(
-                                from_keys
-                                    .incoming_viewing_public_key
-                                    .to_encoded_point(true)
-                                    .as_bytes()
-                                    .to_vec(),
-                            ),
-                            nssa_core::encryption::shared_key_derivation::Secp256k1Point(
-                                eph_holder
-                                    .generate_ephemeral_public_key()
-                                    .to_encoded_point(true)
-                                    .as_bytes()
-                                    .to_vec(),
-                            ),
-                        ),
-                        (
-                            nssa_core::NullifierPublicKey(to_keys.nullifer_public_key),
-                            nssa_core::encryption::shared_key_derivation::Secp256k1Point(
-                                to_keys
-                                    .incoming_viewing_public_key
-                                    .to_encoded_point(true)
-                                    .as_bytes()
-                                    .to_vec(),
-                            ),
-                            nssa_core::encryption::shared_key_derivation::Secp256k1Point(
-                                eph_holder
-                                    .generate_ephemeral_public_key()
-                                    .to_encoded_point(true)
-                                    .as_bytes()
-                                    .to_vec(),
-                            ),
-                        ),
-                    ],
-                    output,
-                )
-                .unwrap();
-
-            let witness_set =
-                nssa::privacy_preserving_transaction::witness_set::WitnessSet::for_message(
-                    &message,
-                    proof,
-                    &[],
-                );
-
-            let tx = nssa::privacy_preserving_transaction::PrivacyPreservingTransaction::new(
-                message,
-                witness_set,
-            );
-
-            Ok(self.sequencer_client.send_tx_private(tx).await?)
-        } else {
-            Err(ExecutionFailureKind::InsufficientFundsError)
-        }
     }
 
     ///Get account balance

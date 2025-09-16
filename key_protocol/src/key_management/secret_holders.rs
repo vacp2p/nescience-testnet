@@ -25,9 +25,9 @@ pub type OutgoingViewingSecretKey = Scalar;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 ///Private key holder. Produces public keys. Can produce address. Can produce shared secret for recepient.
 pub struct PrivateKeyHolder {
-    pub(crate) nullifier_secret_key: NullifierSecretKey,
+    pub nullifier_secret_key: NullifierSecretKey,
     pub(crate) incoming_viewing_secret_key: IncomingViewingSecretKey,
-    pub(crate) outgoing_viewing_secret_key: OutgoingViewingSecretKey,
+    pub outgoing_viewing_secret_key: OutgoingViewingSecretKey,
 }
 
 impl SeedHolder {
