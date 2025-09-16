@@ -150,7 +150,7 @@ impl WalletCore {
         Ok(self.sequencer_client.send_tx(tx).await?)
     }
 
-    pub async fn send_token_transfer(
+    pub async fn send_transfer_token_transaction(
         &self,
         sender_address: Address,
         recipient_address: Address,
@@ -258,7 +258,8 @@ pub enum Command {
         #[arg(short, long)]
         addr: String,
     },
-    NewTokenDefinition {
+    //Create a new token using the token program
+    CreateNewToken {
         #[arg(short, long)]
         definition_addr: String,
         #[arg(short, long)]
@@ -268,7 +269,8 @@ pub enum Command {
         #[arg(short, long)]
         total_supply: u128,
     },
-    TokenTransfer {
+    //Transfer tokens using the token program
+    TransferToken {
         #[arg(short, long)]
         sender_addr: String,
         #[arg(short, long)]
@@ -339,7 +341,7 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
             let account: HumanReadableAccount = wallet_core.get_account(addr).await?.into();
             println!("{}", serde_json::to_string(&account).unwrap());
         }
-        Command::NewTokenDefinition {
+        Command::CreateNewToken {
             definition_addr,
             supply_addr,
             name,
@@ -361,13 +363,13 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                 )
                 .await?;
         }
-        Command::TokenTransfer {
+        Command::TransferToken {
             sender_addr,
             recipient_addr,
             balance_to_move,
         } => {
             wallet_core
-                .send_token_transfer(
+                .send_transfer_token_transaction(
                     sender_addr.parse().unwrap(),
                     recipient_addr.parse().unwrap(),
                     balance_to_move,
