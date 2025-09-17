@@ -1,5 +1,3 @@
-use elliptic_curve::PrimeField;
-use k256::Scalar;
 use log::info;
 use nssa_core::{
     NullifierPublicKey, SharedSecretKey,
@@ -29,11 +27,11 @@ impl EphemeralKeyHolder {
         let hash_recepient = hasher.finalize();
 
         let mut hasher = sha2::Sha256::new();
-        hasher.update(sender_outgoing_viewing_secret_key.to_bytes());
+        hasher.update(sender_outgoing_viewing_secret_key);
         hasher.update(hash_recepient);
 
         Self {
-            ephemeral_secret_key: Scalar::from_repr(hasher.finalize()).unwrap(),
+            ephemeral_secret_key: hasher.finalize().into(),
         }
     }
 

@@ -1,8 +1,9 @@
 use bip39::Mnemonic;
 use common::TreeHashType;
-use elliptic_curve::PrimeField;
-use k256::Scalar;
-use nssa_core::{NullifierPublicKey, NullifierSecretKey, encryption::IncomingViewingPublicKey};
+use nssa_core::{
+    NullifierPublicKey, NullifierSecretKey,
+    encryption::{IncomingViewingPublicKey, Scalar},
+};
 use rand::{RngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, digest::FixedOutput};
@@ -79,9 +80,7 @@ impl SecretSpendingKey {
         hasher.update([2u8]);
         hasher.update([0u8; 22]);
 
-        let hash = <TreeHashType>::from(hasher.finalize_fixed());
-
-        IncomingViewingSecretKey::from_repr(hash.into()).unwrap()
+        <TreeHashType>::from(hasher.finalize_fixed())
     }
 
     pub fn generate_outgoing_viewing_secret_key(&self) -> OutgoingViewingSecretKey {
@@ -92,9 +91,7 @@ impl SecretSpendingKey {
         hasher.update([3u8]);
         hasher.update([0u8; 22]);
 
-        let hash = <TreeHashType>::from(hasher.finalize_fixed());
-
-        OutgoingViewingSecretKey::from_repr(hash.into()).unwrap()
+        <TreeHashType>::from(hasher.finalize_fixed())
     }
 
     pub fn produce_private_key_holder(&self) -> PrivateKeyHolder {

@@ -98,8 +98,8 @@ impl KeyChain {
 #[cfg(test)]
 mod tests {
     use aes_gcm::aead::OsRng;
-    use elliptic_curve::ff::Field;
-    use k256::{AffinePoint, Scalar};
+    use k256::AffinePoint;
+    use rand::RngCore;
 
     use super::*;
 
@@ -117,7 +117,8 @@ mod tests {
         let address_key_holder = KeyChain::new_os_random();
 
         // Generate a random ephemeral public key sender
-        let scalar = Scalar::random(&mut OsRng);
+        let mut scalar = [0; 32];
+        OsRng.fill_bytes(&mut scalar);
         let ephemeral_public_key_sender = EphemeralPublicKey::from_scalar(scalar);
 
         // Calculate shared secret
