@@ -220,7 +220,7 @@ mod tests {
             Commitment::new(&recipient_keys.npk(), &expected_private_account_2),
         ];
 
-        let esk_1 = [3; 32].into();
+        let esk_1 = [3; 32];
         let shared_secret_1 = SharedSecretKey::new(&esk_1, &sender_keys.ivk());
 
         let esk_2 = [5; 32];
