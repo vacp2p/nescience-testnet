@@ -4685,6 +4685,7 @@ dependencies = [
  "clap",
  "common",
  "env_logger",
+ "hex",
  "k256",
  "key_protocol",
  "log",

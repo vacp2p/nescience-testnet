@@ -58,24 +58,16 @@ mod tests {
 
     fn create_initial_accounts() -> Vec<InitialAccountData> {
         let initial_acc1 = serde_json::from_str(r#"{
-            "address": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
-            "pub_sign_key": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            "account": {
-                "program_owner": [0,0,0,0,0,0,0,0],
-                "balance": 100,
-                "nonce": 0,
-                "data": []
+            "Public": {
+                "address": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+                "pub_sign_key": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             }
         }"#).unwrap();
 
         let initial_acc2 = serde_json::from_str(r#"{
-            "address": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-            "pub_sign_key": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            "account": {
-                "program_owner": [0,0,0,0,0,0,0,0],
-                "balance": 100,
-                "nonce": 0,
-                "data": []
+            "Public": {
+                "address": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+                "pub_sign_key": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
             }
         }"#).unwrap();
 
