@@ -47,7 +47,9 @@ pub fn execute_and_prove(
     env_builder.write(&circuit_input).unwrap();
     let env = env_builder.build().unwrap();
     let prover = default_prover();
-    let prove_info = prover.prove(env, PRIVACY_PRESERVING_CIRCUIT_ELF).unwrap();
+    let prove_info = prover
+        .prove(env, PRIVACY_PRESERVING_CIRCUIT_ELF)
+        .map_err(|e| NssaError::CircuitProvingError(e.to_string()))?;
 
     let proof = Proof(borsh::to_vec(&prove_info.receipt.inner)?);
 
@@ -109,6 +111,7 @@ mod tests {
         let program = Program::authenticated_transfer_program();
         let sender = AccountWithMetadata {
             account: Account {
+                program_owner: program.id(),
                 balance: 100,
                 ..Account::default()
             },
@@ -175,11 +178,13 @@ mod tests {
 
     #[test]
     fn prove_privacy_preserving_execution_circuit_fully_private() {
+        let program = Program::authenticated_transfer_program();
         let sender_pre = AccountWithMetadata {
             account: Account {
                 balance: 100,
                 nonce: 0xdeadbeef,
-                ..Account::default()
+                program_owner: program.id(),
+                data: vec![],
             },
             is_authorized: true,
         };
