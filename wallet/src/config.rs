@@ -28,12 +28,18 @@ pub struct PersistentAccountDataPrivate {
     pub key_chain: KeyChain,
 }
 
+//Big difference in enum variants sizes
+//however it is improbable, that we will have that much accounts, that it will substantialy affect memory
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InitialAccountData {
     Public(InitialAccountDataPublic),
     Private(InitialAccountDataPrivate),
 }
 
+//Big difference in enum variants sizes
+//however it is improbable, that we will have that much accounts, that it will substantialy affect memory
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PersistentAccountData {
     Public(PersistentAccountDataPublic),

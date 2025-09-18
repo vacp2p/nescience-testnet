@@ -20,6 +20,7 @@ impl SequecerChainStore {
         genesis_id: u64,
         is_genesis_random: bool,
         initial_accounts: &[AccountInitialData],
+        initial_commitments: &[nssa_core::Commitment],
         signing_key: nssa::PrivateKey,
     ) -> Self {
         let init_accs: Vec<(Address, u128)> = initial_accounts
@@ -27,7 +28,7 @@ impl SequecerChainStore {
             .map(|acc_data| (acc_data.addr.parse().unwrap(), acc_data.balance))
             .collect();
 
-        let state = nssa::V01State::new_with_genesis_accounts(&init_accs);
+        let state = nssa::V01State::new_with_genesis_accounts(&init_accs, initial_commitments);
 
         let mut data = [0; 32];
         let mut prev_block_hash = [0; 32];

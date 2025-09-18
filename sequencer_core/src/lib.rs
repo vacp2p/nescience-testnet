@@ -55,6 +55,7 @@ impl SequencerCore {
                 config.genesis_id,
                 config.is_genesis_random,
                 &config.initial_accounts,
+                &config.initial_commitments,
                 nssa::PrivateKey::try_new(config.signing_key).unwrap(),
             ),
             mempool: MemPool::default(),
@@ -209,6 +210,7 @@ mod tests {
             block_create_timeout_millis: 1000,
             port: 8080,
             initial_accounts,
+            initial_commitments: vec![],
             signing_key: *sequencer_sign_key_for_testing().value(),
         }
     }
