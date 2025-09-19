@@ -448,6 +448,10 @@ pub async fn main_tests_runner() -> Result<()> {
             test_cleanup_wrap!(home_dir, test_failure);
             test_cleanup_wrap!(home_dir, test_success_two_transactions);
             test_cleanup_wrap!(home_dir, test_get_account_wallet_command);
+            test_cleanup_wrap!(
+                home_dir,
+                test_success_private_transfer_to_another_owned_account
+            );
         }
         _ => {
             anyhow::bail!("Unknown test name");
