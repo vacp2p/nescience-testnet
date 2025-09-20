@@ -225,7 +225,7 @@ pub mod tests {
     use nssa_core::{
         Commitment, Nullifier, NullifierPublicKey, NullifierSecretKey, SharedSecretKey,
         account::{Account, AccountWithMetadata, Nonce},
-        encryption::{EphemeralPublicKey, IncomingViewingPublicKey},
+        encryption::{EphemeralPublicKey, IncomingViewingPublicKey, Scalar},
     };
 
     fn transfer_transaction(
@@ -738,7 +738,7 @@ pub mod tests {
 
     pub struct TestPrivateKeys {
         pub nsk: NullifierSecretKey,
-        pub isk: [u8; 32],
+        pub isk: Scalar,
     }
 
     impl TestPrivateKeys {

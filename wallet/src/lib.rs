@@ -73,7 +73,9 @@ impl WalletCore {
     }
 
     pub fn create_new_account(&mut self) -> Address {
-        self.storage.user_data.generate_new_account()
+        self.storage
+            .user_data
+            .generate_new_public_transaction_private_key()
     }
 
     pub fn search_for_initial_account(&self, acc_addr: Address) -> Option<Account> {
@@ -110,7 +112,7 @@ impl WalletCore {
             )
             .unwrap();
 
-            let signing_key = self.storage.user_data.get_account_signing_key(&from);
+            let signing_key = self.storage.user_data.get_pub_account_signing_key(&from);
 
             let Some(signing_key) = signing_key else {
                 return Err(ExecutionFailureKind::KeyNotFoundError);

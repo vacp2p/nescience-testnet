@@ -13,6 +13,8 @@ pub use shared_key_derivation::{EphemeralPublicKey, EphemeralSecretKey, Incoming
 
 use crate::{Commitment, account::Account};
 
+pub type Scalar = [u8; 32];
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SharedSecretKey([u8; 32]);
 
