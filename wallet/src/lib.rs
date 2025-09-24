@@ -99,9 +99,11 @@ impl WalletCore {
             let Ok(nonces) = self.get_accounts_nonces(vec![from]).await else {
                 return Err(ExecutionFailureKind::SequencerError);
             };
+            println!("nonces: {:?}", nonces);
 
             let addresses = vec![from, to];
             let program_id = nssa::program::Program::authenticated_transfer_program().id();
+            println!("program id: {:?}", program_id);
             let message = nssa::public_transaction::Message::try_new(
                 program_id,
                 addresses,
