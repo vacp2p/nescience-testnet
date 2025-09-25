@@ -12,8 +12,8 @@ pub type ViewTag = u8;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncryptedAccountData {
     pub ciphertext: Ciphertext,
-    pub(crate) epk: EphemeralPublicKey,
-    pub(crate) view_tag: ViewTag,
+    pub epk: EphemeralPublicKey,
+    pub view_tag: ViewTag,
 }
 
 impl EncryptedAccountData {
