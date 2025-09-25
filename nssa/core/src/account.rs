@@ -78,6 +78,7 @@ mod tests {
         assert_eq!(new_acc.program_owner, DEFAULT_PROGRAM_ID);
     }
 
+    #[cfg(feature = "host")]
     #[test]
     fn test_account_with_metadata_constructor() {
         let account = Account {

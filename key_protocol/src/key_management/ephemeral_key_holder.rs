@@ -1,50 +1,52 @@
-use aes_gcm::{AeadCore, Aes256Gcm, KeyInit, aead::Aead};
-use elliptic_curve::PrimeField;
-use elliptic_curve::point::AffineCoordinates;
-use k256::{AffinePoint, FieldBytes, Scalar};
 use log::info;
-use rand::{RngCore, rngs::OsRng};
+use nssa_core::{
+    NullifierPublicKey, SharedSecretKey,
+    encryption::{EphemeralPublicKey, EphemeralSecretKey, IncomingViewingPublicKey},
+};
+use sha2::Digest;
 
-use super::constants_types::{CipherText, Nonce};
+use crate::key_management::secret_holders::OutgoingViewingSecretKey;
 
 #[derive(Debug)]
 ///Ephemeral secret key holder. Non-clonable as intended for one-time use. Produces ephemeral public keys. Can produce shared secret for sender.
 pub struct EphemeralKeyHolder {
-    ephemeral_secret_key: Scalar,
+    ephemeral_secret_key: EphemeralSecretKey,
 }
 
 impl EphemeralKeyHolder {
-    pub fn new_os_random() -> Self {
-        let mut bytes = FieldBytes::default();
+    pub fn new(
+        receiver_nullifier_public_key: NullifierPublicKey,
+        sender_outgoing_viewing_secret_key: OutgoingViewingSecretKey,
+        nonce: u64,
+    ) -> Self {
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(receiver_nullifier_public_key);
+        hasher.update(nonce.to_le_bytes());
+        hasher.update([0; 24]);
 
-        OsRng.fill_bytes(&mut bytes);
+        let hash_recepient = hasher.finalize();
+
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(sender_outgoing_viewing_secret_key);
+        hasher.update(hash_recepient);
 
         Self {
-            ephemeral_secret_key: Scalar::from_repr(bytes).unwrap(),
+            ephemeral_secret_key: hasher.finalize().into(),
         }
     }
 
-    pub fn generate_ephemeral_public_key(&self) -> AffinePoint {
-        (AffinePoint::GENERATOR * self.ephemeral_secret_key).into()
+    pub fn generate_ephemeral_public_key(&self) -> EphemeralPublicKey {
+        EphemeralPublicKey::from_scalar(self.ephemeral_secret_key)
     }
 
     pub fn calculate_shared_secret_sender(
         &self,
-        viewing_public_key_receiver: AffinePoint,
-    ) -> AffinePoint {
-        (viewing_public_key_receiver * self.ephemeral_secret_key).into()
-    }
-
-    pub fn encrypt_data(
-        &self,
-        viewing_public_key_receiver: AffinePoint,
-        data: &[u8],
-    ) -> (CipherText, Nonce) {
-        let shared_secret = self.calculate_shared_secret_sender(viewing_public_key_receiver);
-        let cipher = Aes256Gcm::new(&shared_secret.x());
-        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-
-        (cipher.encrypt(&nonce, data).unwrap(), nonce)
+        receiver_incoming_viewing_public_key: IncomingViewingPublicKey,
+    ) -> SharedSecretKey {
+        SharedSecretKey::new(
+            &self.ephemeral_secret_key,
+            &receiver_incoming_viewing_public_key,
+        )
     }
 
     pub fn log(&self) {

@@ -9,7 +9,18 @@ pub struct NullifierPublicKey(pub(super) [u8; 32]);
 
 impl From<&NullifierPublicKey> for AccountId {
     fn from(value: &NullifierPublicKey) -> Self {
-        AccountId::new(value.0)
+        const PRIVATE_ACCOUNT_ID_PREFIX: &[u8; 32] = b"/NSSA/v0.1/AccountId/Private/\x00\x00\x00";
+
+        let mut bytes = [0; 64];
+        bytes[0..32].copy_from_slice(PRIVATE_ACCOUNT_ID_PREFIX);
+        bytes[32..].copy_from_slice(&value.0);
+        AccountId::new(Impl::hash_bytes(&bytes).as_bytes().try_into().unwrap())
+    }
+}
+
+impl AsRef<[u8]> for NullifierPublicKey {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
     }
 }
 
@@ -80,8 +91,8 @@ mod tests {
         ];
         let npk = NullifierPublicKey::from(&nsk);
         let expected_account_id = AccountId::new([
-            202, 120, 42, 189, 194, 218, 78, 244, 31, 6, 108, 169, 29, 61, 22, 221, 69, 138, 197,
-            161, 241, 39, 142, 242, 242, 50, 188, 201, 99, 28, 176, 238,
+            69, 160, 50, 67, 12, 56, 150, 116, 62, 145, 17, 161, 17, 45, 24, 53, 33, 167, 83, 178,
+            47, 114, 111, 233, 251, 30, 54, 244, 184, 22, 100, 236,
         ]);
 
         let account_id = AccountId::from(&npk);

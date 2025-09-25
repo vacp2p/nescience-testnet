@@ -34,3 +34,4 @@ fn main() {
 
     write_nssa_outputs(vec![sender, receiver], vec![sender_post, receiver_post]);
 }
+

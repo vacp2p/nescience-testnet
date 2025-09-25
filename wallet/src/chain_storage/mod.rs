@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use common::merkle_tree_public::merkle_tree::UTXOCommitmentsMerkleTree;
 use key_protocol::key_protocol_core::NSSAUserData;
 
 use crate::config::{PersistentAccountData, WalletConfig};
 
 pub struct WalletChainStore {
     pub user_data: NSSAUserData,
-    pub utxo_commitments_store: UTXOCommitmentsMerkleTree,
     pub wallet_config: WalletConfig,
 }
 
@@ -21,18 +19,14 @@ impl WalletChainStore {
             .map(|init_acc_data| (init_acc_data.address, init_acc_data.pub_sign_key))
             .collect();
 
-        let utxo_commitments_store = UTXOCommitmentsMerkleTree::new(vec![]);
-
         Ok(Self {
-            user_data: NSSAUserData::new_with_accounts(accounts_keys)?,
-            utxo_commitments_store,
+            user_data: NSSAUserData::new_with_accounts(accounts_keys, HashMap::new())?,
             wallet_config: config,
         })
     }
 
     pub(crate) fn insert_account_data(&mut self, acc_data: PersistentAccountData) {
         self.user_data
-            .key_holder
             .pub_account_signing_keys
             .insert(acc_data.address, acc_data.pub_sign_key);
     }
@@ -94,11 +88,6 @@ mod tests {
 
         let config = create_sample_wallet_config(path.to_path_buf());
 
-        let store = WalletChainStore::new(config.clone()).unwrap();
-
-        assert_eq!(
-            store.utxo_commitments_store.get_root().unwrap_or([0; 32]),
-            [0; 32]
-        );
+        let _ = WalletChainStore::new(config.clone()).unwrap();
     }
 }

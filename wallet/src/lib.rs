@@ -4,6 +4,7 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use common::{
     ExecutionFailureKind,
     sequencer_client::{SequencerClient, json::SendTxResponse},
+    transaction::{EncodedTransaction, NSSATransaction},
 };
 
 use anyhow::Result;
@@ -72,7 +73,9 @@ impl WalletCore {
     }
 
     pub fn create_new_account(&mut self) -> Address {
-        self.storage.user_data.generate_new_account()
+        self.storage
+            .user_data
+            .generate_new_public_transaction_private_key()
     }
 
     pub fn search_for_initial_account(&self, acc_addr: Address) -> Option<Account> {
@@ -82,6 +85,24 @@ impl WalletCore {
             }
         }
         None
+    }
+
+    pub async fn claim_pinata(
+        &self,
+        pinata_addr: Address,
+        winner_addr: Address,
+        solution: u128,
+    ) -> Result<SendTxResponse, ExecutionFailureKind> {
+        let addresses = vec![pinata_addr, winner_addr];
+        let program_id = nssa::program::Program::pinata().id();
+        let message =
+            nssa::public_transaction::Message::try_new(program_id, addresses, vec![], solution)
+                .unwrap();
+
+        let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);
+        let tx = nssa::PublicTransaction::new(message, witness_set);
+
+        Ok(self.sequencer_client.send_tx_public(tx).await?)
     }
 
     pub async fn send_public_native_token_transfer(
@@ -109,7 +130,7 @@ impl WalletCore {
             )
             .unwrap();
 
-            let signing_key = self.storage.user_data.get_account_signing_key(&from);
+            let signing_key = self.storage.user_data.get_pub_account_signing_key(&from);
 
             let Some(signing_key) = signing_key else {
                 return Err(ExecutionFailureKind::KeyNotFoundError);
@@ -120,7 +141,7 @@ impl WalletCore {
 
             let tx = nssa::PublicTransaction::new(message, witness_set);
 
-            Ok(self.sequencer_client.send_tx(tx).await?)
+            Ok(self.sequencer_client.send_tx_public(tx).await?)
         } else {
             Err(ExecutionFailureKind::InsufficientFundsError)
         }
@@ -147,7 +168,7 @@ impl WalletCore {
 
         let tx = nssa::PublicTransaction::new(message, witness_set);
 
-        Ok(self.sequencer_client.send_tx(tx).await?)
+        Ok(self.sequencer_client.send_tx_public(tx).await?)
     }
 
     pub async fn send_transfer_token_transaction(
@@ -172,7 +193,7 @@ impl WalletCore {
         let Some(signing_key) = self
             .storage
             .user_data
-            .get_account_signing_key(&sender_address)
+            .get_pub_account_signing_key(&sender_address)
         else {
             return Err(ExecutionFailureKind::KeyNotFoundError);
         };
@@ -181,7 +202,7 @@ impl WalletCore {
 
         let tx = nssa::PublicTransaction::new(message, witness_set);
 
-        Ok(self.sequencer_client.send_tx(tx).await?)
+        Ok(self.sequencer_client.send_tx_public(tx).await?)
     }
     ///Get account balance
     pub async fn get_account_balance(&self, acc: Address) -> Result<u128> {
@@ -208,15 +229,12 @@ impl WalletCore {
     }
 
     ///Poll transactions
-    pub async fn poll_public_native_token_transfer(
-        &self,
-        hash: String,
-    ) -> Result<nssa::PublicTransaction> {
+    pub async fn poll_public_native_token_transfer(&self, hash: String) -> Result<NSSATransaction> {
         let transaction_encoded = self.poller.poll_tx(hash).await?;
         let tx_base64_decode = BASE64.decode(transaction_encoded)?;
-        let pub_tx = nssa::PublicTransaction::from_bytes(&tx_base64_decode)?;
+        let pub_tx = EncodedTransaction::from_bytes(tx_base64_decode);
 
-        Ok(pub_tx)
+        Ok(NSSATransaction::try_from(&pub_tx)?)
     }
 }
 
@@ -277,6 +295,19 @@ pub enum Command {
         recipient_addr: String,
         #[arg(short, long)]
         balance_to_move: u128,
+    },
+    // TODO: Testnet only. Refactor to prevent compilation on mainnet.
+    // Claim piñata prize
+    ClaimPinata {
+        ///pinata_addr - valid 32 byte hex string
+        #[arg(long)]
+        pinata_addr: String,
+        ///winner_addr - valid 32 byte hex string
+        #[arg(long)]
+        winner_addr: String,
+        ///solution - solution to pinata challenge
+        #[arg(long)]
+        solution: u128,
     },
 }
 
@@ -375,6 +406,20 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                     balance_to_move,
                 )
                 .await?;
+        }
+        Command::ClaimPinata {
+            pinata_addr,
+            winner_addr,
+            solution,
+        } => {
+            let res = wallet_core
+                .claim_pinata(
+                    pinata_addr.parse().unwrap(),
+                    winner_addr.parse().unwrap(),
+                    solution,
+                )
+                .await?;
+            info!("Results of tx send is {res:#?}");
         }
     }
 
