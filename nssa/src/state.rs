@@ -205,6 +205,24 @@ impl V01State {
     }
 }
 
+// TODO: Testnet only. Refactor to prevent compilation on mainnet.
+impl V01State {
+    pub fn add_pinata_program(&mut self, address: Address) {
+        self.insert_program(Program::pinata());
+
+        self.public_state.insert(
+            address,
+            Account {
+                program_owner: Program::pinata().id(),
+                balance: 1500,
+                // Difficulty: 3
+                data: vec![3; 33],
+                nonce: 0,
+            },
+        );
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
 
@@ -225,7 +243,7 @@ pub mod tests {
     use nssa_core::{
         Commitment, Nullifier, NullifierPublicKey, NullifierSecretKey, SharedSecretKey,
         account::{Account, AccountId, AccountWithMetadata, Nonce},
-        encryption::{EphemeralPublicKey, IncomingViewingPublicKey},
+        encryption::{EphemeralPublicKey, IncomingViewingPublicKey, Scalar},
     };
 
     fn transfer_transaction(
@@ -738,7 +756,7 @@ pub mod tests {
 
     pub struct TestPrivateKeys {
         pub nsk: NullifierSecretKey,
-        pub isk: [u8; 32],
+        pub isk: Scalar,
     }
 
     impl TestPrivateKeys {

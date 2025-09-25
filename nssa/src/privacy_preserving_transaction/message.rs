@@ -151,7 +151,7 @@ pub mod tests {
     #[test]
     fn test_encrypted_account_data_constructor() {
         let npk = NullifierPublicKey::from(&[1; 32]);
-        let ivk = IncomingViewingPublicKey::from(&[2; 32]);
+        let ivk = IncomingViewingPublicKey::from_scalar([2; 32]);
         let account = Account::default();
         let commitment = Commitment::new(&npk, &account);
         let esk = [3; 32];

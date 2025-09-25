@@ -18,6 +18,12 @@ impl From<&NullifierPublicKey> for AccountId {
     }
 }
 
+impl AsRef<[u8]> for NullifierPublicKey {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
 impl From<&NullifierSecretKey> for NullifierPublicKey {
     fn from(value: &NullifierSecretKey) -> Self {
         let mut bytes = Vec::new();
