@@ -1,7 +1,6 @@
 use common::{ExecutionFailureKind, sequencer_client::json::SendTxResponse};
-use k256::elliptic_curve::rand_core::{OsRng, RngCore};
+use key_protocol::key_management::ephemeral_key_holder::produce_one_sided_shared_secret_receiver;
 use nssa::Address;
-use nssa_core::{SharedSecretKey, encryption::EphemeralPublicKey};
 
 use crate::WalletCore;
 
@@ -37,17 +36,15 @@ impl WalletCore {
             let sender_pre = nssa_core::account::AccountWithMetadata {
                 account: from_acc.clone(),
                 is_authorized: true,
+                account_id: (&from).into(),
             };
             let recipient_pre = nssa_core::account::AccountWithMetadata {
                 account: to_acc.clone(),
                 is_authorized: true,
+                account_id: (&to_npk).into(),
             };
 
-            //Move into different function
-            let mut esk = [0; 32];
-            OsRng.fill_bytes(&mut esk);
-            let shared_secret = SharedSecretKey::new(&esk, &to_keys.incoming_viewing_public_key);
-            let epk = EphemeralPublicKey::from_scalar(esk);
+            let (shared_secret, epk) = produce_one_sided_shared_secret_receiver(&to_ipk);
 
             let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
                 &[sender_pre, recipient_pre],
@@ -124,17 +121,16 @@ impl WalletCore {
             let sender_pre = nssa_core::account::AccountWithMetadata {
                 account: from_acc.clone(),
                 is_authorized: true,
+                account_id: (&from).into(),
             };
+
             let recipient_pre = nssa_core::account::AccountWithMetadata {
                 account: to_acc.clone(),
                 is_authorized: false,
+                account_id: (&to_npk).into(),
             };
 
-            //Move into different function
-            let mut esk = [0; 32];
-            OsRng.fill_bytes(&mut esk);
-            let shared_secret = SharedSecretKey::new(&esk, &to_ipk);
-            let epk = EphemeralPublicKey::from_scalar(esk);
+            let (shared_secret, epk) = produce_one_sided_shared_secret_receiver(&to_ipk);
 
             let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
                 &[sender_pre, recipient_pre],

@@ -34,10 +34,12 @@ impl WalletCore {
             let sender_pre = nssa_core::account::AccountWithMetadata {
                 account: from_acc.clone(),
                 is_authorized: true,
+                account_id: (&from_keys.nullifer_public_key).into(),
             };
             let recipient_pre = nssa_core::account::AccountWithMetadata {
                 account: to_acc.clone(),
                 is_authorized: false,
+                account_id: (&to).into(),
             };
 
             //Move into different function
