@@ -94,7 +94,7 @@ impl WalletCore {
         solution: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
         let addresses = vec![pinata_addr, winner_addr];
-        let program_id = nssa::program::Program::pinata().id();
+        let program_id = nssa::program::Program::authenticated_transfer_program().id();
         let message =
             nssa::public_transaction::Message::try_new(program_id, addresses, vec![], solution)
                 .unwrap();
@@ -121,7 +121,7 @@ impl WalletCore {
             };
 
             let addresses = vec![from, to];
-            let program_id = nssa::program::Program::authenticated_transfer_program().id();
+            let program_id = [4009390658, 295818534, 2287042879, 2991817555, 298425691, 3426172222, 3671663086, 1858988641];
             let message = nssa::public_transaction::Message::try_new(
                 program_id,
                 addresses,
