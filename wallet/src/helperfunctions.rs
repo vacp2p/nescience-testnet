@@ -8,7 +8,10 @@ use serde::Serialize;
 
 use crate::{
     HOME_DIR_ENV_VAR,
-    config::{PersistentAccountData, WalletConfig},
+    config::{
+        PersistentAccountData, PersistentAccountDataPrivate, PersistentAccountDataPublic,
+        WalletConfig,
+    },
 };
 
 /// Get home dir for wallet. Env var `NSSA_WALLET_HOME_DIR` must be set before execution to succeed.
@@ -56,10 +59,24 @@ pub fn produce_data_for_storage(user_data: &NSSAUserData) -> Vec<PersistentAccou
     let mut vec_for_storage = vec![];
 
     for (addr, key) in &user_data.pub_account_signing_keys {
-        vec_for_storage.push(PersistentAccountData {
-            address: *addr,
-            pub_sign_key: key.clone(),
-        });
+        vec_for_storage.push(
+            PersistentAccountDataPublic {
+                address: *addr,
+                pub_sign_key: key.clone(),
+            }
+            .into(),
+        );
+    }
+
+    for (addr, (key, acc)) in &user_data.user_private_accounts {
+        vec_for_storage.push(
+            PersistentAccountDataPrivate {
+                address: *addr,
+                account: acc.clone(),
+                key_chain: key.clone(),
+            }
+            .into(),
+        );
     }
 
     vec_for_storage

@@ -20,6 +20,7 @@ impl SequecerChainStore {
         genesis_id: u64,
         is_genesis_random: bool,
         initial_accounts: &[AccountInitialData],
+        initial_commitments: &[nssa_core::Commitment],
         signing_key: nssa::PrivateKey,
     ) -> Self {
         let init_accs: Vec<(Address, u128)> = initial_accounts
@@ -28,11 +29,12 @@ impl SequecerChainStore {
             .collect();
 
         #[cfg(not(feature = "testnet"))]
-        let state = nssa::V01State::new_with_genesis_accounts(&init_accs);
+        let state = nssa::V01State::new_with_genesis_accounts(&init_accs, initial_commitments);
 
         #[cfg(feature = "testnet")]
         let state = {
-            let mut this = nssa::V01State::new_with_genesis_accounts(&init_accs);
+            let mut this =
+                nssa::V01State::new_with_genesis_accounts(&init_accs, initial_commitments);
             this.add_pinata_program("cafe".repeat(16).parse().unwrap());
             this
         };

@@ -9,7 +9,8 @@ use serde_json::Value;
 
 use crate::rpc_primitives::requests::{
     GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
-    GetTransactionByHashRequest, GetTransactionByHashResponse,
+    GetProofByCommitmentRequest, GetProofByCommitmentResponse, GetTransactionByHashRequest,
+    GetTransactionByHashResponse,
 };
 use crate::sequencer_client::json::AccountInitialData;
 use crate::transaction::{EncodedTransaction, NSSATransaction};
@@ -162,6 +163,26 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
+    ///Send transaction to sequencer
+    pub async fn send_tx_private(
+        &self,
+        transaction: nssa::PrivacyPreservingTransaction,
+    ) -> Result<SendTxResponse, SequencerClientError> {
+        let transaction = EncodedTransaction::from(NSSATransaction::PrivacyPreserving(transaction));
+
+        let tx_req = SendTxRequest {
+            transaction: transaction.to_bytes(),
+        };
+
+        let req = serde_json::to_value(tx_req)?;
+
+        let resp = self.call_method_with_payload("send_tx", req).await?;
+
+        let resp_deser = serde_json::from_value(resp)?;
+
+        Ok(resp_deser)
+    }
+
     ///Get genesis id from sequencer
     pub async fn get_genesis_id(&self) -> Result<GetGenesisIdResponse, SequencerClientError> {
         let genesis_req = GetGenesisIdRequest {};
@@ -192,6 +213,27 @@ impl SequencerClient {
             .unwrap();
 
         let resp_deser = serde_json::from_value(resp).unwrap();
+
+        Ok(resp_deser)
+    }
+
+    ///Get proof for commitment
+    pub async fn get_proof_for_commitment(
+        &self,
+        commitment: nssa_core::Commitment,
+    ) -> Result<Option<nssa_core::MembershipProof>, SequencerClientError> {
+        let acc_req = GetProofByCommitmentRequest { commitment };
+
+        let req = serde_json::to_value(acc_req).unwrap();
+
+        let resp = self
+            .call_method_with_payload("get_proof_for_commitment", req)
+            .await
+            .unwrap();
+
+        let resp_deser = serde_json::from_value::<GetProofByCommitmentResponse>(resp)
+            .unwrap()
+            .membership_proof;
 
         Ok(resp_deser)
     }

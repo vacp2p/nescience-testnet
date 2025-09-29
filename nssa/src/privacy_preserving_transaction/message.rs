@@ -11,9 +11,9 @@ pub type ViewTag = u8;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncryptedAccountData {
-    pub(crate) ciphertext: Ciphertext,
-    pub(crate) epk: EphemeralPublicKey,
-    pub(crate) view_tag: ViewTag,
+    pub ciphertext: Ciphertext,
+    pub epk: EphemeralPublicKey,
+    pub view_tag: ViewTag,
 }
 
 impl EncryptedAccountData {
@@ -47,8 +47,8 @@ pub struct Message {
     pub(crate) public_addresses: Vec<Address>,
     pub(crate) nonces: Vec<Nonce>,
     pub(crate) public_post_states: Vec<Account>,
-    pub(crate) encrypted_private_post_states: Vec<EncryptedAccountData>,
-    pub(crate) new_commitments: Vec<Commitment>,
+    pub encrypted_private_post_states: Vec<EncryptedAccountData>,
+    pub new_commitments: Vec<Commitment>,
     pub(crate) new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)>,
 }
 

@@ -11,10 +11,9 @@ use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
 use log::info;
-use nssa::Address;
+use nssa::{Account, Address};
 
 use clap::{Parser, Subcommand};
-use nssa_core::account::Account;
 
 use crate::{
     helperfunctions::{
@@ -24,12 +23,15 @@ use crate::{
     poller::TxPoller,
 };
 
+//
+
 pub const HOME_DIR_ENV_VAR: &str = "NSSA_WALLET_HOME_DIR";
 
 pub mod chain_storage;
 pub mod config;
 pub mod helperfunctions;
 pub mod poller;
+pub mod token_transfers;
 
 pub struct WalletCore {
     pub storage: WalletChainStore,
@@ -72,19 +74,16 @@ impl WalletCore {
         Ok(accs_path)
     }
 
-    pub fn create_new_account(&mut self) -> Address {
+    pub fn create_new_account_public(&mut self) -> Address {
         self.storage
             .user_data
             .generate_new_public_transaction_private_key()
     }
 
-    pub fn search_for_initial_account(&self, acc_addr: Address) -> Option<Account> {
-        for initial_acc in &self.storage.wallet_config.initial_accounts {
-            if initial_acc.address == acc_addr {
-                return Some(initial_acc.account.clone());
-            }
-        }
-        None
+    pub fn create_new_account_private(&mut self) -> Address {
+        self.storage
+            .user_data
+            .generate_new_privacy_preserving_transaction_key_chain()
     }
 
     pub async fn claim_pinata(
@@ -103,48 +102,6 @@ impl WalletCore {
         let tx = nssa::PublicTransaction::new(message, witness_set);
 
         Ok(self.sequencer_client.send_tx_public(tx).await?)
-    }
-
-    pub async fn send_public_native_token_transfer(
-        &self,
-        from: Address,
-        to: Address,
-        balance_to_move: u128,
-    ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let Ok(balance) = self.get_account_balance(from).await else {
-            return Err(ExecutionFailureKind::SequencerError);
-        };
-
-        if balance >= balance_to_move {
-            let Ok(nonces) = self.get_accounts_nonces(vec![from]).await else {
-                return Err(ExecutionFailureKind::SequencerError);
-            };
-
-            let addresses = vec![from, to];
-            let program_id = nssa::program::Program::authenticated_transfer_program().id();
-            let message = nssa::public_transaction::Message::try_new(
-                program_id,
-                addresses,
-                nonces,
-                balance_to_move,
-            )
-            .unwrap();
-
-            let signing_key = self.storage.user_data.get_pub_account_signing_key(&from);
-
-            let Some(signing_key) = signing_key else {
-                return Err(ExecutionFailureKind::KeyNotFoundError);
-            };
-
-            let witness_set =
-                nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
-
-            let tx = nssa::PublicTransaction::new(message, witness_set);
-
-            Ok(self.sequencer_client.send_tx_public(tx).await?)
-        } else {
-            Err(ExecutionFailureKind::InsufficientFundsError)
-        }
     }
 
     ///Get account balance
@@ -172,7 +129,7 @@ impl WalletCore {
     }
 
     ///Poll transactions
-    pub async fn poll_public_native_token_transfer(&self, hash: String) -> Result<NSSATransaction> {
+    pub async fn poll_native_token_transfer(&self, hash: String) -> Result<NSSATransaction> {
         let transaction_encoded = self.poller.poll_tx(hash).await?;
         let tx_base64_decode = BASE64.decode(transaction_encoded)?;
         let pub_tx = EncodedTransaction::from_bytes(tx_base64_decode);
@@ -186,7 +143,9 @@ impl WalletCore {
 #[clap(about)]
 pub enum Command {
     ///Send native token transfer from `from` to `to` for `amount`
-    SendNativeTokenTransfer {
+    ///
+    /// Public operation
+    SendNativeTokenTransferPublic {
         ///from - valid 32 byte hex string
         #[arg(long)]
         from: String,
@@ -197,8 +156,98 @@ pub enum Command {
         #[arg(long)]
         amount: u128,
     },
-    ///Register new account
-    RegisterAccount {},
+    ///Send native token transfer from `from` to `to` for `amount`
+    ///
+    /// Private operation
+    SendNativeTokenTransferPrivate {
+        ///from - valid 32 byte hex string
+        #[arg(long)]
+        from: String,
+        ///to - valid 32 byte hex string
+        #[arg(long)]
+        to: String,
+        ///amount - amount of balance to move
+        #[arg(long)]
+        amount: u128,
+    },
+    ///Send native token transfer from `from` to `to` for `amount`
+    ///
+    /// Private operation
+    SendNativeTokenTransferPrivateForeignAccount {
+        ///from - valid 32 byte hex string
+        #[arg(long)]
+        from: String,
+        ///to_npk - valid 32 byte hex string
+        #[arg(long)]
+        to_npk: String,
+        ///to_ipk - valid 33 byte hex string
+        #[arg(long)]
+        to_ipk: String,
+        ///amount - amount of balance to move
+        #[arg(long)]
+        amount: u128,
+    },
+    ///Send native token transfer from `from` to `to` for `amount`
+    ///
+    /// Deshielded operation
+    SendNativeTokenTransferDeshielded {
+        ///from - valid 32 byte hex string
+        #[arg(long)]
+        from: String,
+        ///to - valid 32 byte hex string
+        #[arg(long)]
+        to: String,
+        ///amount - amount of balance to move
+        #[arg(long)]
+        amount: u128,
+    },
+    ///Send native token transfer from `from` to `to` for `amount`
+    ///
+    /// Shielded operation
+    SendNativeTokenTransferShielded {
+        ///from - valid 32 byte hex string
+        #[arg(long)]
+        from: String,
+        ///to - valid 32 byte hex string
+        #[arg(long)]
+        to: String,
+        ///amount - amount of balance to move
+        #[arg(long)]
+        amount: u128,
+    },
+    ///Send native token transfer from `from` to `to` for `amount`
+    ///
+    /// Shielded operation
+    SendNativeTokenTransferShieldedForeignAccount {
+        ///from - valid 32 byte hex string
+        #[arg(long)]
+        from: String,
+        ///to_npk - valid 32 byte hex string
+        #[arg(long)]
+        to_npk: String,
+        ///to_ipk - valid 33 byte hex string
+        #[arg(long)]
+        to_ipk: String,
+        ///amount - amount of balance to move
+        #[arg(long)]
+        amount: u128,
+    },
+    ///Claim account `acc_addr` generated in transaction `tx_hash`, using secret `sh_secret` at ciphertext id `ciph_id`
+    ClaimPrivateAccount {
+        ///tx_hash - valid 32 byte hex string
+        #[arg(long)]
+        tx_hash: String,
+        ///acc_addr - valid 32 byte hex string
+        #[arg(long)]
+        acc_addr: String,
+        ///ciph_id - id of cipher in transaction
+        #[arg(long)]
+        ciph_id: usize,
+    },
+    ///Register new public account
+    RegisterAccountPublic {},
+    ///Register new private account
+    RegisterAccountPrivate {},
     ///Fetch transaction by `hash`
     FetchTx {
         #[arg(short, long)]
@@ -243,12 +292,19 @@ pub struct Args {
     pub command: Command,
 }
 
-pub async fn execute_subcommand(command: Command) -> Result<()> {
+#[derive(Debug, Clone)]
+pub enum SubcommandReturnValue {
+    PrivacyPreservingTransfer { tx_hash: String },
+    RegisterAccount { addr: nssa::Address },
+    Empty,
+}
+
+pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValue> {
     let wallet_config = fetch_config()?;
     let mut wallet_core = WalletCore::start_from_config_update_chain(wallet_config)?;
 
-    match command {
-        Command::SendNativeTokenTransfer { from, to, amount } => {
+    let subcommand_ret = match command {
+        Command::SendNativeTokenTransferPublic { from, to, amount } => {
             let from = produce_account_addr_from_hex(from)?;
             let to = produce_account_addr_from_hex(to)?;
 
@@ -258,17 +314,336 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
 
             println!("Results of tx send is {res:#?}");
 
-            let transfer_tx = wallet_core
-                .poll_public_native_token_transfer(res.tx_hash)
-                .await?;
+            let transfer_tx = wallet_core.poll_native_token_transfer(res.tx_hash).await?;
 
             println!("Transaction data is {transfer_tx:?}");
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::Empty
         }
-        Command::RegisterAccount {} => {
-            let addr = wallet_core.create_new_account();
-            wallet_core.store_persistent_accounts()?;
+        Command::SendNativeTokenTransferPrivate { from, to, amount } => {
+            let from = produce_account_addr_from_hex(from)?;
+            let to = produce_account_addr_from_hex(to)?;
+
+            let (res, secret) = wallet_core
+                .send_private_native_token_transfer(from, to, amount)
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let from_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let from_comm = tx.message.new_commitments[0].clone();
+
+                let to_ebc = tx.message.encrypted_private_post_states[1].clone();
+                let to_comm = tx.message.new_commitments[1].clone();
+
+                let res_acc_from = nssa_core::EncryptionScheme::decrypt(
+                    &from_ebc.ciphertext,
+                    &secret,
+                    &from_comm,
+                    0,
+                )
+                .unwrap();
+
+                let res_acc_to =
+                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret, &to_comm, 1)
+                        .unwrap();
+
+                println!("Received new from acc {res_acc_from:#?}");
+                println!("Received new to acc {res_acc_to:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(from, res_acc_from);
+                wallet_core
+                    .storage
+                    .insert_private_account_data(to, res_acc_to);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::SendNativeTokenTransferPrivateForeignAccount {
+            from,
+            to_npk,
+            to_ipk,
+            amount,
+        } => {
+            let from = produce_account_addr_from_hex(from)?;
+            let to_npk_res = hex::decode(to_npk)?;
+            let mut to_npk = [0; 32];
+            to_npk.copy_from_slice(&to_npk_res);
+            let to_npk = nssa_core::NullifierPublicKey(to_npk);
+
+            let to_ipk_res = hex::decode(to_ipk)?;
+            let mut to_ipk = [0u8; 33];
+            to_ipk.copy_from_slice(&to_ipk_res);
+            let to_ipk =
+                nssa_core::encryption::shared_key_derivation::Secp256k1Point(to_ipk.to_vec());
+
+            let (res, secret) = wallet_core
+                .send_private_native_token_transfer_outer_account(from, to_npk, to_ipk, amount)
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let from_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let from_comm = tx.message.new_commitments[0].clone();
+
+                let to_ebc = tx.message.encrypted_private_post_states[1].clone();
+                let to_comm = tx.message.new_commitments[1].clone();
+
+                let res_acc_from = nssa_core::EncryptionScheme::decrypt(
+                    &from_ebc.ciphertext,
+                    &secret,
+                    &from_comm,
+                    0,
+                )
+                .unwrap();
+
+                let res_acc_to =
+                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret, &to_comm, 1)
+                        .unwrap();
+
+                println!("RES acc {res_acc_from:#?}");
+                println!("RES acc to {res_acc_to:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(from, res_acc_from);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::SendNativeTokenTransferDeshielded { from, to, amount } => {
+            let from = produce_account_addr_from_hex(from)?;
+            let to = produce_account_addr_from_hex(to)?;
+
+            let (res, secret) = wallet_core
+                .send_deshielded_native_token_transfer(from, to, amount)
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let from_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let from_comm = tx.message.new_commitments[0].clone();
+
+                let res_acc_from = nssa_core::EncryptionScheme::decrypt(
+                    &from_ebc.ciphertext,
+                    &secret,
+                    &from_comm,
+                    0,
+                )
+                .unwrap();
+
+                println!("RES acc {res_acc_from:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(from, res_acc_from);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::SendNativeTokenTransferShielded { from, to, amount } => {
+            let from = produce_account_addr_from_hex(from)?;
+            let to = produce_account_addr_from_hex(to)?;
+
+            let (res, secret) = wallet_core
+                .send_shiedled_native_token_transfer(from, to, amount)
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let to_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let to_comm = tx.message.new_commitments[0].clone();
+
+                let res_acc_to =
+                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret, &to_comm, 0)
+                        .unwrap();
+
+                println!("RES acc to {res_acc_to:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::SendNativeTokenTransferShieldedForeignAccount {
+            from,
+            to_npk,
+            to_ipk,
+            amount,
+        } => {
+            let from = produce_account_addr_from_hex(from)?;
+
+            let to_npk_res = hex::decode(to_npk)?;
+            let mut to_npk = [0; 32];
+            to_npk.copy_from_slice(&to_npk_res);
+            let to_npk = nssa_core::NullifierPublicKey(to_npk);
+
+            let to_ipk_res = hex::decode(to_ipk)?;
+            let mut to_ipk = [0u8; 33];
+            to_ipk.copy_from_slice(&to_ipk_res);
+            let to_ipk =
+                nssa_core::encryption::shared_key_derivation::Secp256k1Point(to_ipk.to_vec());
+
+            let (res, secret) = wallet_core
+                .send_shielded_native_token_transfer_maybe_outer_account(
+                    from, to_npk, to_ipk, amount,
+                )
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let to_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let to_comm = tx.message.new_commitments[0].clone();
+
+                let res_acc_to =
+                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret, &to_comm, 0)
+                        .unwrap();
+
+                println!("RES acc to {res_acc_to:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::ClaimPrivateAccount {
+            tx_hash,
+            acc_addr,
+            ciph_id,
+        } => {
+            let acc_addr = produce_account_addr_from_hex(acc_addr)?;
+
+            let account_key_chain = wallet_core
+                .storage
+                .user_data
+                .user_private_accounts
+                .get(&acc_addr);
+
+            let Some((account_key_chain, _)) = account_key_chain else {
+                anyhow::bail!("Account not found");
+            };
+
+            let transfer_tx = wallet_core.poll_native_token_transfer(tx_hash).await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let to_ebc = tx.message.encrypted_private_post_states[ciph_id].clone();
+                let to_comm = tx.message.new_commitments[ciph_id].clone();
+                let shared_secret = account_key_chain.calculate_shared_secret_receiver(to_ebc.epk);
+
+                let res_acc_to = nssa_core::EncryptionScheme::decrypt(
+                    &to_ebc.ciphertext,
+                    &shared_secret,
+                    &to_comm,
+                    ciph_id as u32,
+                )
+                .unwrap();
+
+                println!("RES acc to {res_acc_to:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(acc_addr, res_acc_to);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::Empty
+        }
+        Command::RegisterAccountPublic {} => {
+            let addr = wallet_core.create_new_account_public();
 
             println!("Generated new account with addr {addr}");
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::RegisterAccount { addr }
+        }
+        Command::RegisterAccountPrivate {} => {
+            let addr = wallet_core.create_new_account_private();
+
+            let (key, account) = wallet_core
+                .storage
+                .user_data
+                .get_private_account(&addr)
+                .unwrap();
+
+            println!("Generated new account with addr {addr:#?}");
+            println!("With key {key:#?}");
+            println!("With account {account:#?}");
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::RegisterAccount { addr }
         }
         Command::FetchTx { tx_hash } => {
             let tx_obj = wallet_core
@@ -277,23 +652,31 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                 .await?;
 
             println!("Transaction object {tx_obj:#?}");
+
+            SubcommandReturnValue::Empty
         }
         Command::GetAccountBalance { addr } => {
             let addr = Address::from_str(&addr)?;
 
             let balance = wallet_core.get_account_balance(addr).await?;
             println!("Accounts {addr} balance is {balance}");
+
+            SubcommandReturnValue::Empty
         }
         Command::GetAccountNonce { addr } => {
             let addr = Address::from_str(&addr)?;
 
             let nonce = wallet_core.get_accounts_nonces(vec![addr]).await?[0];
             println!("Accounts {addr} nonce is {nonce}");
+
+            SubcommandReturnValue::Empty
         }
         Command::GetAccount { addr } => {
             let addr: Address = addr.parse()?;
             let account: HumanReadableAccount = wallet_core.get_account(addr).await?.into();
             println!("{}", serde_json::to_string(&account).unwrap());
+
+            SubcommandReturnValue::Empty
         }
         Command::ClaimPinata {
             pinata_addr,
@@ -308,8 +691,10 @@ pub async fn execute_subcommand(command: Command) -> Result<()> {
                 )
                 .await?;
             info!("Results of tx send is {res:#?}");
-        }
-    }
 
-    Ok(())
+            SubcommandReturnValue::Empty
+        }
+    };
+
+    Ok(subcommand_ret)
 }

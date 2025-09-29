@@ -9,6 +9,13 @@ pub struct AccountInitialData {
     pub balance: u128,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+///Helperstruct to initialize commitments
+pub struct CommitmentsInitialData {
+    pub npk: nssa_core::NullifierPublicKey,
+    pub account: nssa_core::account::Account,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SequencerConfig {
     ///Home dir of sequencer storage
@@ -27,6 +34,8 @@ pub struct SequencerConfig {
     pub port: u16,
     ///List of initial accounts data
     pub initial_accounts: Vec<AccountInitialData>,
+    ///List of initial commitments
+    pub initial_commitments: Vec<CommitmentsInitialData>,
     ///Sequencer own signing key
     pub signing_key: [u8; 32],
 }

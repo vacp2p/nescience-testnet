@@ -2,7 +2,7 @@ pub mod address;
 pub mod encoding;
 pub mod error;
 mod merkle_tree;
-mod privacy_preserving_transaction;
+pub mod privacy_preserving_transaction;
 pub mod program;
 pub mod public_transaction;
 mod signature;
