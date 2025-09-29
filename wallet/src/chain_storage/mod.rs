@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use key_protocol::key_protocol_core::NSSAUserData;
 
-use crate::config::{PersistentAccountData, WalletConfig};
+use crate::config::{InitialAccountData, PersistentAccountData, WalletConfig};
 
 pub struct WalletChainStore {
     pub user_data: NSSAUserData,
@@ -12,23 +12,50 @@ pub struct WalletChainStore {
 
 impl WalletChainStore {
     pub fn new(config: WalletConfig) -> Result<Self> {
-        let accounts_keys: HashMap<nssa::Address, nssa::PrivateKey> = config
-            .initial_accounts
-            .clone()
-            .into_iter()
-            .map(|init_acc_data| (init_acc_data.address, init_acc_data.pub_sign_key))
-            .collect();
+        let mut public_init_acc_map = HashMap::new();
+        let mut private_init_acc_map = HashMap::new();
+
+        for init_acc_data in config.initial_accounts.clone() {
+            match init_acc_data {
+                InitialAccountData::Public(data) => {
+                    public_init_acc_map.insert(data.address, data.pub_sign_key);
+                }
+                InitialAccountData::Private(data) => {
+                    private_init_acc_map.insert(data.address, (data.key_chain, data.account));
+                }
+            }
+        }
 
         Ok(Self {
-            user_data: NSSAUserData::new_with_accounts(accounts_keys, HashMap::new())?,
+            user_data: NSSAUserData::new_with_accounts(public_init_acc_map, private_init_acc_map)?,
             wallet_config: config,
         })
     }
 
-    pub(crate) fn insert_account_data(&mut self, acc_data: PersistentAccountData) {
+    pub fn insert_private_account_data(
+        &mut self,
+        addr: nssa::Address,
+        account: nssa_core::account::Account,
+    ) {
         self.user_data
-            .pub_account_signing_keys
-            .insert(acc_data.address, acc_data.pub_sign_key);
+            .user_private_accounts
+            .entry(addr)
+            .and_modify(|(_, acc)| *acc = account);
+    }
+
+    pub(crate) fn insert_account_data(&mut self, acc_data: PersistentAccountData) {
+        match acc_data {
+            PersistentAccountData::Public(acc_data) => {
+                self.user_data
+                    .pub_account_signing_keys
+                    .insert(acc_data.address, acc_data.pub_sign_key);
+            }
+            PersistentAccountData::Private(acc_data) => {
+                self.user_data
+                    .user_private_accounts
+                    .insert(acc_data.address, (acc_data.key_chain, acc_data.account));
+            }
+        }
     }
 }
 
@@ -42,24 +69,16 @@ mod tests {
 
     fn create_initial_accounts() -> Vec<InitialAccountData> {
         let initial_acc1 = serde_json::from_str(r#"{
-            "address": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
-            "pub_sign_key": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            "account": {
-                "program_owner": [0,0,0,0,0,0,0,0],
-                "balance": 100,
-                "nonce": 0,
-                "data": []
+            "Public": {
+                "address": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+                "pub_sign_key": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             }
         }"#).unwrap();
 
         let initial_acc2 = serde_json::from_str(r#"{
-            "address": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-            "pub_sign_key": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            "account": {
-                "program_owner": [0,0,0,0,0,0,0,0],
-                "balance": 100,
-                "nonce": 0,
-                "data": []
+            "Public": {
+                "address": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+                "pub_sign_key": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
             }
         }"#).unwrap();
 

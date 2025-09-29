@@ -13,7 +13,7 @@ pub struct NSSAUserData {
     ///Map for all user public accounts
     pub pub_account_signing_keys: HashMap<nssa::Address, nssa::PrivateKey>,
     ///Map for all user private accounts
-    user_private_accounts: HashMap<nssa::Address, KeyChain>,
+    pub user_private_accounts: HashMap<nssa::Address, (KeyChain, nssa_core::account::Account)>,
 }
 
 impl NSSAUserData {
@@ -30,10 +30,10 @@ impl NSSAUserData {
     }
 
     fn valid_private_key_transaction_pairing_check(
-        accounts_keys_map: &HashMap<nssa::Address, KeyChain>,
+        accounts_keys_map: &HashMap<nssa::Address, (KeyChain, nssa_core::account::Account)>,
     ) -> bool {
         let mut check_res = true;
-        for (addr, key) in accounts_keys_map {
+        for (addr, (key, _)) in accounts_keys_map {
             if nssa::Address::new(key.produce_user_address()) != *addr {
                 check_res = false;
             }
@@ -43,7 +43,7 @@ impl NSSAUserData {
 
     pub fn new_with_accounts(
         accounts_keys: HashMap<nssa::Address, nssa::PrivateKey>,
-        accounts_key_chains: HashMap<nssa::Address, KeyChain>,
+        accounts_key_chains: HashMap<nssa::Address, (KeyChain, nssa_core::account::Account)>,
     ) -> Result<Self> {
         if !Self::valid_public_key_transaction_pairing_check(&accounts_keys) {
             anyhow::bail!(
@@ -90,14 +90,26 @@ impl NSSAUserData {
         let key_chain = KeyChain::new_os_random();
         let address = nssa::Address::new(key_chain.produce_user_address());
 
-        self.user_private_accounts.insert(address, key_chain);
+        self.user_private_accounts
+            .insert(address, (key_chain, nssa_core::account::Account::default()));
 
         address
     }
 
     /// Returns the signing key for public transaction signatures
-    pub fn get_private_account_key_chain(&self, address: &nssa::Address) -> Option<&KeyChain> {
+    pub fn get_private_account(
+        &self,
+        address: &nssa::Address,
+    ) -> Option<&(KeyChain, nssa_core::account::Account)> {
         self.user_private_accounts.get(address)
+    }
+
+    /// Returns the signing key for public transaction signatures
+    pub fn get_private_account_mut(
+        &mut self,
+        address: &nssa::Address,
+    ) -> Option<&mut (KeyChain, nssa_core::account::Account)> {
+        self.user_private_accounts.get_mut(address)
     }
 }
 
@@ -123,9 +135,7 @@ mod tests {
 
         assert!(is_private_key_generated);
 
-        let is_key_chain_generated = user_data
-            .get_private_account_key_chain(&addr_private)
-            .is_some();
+        let is_key_chain_generated = user_data.get_private_account(&addr_private).is_some();
 
         assert!(is_key_chain_generated);
     }

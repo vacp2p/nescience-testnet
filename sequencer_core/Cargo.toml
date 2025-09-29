@@ -11,6 +11,7 @@ rand.workspace = true
 tempfile.workspace = true
 chrono.workspace = true
 log.workspace = true
+nssa-core = { path = "../nssa/core", features = ["host"] }
 
 [dependencies.storage]
 path = "../storage"
