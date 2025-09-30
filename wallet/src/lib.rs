@@ -565,7 +565,7 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             let to = produce_account_addr_from_hex(to)?;
 
             let (res, secret) = wallet_core
-                .send_shiedled_native_token_transfer(from, to, amount)
+                .send_shielded_native_token_transfer(from, to, amount)
                 .await?;
 
             println!("Results of tx send is {res:#?}");

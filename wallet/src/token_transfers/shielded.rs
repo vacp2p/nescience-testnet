@@ -5,7 +5,7 @@ use nssa::Address;
 use crate::WalletCore;
 
 impl WalletCore {
-    pub async fn send_shiedled_native_token_transfer(
+    pub async fn send_shielded_native_token_transfer(
         &self,
         from: Address,
         to: Address,
