@@ -7,7 +7,10 @@ mod nullifier;
 pub mod program;
 
 pub use circuit_io::{PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput};
-pub use commitment::{Commitment, CommitmentSetDigest, MembershipProof, compute_digest_for_path};
+pub use commitment::{
+    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT, DUMMY_COMMITMENT_HASH, MembershipProof,
+    compute_digest_for_path,
+};
 pub use encryption::{EncryptionScheme, SharedSecretKey};
 pub use nullifier::{Nullifier, NullifierPublicKey, NullifierSecretKey};
 

@@ -1,8 +1,8 @@
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
-    Commitment, CommitmentSetDigest, EncryptionScheme, Nullifier, NullifierPublicKey,
-    PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT, DUMMY_COMMITMENT_HASH, EncryptionScheme,
+    Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
     account::{Account, AccountId, AccountWithMetadata},
     compute_digest_for_path,
     encryption::Ciphertext,
@@ -98,8 +98,8 @@ fn main() {
                         panic!("Pre-state not authorized");
                     }
 
-                    // Compute nullifier
-                    let nullifier = Nullifier::new(&commitment_pre, nsk);
+                    // Compute update nullifier
+                    let nullifier = Nullifier::for_account_update(&commitment_pre, nsk);
                     new_nullifiers.push((nullifier, set_digest));
                 } else {
                     if pre_states[i].account != Account::default() {
@@ -109,6 +109,10 @@ fn main() {
                     if pre_states[i].is_authorized {
                         panic!("Found new private account marked as authorized.");
                     }
+
+                    // Compute initialization nullifier
+                    let nullifier = Nullifier::for_account_initialization(npk);
+                    new_nullifiers.push((nullifier, DUMMY_COMMITMENT_HASH));
                 }
 
                 // Update post-state with new nonce
