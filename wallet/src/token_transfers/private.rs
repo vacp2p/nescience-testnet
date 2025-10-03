@@ -2,7 +2,7 @@ use common::{ExecutionFailureKind, sequencer_client::json::SendTxResponse};
 use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use nssa::Address;
 
-use crate::WalletCore;
+use crate::{WalletCore, helperfunctions::produce_random_nonces};
 
 impl WalletCore {
     pub async fn send_private_native_token_transfer_outer_account(
@@ -43,7 +43,7 @@ impl WalletCore {
                 &[sender_pre, recipient_pre],
                 &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
                 &[1, 2],
-                &[from_acc.nonce + 1, to_acc.nonce + 1],
+                &produce_random_nonces(2),
                 &[
                     (from_npk.clone(), shared_secret_from.clone()),
                     (to_npk.clone(), shared_secret_to.clone()),
@@ -144,7 +144,7 @@ impl WalletCore {
                 &[sender_pre, recipient_pre],
                 &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
                 &[1, 1],
-                &[from_acc.nonce + 1, to_acc.nonce + 1],
+                &produce_random_nonces(2),
                 &[
                     (from_npk.clone(), shared_secret_from.clone()),
                     (to_npk.clone(), shared_secret_to.clone()),

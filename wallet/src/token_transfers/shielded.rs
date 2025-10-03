@@ -4,7 +4,7 @@ use key_protocol::key_management::ephemeral_key_holder::{
 };
 use nssa::Address;
 
-use crate::WalletCore;
+use crate::{WalletCore, helperfunctions::produce_random_nonces};
 
 impl WalletCore {
     pub async fn send_shielded_native_token_transfer(
@@ -49,7 +49,7 @@ impl WalletCore {
                 &[sender_pre, recipient_pre],
                 &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
                 &[0, 1],
-                &[to_acc.nonce + 1],
+                &produce_random_nonces(1),
                 &[(to_npk.clone(), shared_secret.clone())],
                 &[(
                     to_keys.private_key_holder.nullifier_secret_key,
@@ -138,7 +138,7 @@ impl WalletCore {
                 &[sender_pre, recipient_pre],
                 &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
                 &[0, 2],
-                &[to_acc.nonce + 1],
+                &produce_random_nonces(1),
                 &[(to_npk.clone(), shared_secret.clone())],
                 &[],
                 &program,
