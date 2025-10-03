@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
@@ -29,6 +31,11 @@ fn main() {
         pre_states,
         post_states,
     } = program_output;
+
+    // Check that there are no repeated account ids
+    if !validate_uniqueness_of_account_ids(&pre_states) {
+        panic!("Repeated account ids found")
+    }
 
     // Check that the program is well behaved.
     // See the # Programs section for the definition of the `validate_execution` method.
@@ -160,4 +167,15 @@ fn main() {
     };
 
     env::commit(&output);
+}
+
+fn validate_uniqueness_of_account_ids(pre_states: &[AccountWithMetadata]) -> bool {
+    let number_of_accounts = pre_states.len();
+    let number_of_account_ids = pre_states
+        .iter()
+        .map(|account| account.account_id.clone())
+        .collect::<HashSet<_>>()
+        .len();
+
+    number_of_accounts == number_of_account_ids
 }

@@ -16,7 +16,7 @@ pub struct Account {
 
 /// A fingerprint of the owner of an account. This can be, for example, an `Address` in case the account
 /// is public, or a `NullifierPublicKey` in case the account is private.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(any(feature = "host", test), derive(Debug))]
 pub struct AccountId(pub(super) [u8; 32]);
 impl AccountId {
