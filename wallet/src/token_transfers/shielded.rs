@@ -1,5 +1,7 @@
 use common::{ExecutionFailureKind, sequencer_client::json::SendTxResponse};
-use key_protocol::key_management::ephemeral_key_holder::produce_one_sided_shared_secret_receiver;
+use key_protocol::key_management::ephemeral_key_holder::{
+    EphemeralKeyHolder, produce_one_sided_shared_secret_receiver,
+};
 use nssa::Address;
 
 use crate::WalletCore;
@@ -42,7 +44,8 @@ impl WalletCore {
                 account_id: (&to_npk).into(),
             };
 
-            let (shared_secret, epk) = produce_one_sided_shared_secret_receiver(&to_ipk);
+            let eph_holder = EphemeralKeyHolder::new(&to_npk);
+            let shared_secret = eph_holder.calculate_shared_secret_sender(&to_ipk);
 
             let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
                 &[sender_pre, recipient_pre],
@@ -66,7 +69,11 @@ impl WalletCore {
                 nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
                     vec![from],
                     vec![from_acc.nonce],
-                    vec![(to_npk.clone(), to_ipk.clone(), epk)],
+                    vec![(
+                        to_npk.clone(),
+                        to_ipk.clone(),
+                        eph_holder.generate_ephemeral_public_key(),
+                    )],
                     output,
                 )
                 .unwrap();
@@ -126,7 +133,8 @@ impl WalletCore {
                 account_id: (&to_npk).into(),
             };
 
-            let (shared_secret, epk) = produce_one_sided_shared_secret_receiver(&to_ipk);
+            let eph_holder = EphemeralKeyHolder::new(&to_npk);
+            let shared_secret = eph_holder.calculate_shared_secret_sender(&to_ipk);
 
             let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
                 &[sender_pre, recipient_pre],
@@ -143,7 +151,11 @@ impl WalletCore {
                 nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
                     vec![from],
                     vec![from_acc.nonce],
-                    vec![(to_npk.clone(), to_ipk.clone(), epk)],
+                    vec![(
+                        to_npk.clone(),
+                        to_ipk.clone(),
+                        eph_holder.generate_ephemeral_public_key(),
+                    )],
                     output,
                 )
                 .unwrap();

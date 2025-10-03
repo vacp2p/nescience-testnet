@@ -1,5 +1,6 @@
 use common::{ExecutionFailureKind, sequencer_client::json::SendTxResponse};
 use k256::elliptic_curve::rand_core::{OsRng, RngCore};
+use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use nssa::Address;
 use nssa_core::{SharedSecretKey, encryption::EphemeralPublicKey};
 
@@ -25,34 +26,30 @@ impl WalletCore {
         if from_acc.balance >= balance_to_move {
             let program = nssa::program::Program::authenticated_transfer_program();
 
+            let npk_from = from_keys.nullifer_public_key;
+            let ipk_from = from_keys.incoming_viewing_public_key;
+
             from_acc.program_owner = program.id();
 
-            let sender_commitment =
-                nssa_core::Commitment::new(&from_keys.nullifer_public_key, &from_acc);
+            let sender_commitment = nssa_core::Commitment::new(&npk_from, &from_acc);
 
-            let sender_pre = nssa_core::account::AccountWithMetadata {
-                account: from_acc.clone(),
-                is_authorized: true,
-                account_id: (&from_keys.nullifer_public_key).into(),
-            };
+            let sender_pre =
+                nssa_core::account::AccountWithMetadata::new(from_acc.clone(), true, &npk_from);
             let recipient_pre = nssa_core::account::AccountWithMetadata {
                 account: to_acc.clone(),
                 is_authorized: false,
                 account_id: to,
             };
 
-            //Move into different function
-            let mut esk = [0; 32];
-            OsRng.fill_bytes(&mut esk);
-            let shared_secret = SharedSecretKey::new(&esk, &from_keys.incoming_viewing_public_key);
-            let epk = EphemeralPublicKey::from_scalar(esk);
+            let eph_holder = EphemeralKeyHolder::new(&npk_from);
+            let shared_secret = eph_holder.calculate_shared_secret_sender(&ipk_from);
 
             let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
                 &[sender_pre, recipient_pre],
                 &nssa::program::Program::serialize_instruction(balance_to_move).unwrap(),
                 &[1, 0],
                 &[from_acc.nonce + 1],
-                &[(from_keys.nullifer_public_key.clone(), shared_secret.clone())],
+                &[(npk_from.clone(), shared_secret.clone())],
                 &[(
                     from_keys.private_key_holder.nullifier_secret_key,
                     self.sequencer_client
@@ -70,9 +67,9 @@ impl WalletCore {
                     vec![to],
                     vec![],
                     vec![(
-                        from_keys.nullifer_public_key.clone(),
-                        from_keys.incoming_viewing_public_key.clone(),
-                        epk,
+                        npk_from.clone(),
+                        ipk_from.clone(),
+                        eph_holder.generate_ephemeral_public_key(),
                     )],
                     output,
                 )

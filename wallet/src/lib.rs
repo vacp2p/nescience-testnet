@@ -405,7 +405,7 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             let from = produce_account_addr_from_hex(from)?;
             let to = produce_account_addr_from_hex(to)?;
 
-            let (res, secret) = wallet_core
+            let (res, [secret_from, secret_to]) = wallet_core
                 .send_private_native_token_transfer_owned_account(from, to, amount)
                 .await?;
 
@@ -425,14 +425,14 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
 
                 let res_acc_from = nssa_core::EncryptionScheme::decrypt(
                     &from_ebc.ciphertext,
-                    &secret,
+                    &secret_from,
                     &from_comm,
                     0,
                 )
                 .unwrap();
 
                 let res_acc_to =
-                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret, &to_comm, 1)
+                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret_to, &to_comm, 1)
                         .unwrap();
 
                 println!("Received new from acc {res_acc_from:#?}");
@@ -472,7 +472,7 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             let to_ipk =
                 nssa_core::encryption::shared_key_derivation::Secp256k1Point(to_ipk.to_vec());
 
-            let (res, secret) = wallet_core
+            let (res, [secret_from, secret_to]) = wallet_core
                 .send_private_native_token_transfer_outer_account(from, to_npk, to_ipk, amount)
                 .await?;
 
@@ -492,14 +492,14 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
 
                 let res_acc_from = nssa_core::EncryptionScheme::decrypt(
                     &from_ebc.ciphertext,
-                    &secret,
+                    &secret_from,
                     &from_comm,
                     0,
                 )
                 .unwrap();
 
                 let res_acc_to =
-                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret, &to_comm, 1)
+                    nssa_core::EncryptionScheme::decrypt(&to_ebc.ciphertext, &secret_to, &to_comm, 1)
                         .unwrap();
 
                 println!("RES acc {res_acc_from:#?}");
@@ -614,9 +614,7 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
                 nssa_core::encryption::shared_key_derivation::Secp256k1Point(to_ipk.to_vec());
 
             let (res, secret) = wallet_core
-                .send_shielded_native_token_transfer_outer_account(
-                    from, to_npk, to_ipk, amount,
-                )
+                .send_shielded_native_token_transfer_outer_account(from, to_npk, to_ipk, amount)
                 .await?;
 
             println!("Results of tx send is {res:#?}");
@@ -712,9 +710,9 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
                 .get_private_account(&addr)
                 .unwrap();
 
-            println!("Generated new account with addr {addr:#?}");
-            println!("With key {key:#?}");
-            println!("With account {account:#?}");
+            println!("Generated new account with addr {addr}");
+            println!("With npk {}", hex::encode(&key.nullifer_public_key));
+            println!("With ipk {}", hex::encode(&key.incoming_viewing_public_key.to_bytes()));
 
             let path = wallet_core.store_persistent_accounts()?;
 
