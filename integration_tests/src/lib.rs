@@ -949,7 +949,11 @@ async fn fetch_privacy_preserving_tx(
         .unwrap();
 
     let tx_base64_decode = BASE64.decode(transaction_encoded).unwrap();
-    match NSSATransaction::try_from(&EncodedTransaction::from_bytes(tx_base64_decode)).unwrap() {
+    match NSSATransaction::try_from(
+        &borsh::from_slice::<EncodedTransaction>(&tx_base64_decode).unwrap(),
+    )
+    .unwrap()
+    {
         NSSATransaction::PrivacyPreserving(privacy_preserving_transaction) => {
             privacy_preserving_transaction
         }
