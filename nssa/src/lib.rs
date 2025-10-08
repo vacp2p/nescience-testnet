@@ -1,3 +1,7 @@
+pub mod programs {
+    include!(concat!(env!("OUT_DIR"), "/nssa_programs/mod.rs"));
+}
+
 pub mod encoding;
 pub mod error;
 mod merkle_tree;

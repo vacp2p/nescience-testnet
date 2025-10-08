@@ -2,7 +2,7 @@ use nssa_core::{
     account::{Account, AccountWithMetadata},
     program::{InstructionData, ProgramId, ProgramOutput},
 };
-use program_methods::{
+use crate::programs::{
     AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID, PINATA_ELF, PINATA_ID, TOKEN_ELF,
     TOKEN_ID,
 };
