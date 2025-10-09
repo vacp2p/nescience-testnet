@@ -13,8 +13,6 @@ echo "Try test valid proof at least once"
 cargo run $(pwd)/configs/debug test_success_private_transfer_to_another_owned_account
 echo "Continuing in dev mode"
 RISC0_DEV_MODE=1 cargo run $(pwd)/configs/debug all
-echo "ToDo remove after Draft"
-cargo run $(pwd)/configs/debug test_pinata_private_receiver
 cd ..
 
 cd nssa/program_methods/guest && cargo test --release

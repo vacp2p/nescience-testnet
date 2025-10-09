@@ -964,6 +964,7 @@ pub async fn main_tests_runner() -> Result<()> {
                 test_success_private_transfer_to_another_owned_account_claiming_path
             );
             test_cleanup_wrap!(home_dir, test_pinata);
+            test_cleanup_wrap!(home_dir, test_pinata_private_receiver);
         }
         "all_private" => {
             test_cleanup_wrap!(
@@ -990,6 +991,7 @@ pub async fn main_tests_runner() -> Result<()> {
                 home_dir,
                 test_success_private_transfer_to_another_owned_account_claiming_path
             );
+            test_cleanup_wrap!(home_dir, test_pinata_private_receiver);
         }
         _ => {
             anyhow::bail!("Unknown test name");

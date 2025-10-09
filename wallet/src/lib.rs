@@ -130,7 +130,7 @@ impl WalletCore {
 
         let winner_commitment = Commitment::new(&winner_npk, &winner_acc);
 
-        let pinata_pre = AccountWithMetadata::new(pinata_acc, false, pinata_addr);
+        let pinata_pre = AccountWithMetadata::new(pinata_acc.clone(), false, pinata_addr);
         let winner_pre = AccountWithMetadata::new(winner_acc.clone(), true, &winner_npk);
 
         let eph_holder_winner = EphemeralKeyHolder::new(&winner_npk);
@@ -156,7 +156,7 @@ impl WalletCore {
 
         let message =
             nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
-                vec![],
+                vec![pinata_addr],
                 vec![],
                 vec![(
                     winner_npk.clone(),
