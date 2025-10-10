@@ -377,6 +377,7 @@ pub enum Command {
         #[arg(long)]
         solution: u128,
     },
+    AuthenticatedTransferInitializePublicAccount {},
 }
 
 ///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
@@ -846,6 +847,25 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             info!("Results of tx send is {res:#?}");
 
             SubcommandReturnValue::Empty
+        }
+        Command::AuthenticatedTransferInitializePublicAccount {} => {
+            let addr = wallet_core.create_new_account_public();
+
+            println!("Generated new account with addr {addr}");
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            let res = wallet_core
+                .register_account_under_authenticated_transfers_programs(addr)
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let _transfer_tx = wallet_core.poll_native_token_transfer(res.tx_hash).await?;
+
+            SubcommandReturnValue::RegisterAccount { addr }
         }
     };
 

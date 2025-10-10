@@ -791,6 +791,36 @@ pub async fn test_pinata() {
     info!("Success!");
 }
 
+pub async fn test_authenticated_transfer_initialize_function() {
+    info!("test initialize account for authenticated transfer");
+    let command = Command::AuthenticatedTransferInitializePublicAccount {};
+
+    let SubcommandReturnValue::RegisterAccount { addr } =
+        wallet::execute_subcommand(command).await.unwrap()
+    else {
+        panic!("Error creating account");
+    };
+
+    info!("Checking correct execution");
+    let wallet_config = fetch_config().unwrap();
+    let seq_client = SequencerClient::new(wallet_config.sequencer_addr.clone()).unwrap();
+    let account = seq_client
+        .get_account(addr.to_string())
+        .await
+        .unwrap()
+        .account;
+
+    let expected_program_owner = Program::authenticated_transfer_program().id();
+    let expected_nonce = 1;
+    let expected_balance = 0;
+
+    assert_eq!(account.program_owner, expected_program_owner);
+    assert_eq!(account.balance, expected_balance);
+    assert_eq!(account.nonce, expected_nonce);
+    assert!(account.data.is_empty());
+    info!("Success!");
+}
+
 macro_rules! test_cleanup_wrap {
     ($home_dir:ident, $test_func:ident) => {{
         let res = pre_test($home_dir.clone()).await.unwrap();
@@ -871,6 +901,9 @@ pub async fn main_tests_runner() -> Result<()> {
         "test_pinata" => {
             test_cleanup_wrap!(home_dir, test_pinata);
         }
+        "test_authenticated_transfer_initialize_function" => {
+            test_cleanup_wrap!(home_dir, test_authenticated_transfer_initialize_function);
+        }
         "all" => {
             test_cleanup_wrap!(home_dir, test_success_move_to_another_account);
             test_cleanup_wrap!(home_dir, test_success);
@@ -902,32 +935,7 @@ pub async fn main_tests_runner() -> Result<()> {
                 test_success_private_transfer_to_another_owned_account_claiming_path
             );
             test_cleanup_wrap!(home_dir, test_pinata);
-        }
-        "all_private" => {
-            test_cleanup_wrap!(
-                home_dir,
-                test_success_private_transfer_to_another_owned_account
-            );
-            test_cleanup_wrap!(
-                home_dir,
-                test_success_private_transfer_to_another_foreign_account
-            );
-            test_cleanup_wrap!(
-                home_dir,
-                test_success_deshielded_transfer_to_another_account
-            );
-            test_cleanup_wrap!(
-                home_dir,
-                test_success_shielded_transfer_to_another_owned_account
-            );
-            test_cleanup_wrap!(
-                home_dir,
-                test_success_shielded_transfer_to_another_foreign_account
-            );
-            test_cleanup_wrap!(
-                home_dir,
-                test_success_private_transfer_to_another_owned_account_claiming_path
-            );
+            test_cleanup_wrap!(home_dir, test_authenticated_transfer_initialize_function);
         }
         _ => {
             anyhow::bail!("Unknown test name");
