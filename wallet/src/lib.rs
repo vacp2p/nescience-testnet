@@ -585,6 +585,17 @@ pub enum Command {
         #[arg(long)]
         solution: u128,
     },
+    //Create a new token using the token program
+    CreateNewTokenPrivateOwned {
+        #[arg(short, long)]
+        definition_addr: String,
+        #[arg(short, long)]
+        supply_addr: String,
+        #[arg(short, long)]
+        name: String,
+        #[arg(short, long)]
+        total_supply: u128,
+    },
 }
 
 ///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
@@ -1024,6 +1035,81 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
                 )
                 .await?;
             SubcommandReturnValue::Empty
+        }
+        Command::CreateNewTokenPrivateOwned {
+            definition_addr,
+            supply_addr,
+            name,
+            total_supply,
+        } => {
+            let name = name.as_bytes();
+            if name.len() > 6 {
+                // TODO: return error
+                panic!("Name length mismatch");
+            }
+            let mut name_bytes = [0; 6];
+            name_bytes[..name.len()].copy_from_slice(name);
+
+            let definition_addr: Address = definition_addr.parse().unwrap();
+            let supply_addr: Address = supply_addr.parse().unwrap();
+
+            let (res, [secret_definition, secret_supply]) = wallet_core
+                .send_new_token_definition_private_owned(
+                    definition_addr,
+                    supply_addr,
+                    name_bytes,
+                    total_supply,
+                )
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let definition_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let definition_comm = tx.message.new_commitments[0].clone();
+
+                let supply_ebc = tx.message.encrypted_private_post_states[1].clone();
+                let supply_comm = tx.message.new_commitments[1].clone();
+
+                let res_acc_definition = nssa_core::EncryptionScheme::decrypt(
+                    &definition_ebc.ciphertext,
+                    &secret_definition,
+                    &definition_comm,
+                    0,
+                )
+                .unwrap();
+
+                let res_acc_supply = nssa_core::EncryptionScheme::decrypt(
+                    &supply_ebc.ciphertext,
+                    &secret_supply,
+                    &supply_comm,
+                    1,
+                )
+                .unwrap();
+
+                println!("Received new from acc {res_acc_definition:#?}");
+                println!("Received new to acc {res_acc_supply:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(definition_addr, res_acc_definition);
+                wallet_core
+                    .storage
+                    .insert_private_account_data(supply_addr, res_acc_supply);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
         }
         Command::TransferToken {
             sender_addr,
