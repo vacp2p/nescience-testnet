@@ -11,7 +11,7 @@ use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
 use log::info;
-use nssa::{program::Program, Account, Address};
+use nssa::{Account, Address, program::Program};
 
 use clap::{Parser, Subcommand};
 use nssa_core::Commitment;
@@ -379,7 +379,9 @@ pub enum Command {
     },
     // Check the wallet can connect to the node and builtin local programs
     // match the remote versions
-    CheckHealth { }
+    CheckHealth {},
+    // Register a public account owned by the authenticated transfer program
+    RegisterAccountForAuthenticatedTransfer {},
 }
 
 ///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
@@ -850,9 +852,14 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
 
             SubcommandReturnValue::Empty
         }
-        Command::CheckHealth {  } => {
-            let remote_program_ids = wallet_core.sequencer_client.get_program_ids().await.expect("Error fetching program ids");
-            let Some(authenticated_transfer_id) = remote_program_ids.get("authenticated_transfer") else {
+        Command::CheckHealth {} => {
+            let remote_program_ids = wallet_core
+                .sequencer_client
+                .get_program_ids()
+                .await
+                .expect("Error fetching program ids");
+            let Some(authenticated_transfer_id) = remote_program_ids.get("authenticated_transfer")
+            else {
                 panic!("Missing authenticated transfer ID from remote");
             };
             if authenticated_transfer_id != &Program::authenticated_transfer_program().id() {
@@ -872,6 +879,25 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             }
 
             println!("✅All looks good!");
+
+            SubcommandReturnValue::Empty
+        }
+        Command::RegisterAccountForAuthenticatedTransfer {} => {
+            let addr = wallet_core.create_new_account_public();
+
+            println!("Generated new account with addr {addr}");
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            let res = wallet_core
+                .register_account_under_authenticated_transfers_programs(addr)
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let _transfer_tx = wallet_core.poll_native_token_transfer(res.tx_hash).await?;
 
             SubcommandReturnValue::Empty
         }
