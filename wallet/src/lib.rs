@@ -2,25 +2,23 @@ use std::{fs::File, io::Write, path::PathBuf, str::FromStr, sync::Arc};
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use common::{
-    ExecutionFailureKind,
-    sequencer_client::{SequencerClient, json::SendTxResponse},
+    sequencer_client::SequencerClient,
     transaction::{EncodedTransaction, NSSATransaction},
 };
 
 use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
-use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use log::info;
-use nssa::{Account, Address, privacy_preserving_transaction::circuit};
+use nssa::{Account, Address};
 
 use clap::{Parser, Subcommand};
-use nssa_core::{Commitment, SharedSecretKey, account::AccountWithMetadata};
+use nssa_core::Commitment;
 
 use crate::{
     helperfunctions::{
         HumanReadableAccount, fetch_config, fetch_persistent_accounts, get_home,
-        produce_data_for_storage, produce_random_nonces,
+        produce_data_for_storage,
     },
     poller::TxPoller,
 };
@@ -32,7 +30,9 @@ pub const HOME_DIR_ENV_VAR: &str = "NSSA_WALLET_HOME_DIR";
 pub mod chain_storage;
 pub mod config;
 pub mod helperfunctions;
+pub mod pinata_interactions;
 pub mod poller;
+pub mod token_program_interactions;
 pub mod token_transfers;
 
 pub struct WalletCore {
@@ -88,275 +88,6 @@ impl WalletCore {
             .generate_new_privacy_preserving_transaction_key_chain()
     }
 
-    pub async fn claim_pinata(
-        &self,
-        pinata_addr: Address,
-        winner_addr: Address,
-        solution: u128,
-    ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let addresses = vec![pinata_addr, winner_addr];
-        let program_id = nssa::program::Program::pinata().id();
-        let message =
-            nssa::public_transaction::Message::try_new(program_id, addresses, vec![], solution)
-                .unwrap();
-
-        let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);
-        let tx = nssa::PublicTransaction::new(message, witness_set);
-
-        Ok(self.sequencer_client.send_tx_public(tx).await?)
-    }
-
-    pub async fn claim_pinata_private_owned_account(
-        &self,
-        pinata_addr: Address,
-        winner_addr: Address,
-        solution: u128,
-    ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
-        let Some((winner_keys, winner_acc)) = self
-            .storage
-            .user_data
-            .get_private_account(&winner_addr)
-            .cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
-
-        let pinata_acc = self.get_account_public(pinata_addr).await.unwrap();
-
-        let winner_npk = winner_keys.nullifer_public_key;
-        let winner_ipk = winner_keys.incoming_viewing_public_key;
-
-        let program = nssa::program::Program::pinata();
-
-        let winner_commitment = Commitment::new(&winner_npk, &winner_acc);
-
-        let pinata_pre = AccountWithMetadata::new(pinata_acc.clone(), false, pinata_addr);
-        let winner_pre = AccountWithMetadata::new(winner_acc.clone(), true, &winner_npk);
-
-        let eph_holder_winner = EphemeralKeyHolder::new(&winner_npk);
-        let shared_secret_winner = eph_holder_winner.calculate_shared_secret_sender(&winner_ipk);
-
-        let (output, proof) = circuit::execute_and_prove(
-            &[pinata_pre, winner_pre],
-            &nssa::program::Program::serialize_instruction(solution).unwrap(),
-            &[0, 1],
-            &produce_random_nonces(1),
-            &[(winner_npk.clone(), shared_secret_winner.clone())],
-            &[(
-                winner_keys.private_key_holder.nullifier_secret_key,
-                self.sequencer_client
-                    .get_proof_for_commitment(winner_commitment)
-                    .await
-                    .unwrap()
-                    .unwrap(),
-            )],
-            &program,
-        )
-        .unwrap();
-
-        let message =
-            nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
-                vec![pinata_addr],
-                vec![],
-                vec![(
-                    winner_npk.clone(),
-                    winner_ipk.clone(),
-                    eph_holder_winner.generate_ephemeral_public_key(),
-                )],
-                output,
-            )
-            .unwrap();
-
-        let witness_set =
-            nssa::privacy_preserving_transaction::witness_set::WitnessSet::for_message(
-                &message,
-                proof,
-                &[],
-            );
-        let tx = nssa::privacy_preserving_transaction::PrivacyPreservingTransaction::new(
-            message,
-            witness_set,
-        );
-
-        Ok((
-            self.sequencer_client.send_tx_private(tx).await?,
-            [shared_secret_winner],
-        ))
-    }
-
-    pub async fn send_new_token_definition(
-        &self,
-        definition_address: Address,
-        supply_address: Address,
-        name: [u8; 6],
-        total_supply: u128,
-    ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let addresses = vec![definition_address, supply_address];
-        let program_id = nssa::program::Program::token().id();
-        // Instruction must be: [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)]
-        let mut instruction = [0; 23];
-        instruction[1..17].copy_from_slice(&total_supply.to_le_bytes());
-        instruction[17..].copy_from_slice(&name);
-        let message =
-            nssa::public_transaction::Message::try_new(program_id, addresses, vec![], instruction)
-                .unwrap();
-
-        let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);
-
-        let tx = nssa::PublicTransaction::new(message, witness_set);
-
-        Ok(self.sequencer_client.send_tx_public(tx).await?)
-    }
-
-    pub async fn send_new_token_definition_private_owned(
-        &self,
-        definition_addr: Address,
-        supply_addr: Address,
-        name: [u8; 6],
-        total_supply: u128,
-    ) -> Result<(SendTxResponse, [SharedSecretKey; 2]), ExecutionFailureKind> {
-        let Some((definition_keys, definition_acc)) = self
-            .storage
-            .user_data
-            .get_private_account(&definition_addr)
-            .cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
-
-        let Some((supply_keys, supply_acc)) = self
-            .storage
-            .user_data
-            .get_private_account(&supply_addr)
-            .cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
-
-        let definition_npk = definition_keys.nullifer_public_key;
-        let definition_ipk = definition_keys.incoming_viewing_public_key;
-        let supply_npk = supply_keys.nullifer_public_key.clone();
-        let supply_ipk = supply_keys.incoming_viewing_public_key.clone();
-
-        let program = nssa::program::Program::token();
-
-        let definition_commitment = Commitment::new(&definition_npk, &definition_acc);
-        let supply_commitment = Commitment::new(&supply_npk, &supply_acc);
-
-        let definition_pre =
-            AccountWithMetadata::new(definition_acc.clone(), true, &definition_npk);
-        let supply_pre = AccountWithMetadata::new(supply_acc.clone(), true, &supply_npk);
-
-        let eph_holder_definition = EphemeralKeyHolder::new(&definition_npk);
-        let shared_secret_definition =
-            eph_holder_definition.calculate_shared_secret_sender(&definition_ipk);
-
-        let eph_holder_supply = EphemeralKeyHolder::new(&supply_npk);
-        let shared_secret_supply = eph_holder_supply.calculate_shared_secret_sender(&supply_ipk);
-
-        // Instruction must be: [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)]
-        let mut instruction = [0; 23];
-        instruction[1..17].copy_from_slice(&total_supply.to_le_bytes());
-        instruction[17..].copy_from_slice(&name);
-
-        let (output, proof) = circuit::execute_and_prove(
-            &[definition_pre, supply_pre],
-            &nssa::program::Program::serialize_instruction(instruction).unwrap(),
-            &[1, 1],
-            &produce_random_nonces(2),
-            &[
-                (definition_npk.clone(), shared_secret_definition.clone()),
-                (supply_npk.clone(), shared_secret_supply.clone()),
-            ],
-            &[
-                (
-                    definition_keys.private_key_holder.nullifier_secret_key,
-                    self.sequencer_client
-                        .get_proof_for_commitment(definition_commitment)
-                        .await
-                        .unwrap()
-                        .unwrap(),
-                ),
-                (
-                    supply_keys.private_key_holder.nullifier_secret_key,
-                    self.sequencer_client
-                        .get_proof_for_commitment(supply_commitment)
-                        .await
-                        .unwrap()
-                        .unwrap(),
-                ),
-            ],
-            &program,
-        )
-        .unwrap();
-
-        let message =
-            nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
-                vec![],
-                vec![],
-                vec![
-                    (
-                        definition_npk.clone(),
-                        definition_ipk.clone(),
-                        eph_holder_definition.generate_ephemeral_public_key(),
-                    ),
-                    (
-                        supply_npk.clone(),
-                        supply_ipk.clone(),
-                        eph_holder_supply.generate_ephemeral_public_key(),
-                    ),
-                ],
-                output,
-            )
-            .unwrap();
-
-        let witness_set =
-            nssa::privacy_preserving_transaction::witness_set::WitnessSet::for_message(
-                &message,
-                proof,
-                &[],
-            );
-        let tx = nssa::PrivacyPreservingTransaction::new(message, witness_set);
-
-        Ok((
-            self.sequencer_client.send_tx_private(tx).await?,
-            [shared_secret_definition, shared_secret_supply],
-        ))
-    }
-
-    pub async fn send_transfer_token_transaction(
-        &self,
-        sender_address: Address,
-        recipient_address: Address,
-        amount: u128,
-    ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let addresses = vec![sender_address, recipient_address];
-        let program_id = nssa::program::Program::token().id();
-        // Instruction must be: [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00].
-        let mut instruction = [0; 23];
-        instruction[0] = 0x01;
-        instruction[1..17].copy_from_slice(&amount.to_le_bytes());
-        let Ok(nonces) = self.get_accounts_nonces(vec![sender_address]).await else {
-            return Err(ExecutionFailureKind::SequencerError);
-        };
-        let message =
-            nssa::public_transaction::Message::try_new(program_id, addresses, nonces, instruction)
-                .unwrap();
-
-        let Some(signing_key) = self
-            .storage
-            .user_data
-            .get_pub_account_signing_key(&sender_address)
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
-        let witness_set =
-            nssa::public_transaction::WitnessSet::for_message(&message, &[signing_key]);
-
-        let tx = nssa::PublicTransaction::new(message, witness_set);
-
-        Ok(self.sequencer_client.send_tx_public(tx).await?)
-    }
     ///Get account balance
     pub async fn get_account_balance(&self, acc: Address) -> Result<u128> {
         Ok(self
@@ -595,6 +326,37 @@ pub enum Command {
         name: String,
         #[arg(short, long)]
         total_supply: u128,
+    },
+    //Transfer tokens using the token program
+    TransferTokenPrivateOwnedAlreadyInitialized {
+        #[arg(short, long)]
+        sender_addr: String,
+        #[arg(short, long)]
+        recipient_addr: String,
+        #[arg(short, long)]
+        balance_to_move: u128,
+    },
+    //Transfer tokens using the token program
+    TransferTokenPrivateOwnedNotInitialized {
+        #[arg(short, long)]
+        sender_addr: String,
+        #[arg(short, long)]
+        recipient_addr: String,
+        #[arg(short, long)]
+        balance_to_move: u128,
+    },
+    //Transfer tokens using the token program
+    TransferTokenPrivateForeign {
+        #[arg(short, long)]
+        sender_addr: String,
+        ///recipient_npk - valid 32 byte hex string
+        #[arg(long)]
+        recipient_npk: String,
+        ///recipient_ipk - valid 33 byte hex string
+        #[arg(long)]
+        recipient_ipk: String,
+        #[arg(short, long)]
+        balance_to_move: u128,
     },
 }
 
@@ -1053,7 +815,7 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             let definition_addr: Address = definition_addr.parse().unwrap();
             let supply_addr: Address = supply_addr.parse().unwrap();
 
-            let (res, [secret_definition, secret_supply]) = wallet_core
+            let (res, [secret_supply]) = wallet_core
                 .send_new_token_definition_private_owned(
                     definition_addr,
                     supply_addr,
@@ -1070,36 +832,21 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
                 .await?;
 
             if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                let definition_ebc = tx.message.encrypted_private_post_states[0].clone();
-                let definition_comm = tx.message.new_commitments[0].clone();
-
-                let supply_ebc = tx.message.encrypted_private_post_states[1].clone();
-                let supply_comm = tx.message.new_commitments[1].clone();
-
-                let res_acc_definition = nssa_core::EncryptionScheme::decrypt(
-                    &definition_ebc.ciphertext,
-                    &secret_definition,
-                    &definition_comm,
-                    0,
-                )
-                .unwrap();
+                let supply_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let supply_comm = tx.message.new_commitments[0].clone();
 
                 let res_acc_supply = nssa_core::EncryptionScheme::decrypt(
                     &supply_ebc.ciphertext,
                     &secret_supply,
                     &supply_comm,
-                    1,
+                    0,
                 )
                 .unwrap();
 
-                println!("Received new from acc {res_acc_definition:#?}");
                 println!("Received new to acc {res_acc_supply:#?}");
 
                 println!("Transaction data is {:?}", tx.message);
 
-                wallet_core
-                    .storage
-                    .insert_private_account_data(definition_addr, res_acc_definition);
                 wallet_core
                     .storage
                     .insert_private_account_data(supply_addr, res_acc_supply);
@@ -1124,6 +871,198 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
                 )
                 .await?;
             SubcommandReturnValue::Empty
+        }
+        Command::TransferTokenPrivateOwnedAlreadyInitialized {
+            sender_addr,
+            recipient_addr,
+            balance_to_move,
+        } => {
+            let sender_addr: Address = sender_addr.parse().unwrap();
+            let recipient_addr: Address = recipient_addr.parse().unwrap();
+
+            let (res, [secret_sender, secret_recipient]) = wallet_core
+                .send_transfer_token_transaction_private_owned_account_already_initialized(
+                    sender_addr,
+                    recipient_addr,
+                    balance_to_move,
+                )
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let sender_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let sender_comm = tx.message.new_commitments[0].clone();
+
+                let recipient_ebc = tx.message.encrypted_private_post_states[1].clone();
+                let recipient_comm = tx.message.new_commitments[1].clone();
+
+                let res_acc_sender = nssa_core::EncryptionScheme::decrypt(
+                    &sender_ebc.ciphertext,
+                    &secret_sender,
+                    &sender_comm,
+                    0,
+                )
+                .unwrap();
+
+                let res_acc_recipient = nssa_core::EncryptionScheme::decrypt(
+                    &recipient_ebc.ciphertext,
+                    &secret_recipient,
+                    &recipient_comm,
+                    1,
+                )
+                .unwrap();
+
+                println!("Received new sender acc {res_acc_sender:#?}");
+                println!("Received new recipient acc {res_acc_recipient:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(sender_addr, res_acc_sender);
+                wallet_core
+                    .storage
+                    .insert_private_account_data(recipient_addr, res_acc_recipient);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::TransferTokenPrivateOwnedNotInitialized {
+            sender_addr,
+            recipient_addr,
+            balance_to_move,
+        } => {
+            let sender_addr: Address = sender_addr.parse().unwrap();
+            let recipient_addr: Address = recipient_addr.parse().unwrap();
+
+            let (res, [secret_sender, secret_recipient]) = wallet_core
+                .send_transfer_token_transaction_private_owned_account_not_initialized(
+                    sender_addr,
+                    recipient_addr,
+                    balance_to_move,
+                )
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let sender_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let sender_comm = tx.message.new_commitments[0].clone();
+
+                let recipient_ebc = tx.message.encrypted_private_post_states[1].clone();
+                let recipient_comm = tx.message.new_commitments[1].clone();
+
+                let res_acc_sender = nssa_core::EncryptionScheme::decrypt(
+                    &sender_ebc.ciphertext,
+                    &secret_sender,
+                    &sender_comm,
+                    0,
+                )
+                .unwrap();
+
+                let res_acc_recipient = nssa_core::EncryptionScheme::decrypt(
+                    &recipient_ebc.ciphertext,
+                    &secret_recipient,
+                    &recipient_comm,
+                    1,
+                )
+                .unwrap();
+
+                println!("Received new sender acc {res_acc_sender:#?}");
+                println!("Received new recipient acc {res_acc_recipient:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(sender_addr, res_acc_sender);
+                wallet_core
+                    .storage
+                    .insert_private_account_data(recipient_addr, res_acc_recipient);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
+        }
+        Command::TransferTokenPrivateForeign {
+            sender_addr,
+            recipient_npk,
+            recipient_ipk,
+            balance_to_move,
+        } => {
+            let sender_addr: Address = sender_addr.parse().unwrap();
+            let recipient_npk_res = hex::decode(recipient_npk)?;
+            let mut recipient_npk = [0; 32];
+            recipient_npk.copy_from_slice(&recipient_npk_res);
+            let recipient_npk = nssa_core::NullifierPublicKey(recipient_npk);
+
+            let recipient_ipk_res = hex::decode(recipient_ipk)?;
+            let mut recipient_ipk = [0u8; 33];
+            recipient_ipk.copy_from_slice(&recipient_ipk_res);
+            let recipient_ipk = nssa_core::encryption::shared_key_derivation::Secp256k1Point(
+                recipient_ipk.to_vec(),
+            );
+
+            let (res, [secret_sender, _]) = wallet_core
+                .send_transfer_token_transaction_private_foreign_account(
+                    sender_addr,
+                    recipient_npk,
+                    recipient_ipk,
+                    balance_to_move,
+                )
+                .await?;
+
+            println!("Results of tx send is {res:#?}");
+
+            let tx_hash = res.tx_hash;
+            let transfer_tx = wallet_core
+                .poll_native_token_transfer(tx_hash.clone())
+                .await?;
+
+            if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
+                let sender_ebc = tx.message.encrypted_private_post_states[0].clone();
+                let sender_comm = tx.message.new_commitments[0].clone();
+
+                let res_acc_sender = nssa_core::EncryptionScheme::decrypt(
+                    &sender_ebc.ciphertext,
+                    &secret_sender,
+                    &sender_comm,
+                    0,
+                )
+                .unwrap();
+
+                println!("Received new sender acc {res_acc_sender:#?}");
+
+                println!("Transaction data is {:?}", tx.message);
+
+                wallet_core
+                    .storage
+                    .insert_private_account_data(sender_addr, res_acc_sender);
+            }
+
+            let path = wallet_core.store_persistent_accounts()?;
+
+            println!("Stored persistent accounts at {path:#?}");
+
+            SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash }
         }
         Command::ClaimPinata {
             pinata_addr,
