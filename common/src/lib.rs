@@ -3,7 +3,6 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256, digest::FixedOutput};
 
 pub mod block;
-pub mod execution_input;
 pub mod rpc_primitives;
 pub mod sequencer_client;
 pub mod transaction;
