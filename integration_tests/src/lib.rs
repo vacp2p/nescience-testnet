@@ -18,6 +18,7 @@ use sequencer_runner::startup_sequencer;
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 use wallet::{
+    Command, SubcommandReturnValue, WalletCore,
     cli::{
         chain::{ChainSubcommand, FetchSubcommand, RegisterSubcommand},
         native_token_transfer_program::{
@@ -28,9 +29,13 @@ use wallet::{
             PinataProgramSubcommand, PinataProgramSubcommandPrivate, PinataProgramSubcommandPublic,
         },
         token_program::{
-            TokenProgramSubcommand, TokenProgramSubcommandDeshielded, TokenProgramSubcommandPrivate, TokenProgramSubcommandPublic, TokenProgramSubcommandShielded
+            TokenProgramSubcommand, TokenProgramSubcommandDeshielded,
+            TokenProgramSubcommandPrivate, TokenProgramSubcommandPublic,
+            TokenProgramSubcommandShielded,
         },
-    }, config::PersistentAccountData, helperfunctions::{fetch_config, fetch_persistent_accounts}, Command, SubcommandReturnValue, WalletCore
+    },
+    config::PersistentAccountData,
+    helperfunctions::{fetch_config, fetch_persistent_accounts},
 };
 
 #[derive(Parser, Debug)]
@@ -769,26 +774,32 @@ pub async fn test_success_token_program_shielded_owned() {
     // Create new account for the token definition (public)
     let SubcommandReturnValue::RegisterAccount {
         addr: definition_addr,
-    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(RegisterSubcommand::RegisterAccountPublic {})))
-        .await
-        .unwrap()
+    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(
+        RegisterSubcommand::RegisterAccountPublic {},
+    )))
+    .await
+    .unwrap()
     else {
         panic!("invalid subcommand return value");
     };
     // Create new account for the token supply holder (private)
     let SubcommandReturnValue::RegisterAccount { addr: supply_addr } =
-        wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(RegisterSubcommand::RegisterAccountPublic {})))
-            .await
-            .unwrap()
+        wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(
+            RegisterSubcommand::RegisterAccountPublic {},
+        )))
+        .await
+        .unwrap()
     else {
         panic!("invalid subcommand return value");
     };
     // Create new account for receiving a token transaction
     let SubcommandReturnValue::RegisterAccount {
         addr: recipient_addr,
-    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(RegisterSubcommand::RegisterAccountPrivate {})))
-        .await
-        .unwrap()
+    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(
+        RegisterSubcommand::RegisterAccountPrivate {},
+    )))
+    .await
+    .unwrap()
     else {
         panic!("invalid subcommand return value");
     };
@@ -844,7 +855,9 @@ pub async fn test_success_token_program_shielded_owned() {
     tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
     let wallet_config = fetch_config().await.unwrap();
-    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config).await.unwrap();
+    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
+        .await
+        .unwrap();
 
     let new_commitment2 = wallet_storage
         .get_private_account_commitment(&recipient_addr)
@@ -868,7 +881,9 @@ pub async fn test_success_token_program_shielded_owned() {
     tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
     let wallet_config = fetch_config().await.unwrap();
-    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config).await.unwrap();
+    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
+        .await
+        .unwrap();
 
     let new_commitment2 = wallet_storage
         .get_private_account_commitment(&recipient_addr)
@@ -884,26 +899,32 @@ pub async fn test_success_token_program_deshielded_owned() {
     // Create new account for the token definition (public)
     let SubcommandReturnValue::RegisterAccount {
         addr: definition_addr,
-    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(RegisterSubcommand::RegisterAccountPublic {})))
-        .await
-        .unwrap()
+    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(
+        RegisterSubcommand::RegisterAccountPublic {},
+    )))
+    .await
+    .unwrap()
     else {
         panic!("invalid subcommand return value");
     };
     // Create new account for the token supply holder (private)
     let SubcommandReturnValue::RegisterAccount { addr: supply_addr } =
-        wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(RegisterSubcommand::RegisterAccountPrivate {})))
-            .await
-            .unwrap()
+        wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(
+            RegisterSubcommand::RegisterAccountPrivate {},
+        )))
+        .await
+        .unwrap()
     else {
         panic!("invalid subcommand return value");
     };
     // Create new account for receiving a token transaction
     let SubcommandReturnValue::RegisterAccount {
         addr: recipient_addr,
-    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(RegisterSubcommand::RegisterAccountPublic {})))
-        .await
-        .unwrap()
+    } = wallet::execute_subcommand(Command::Chain(ChainSubcommand::Register(
+        RegisterSubcommand::RegisterAccountPublic {},
+    )))
+    .await
+    .unwrap()
     else {
         panic!("invalid subcommand return value");
     };
@@ -945,7 +966,9 @@ pub async fn test_success_token_program_deshielded_owned() {
     );
 
     let wallet_config = fetch_config().await.unwrap();
-    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config).await.unwrap();
+    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
+        .await
+        .unwrap();
 
     let new_commitment1 = wallet_storage
         .get_private_account_commitment(&supply_addr)
@@ -969,7 +992,9 @@ pub async fn test_success_token_program_deshielded_owned() {
     tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
     let wallet_config = fetch_config().await.unwrap();
-    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config).await.unwrap();
+    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
+        .await
+        .unwrap();
 
     let new_commitment1 = wallet_storage
         .get_private_account_commitment(&supply_addr)
@@ -993,7 +1018,9 @@ pub async fn test_success_token_program_deshielded_owned() {
     tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
     let wallet_config = fetch_config().await.unwrap();
-    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config).await.unwrap();
+    let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
+        .await
+        .unwrap();
 
     let new_commitment1 = wallet_storage
         .get_private_account_commitment(&supply_addr)
