@@ -1410,7 +1410,7 @@ pub async fn test_program_deployment() {
     let message = nssa::program_deployment_transaction::Message::new(bytecode.clone());
     let transaction = ProgramDeploymentTransaction::new(message);
 
-    let wallet_config = fetch_config().unwrap();
+    let wallet_config = fetch_config().await.unwrap();
     let seq_client = SequencerClient::new(wallet_config.sequencer_addr.clone()).unwrap();
 
     let _response = seq_client.send_tx_program(transaction).await.unwrap();
