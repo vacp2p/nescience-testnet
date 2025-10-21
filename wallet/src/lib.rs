@@ -23,7 +23,7 @@ use tokio::io::AsyncWriteExt;
 use crate::cli::{
     WalletSubcommand, account::AccountSubcommand, chain::ChainSubcommand,
     native_token_transfer_program::NativeTokenTransferProgramSubcommand,
-    pinata_program::PinataProgramSubcommand,
+    pinata_program::PinataProgramSubcommand, stress_tests::StressTestSubcommand,
 };
 use crate::{
     cli::token_program::TokenProgramSubcommand,
@@ -209,6 +209,9 @@ pub enum Command {
     // Check the wallet can connect to the node and builtin local programs
     // match the remote versions
     CheckHealth {},
+
+    #[command(subcommand)]
+    StressTest(StressTestSubcommand),
 }
 
 ///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
@@ -305,6 +308,9 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
         }
         Command::TokenProgram(token_subcommand) => {
             token_subcommand.handle_subcommand(&mut wallet_core).await?
+        }
+        Command::StressTest(stress_test_subcommand) => {
+            stress_test_subcommand.handle_subcommand(&mut wallet_core).await?
         }
     };
 

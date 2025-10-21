@@ -27,3 +27,7 @@ path = "../nssa"
 
 [dependencies.common]
 path = "../common"
+
+[dependencies.sequencer_core]
+path = "../sequencer_core"
+

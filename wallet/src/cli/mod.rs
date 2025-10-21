@@ -7,6 +7,7 @@ pub mod chain;
 pub mod native_token_transfer_program;
 pub mod pinata_program;
 pub mod token_program;
+pub mod stress_tests;
 
 pub(crate) trait WalletSubcommand {
     async fn handle_subcommand(self, wallet_core: &mut WalletCore)
