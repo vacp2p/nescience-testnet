@@ -6,13 +6,64 @@ use nssa::{
     program::Program,
 };
 use nssa_core::{
-    Commitment, MembershipProof, NullifierPublicKey, SharedSecretKey, account::AccountWithMetadata,
-    encryption::IncomingViewingPublicKey, program::InstructionData,
+    Commitment, MembershipProof, NullifierPublicKey, NullifierSecretKey, SharedSecretKey,
+    account::AccountWithMetadata, encryption::IncomingViewingPublicKey, program::InstructionData,
 };
 
 use crate::{WalletCore, helperfunctions::produce_random_nonces};
 
+pub(crate) struct AccountPreparedData {
+    pub nsk: Option<NullifierSecretKey>,
+    pub npk: NullifierPublicKey,
+    pub ipk: IncomingViewingPublicKey,
+    pub auth_acc: AccountWithMetadata,
+    pub proof: Option<MembershipProof>,
+}
+
 impl WalletCore {
+    pub(crate) async fn private_acc_preparation(
+        &self,
+        addr: Address,
+        is_authorized: bool,
+        needs_proof: bool,
+    ) -> Result<AccountPreparedData, ExecutionFailureKind> {
+        let Some((from_keys, from_acc)) =
+            self.storage.user_data.get_private_account(&addr).cloned()
+        else {
+            return Err(ExecutionFailureKind::KeyNotFoundError);
+        };
+
+        let mut nsk = None;
+        let mut proof = None;
+
+        let from_npk = from_keys.nullifer_public_key;
+        let from_ipk = from_keys.incoming_viewing_public_key;
+
+        let sender_commitment = Commitment::new(&from_npk, &from_acc);
+
+        let sender_pre = AccountWithMetadata::new(from_acc.clone(), is_authorized, &from_npk);
+
+        if is_authorized {
+            nsk = Some(from_keys.private_key_holder.nullifier_secret_key);
+        }
+
+        if needs_proof {
+            proof = self
+                .sequencer_client
+                .get_proof_for_commitment(sender_commitment)
+                .await
+                .unwrap();
+        }
+
+        Ok(AccountPreparedData {
+            nsk,
+            npk: from_npk,
+            ipk: from_ipk,
+            auth_acc: sender_pre,
+            proof,
+        })
+    }
+
     pub(crate) async fn private_tx_two_accs_all_init(
         &self,
         from: Address,
@@ -22,28 +73,23 @@ impl WalletCore {
         program: Program,
         to_proof: MembershipProof,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 2]), ExecutionFailureKind> {
-        let Some((from_keys, from_acc)) =
-            self.storage.user_data.get_private_account(&from).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: from_nsk,
+            npk: from_npk,
+            ipk: from_ipk,
+            auth_acc: sender_pre,
+            proof: from_proof,
+        } = self.private_acc_preparation(from, true, true).await?;
 
-        let Some((to_keys, to_acc)) = self.storage.user_data.get_private_account(&to).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: to_nsk,
+            npk: to_npk,
+            ipk: to_ipk,
+            auth_acc: recipient_pre,
+            proof: _,
+        } = self.private_acc_preparation(to, true, false).await?;
 
-        tx_pre_check(&from_acc, &to_acc)?;
-
-        let from_npk = from_keys.nullifer_public_key;
-        let from_ipk = from_keys.incoming_viewing_public_key;
-        let to_npk = to_keys.nullifer_public_key.clone();
-        let to_ipk = to_keys.incoming_viewing_public_key.clone();
-
-        let sender_commitment = Commitment::new(&from_npk, &from_acc);
-
-        let sender_pre = AccountWithMetadata::new(from_acc.clone(), true, &from_npk);
-        let recipient_pre = AccountWithMetadata::new(to_acc.clone(), true, &to_npk);
+        tx_pre_check(&sender_pre.account, &recipient_pre.account)?;
 
         let eph_holder_from = EphemeralKeyHolder::new(&from_npk);
         let shared_secret_from = eph_holder_from.calculate_shared_secret_sender(&from_ipk);
@@ -61,15 +107,8 @@ impl WalletCore {
                 (to_npk.clone(), shared_secret_to.clone()),
             ],
             &[
-                (
-                    from_keys.private_key_holder.nullifier_secret_key,
-                    self.sequencer_client
-                        .get_proof_for_commitment(sender_commitment)
-                        .await
-                        .unwrap()
-                        .unwrap(),
-                ),
-                (to_keys.private_key_holder.nullifier_secret_key, to_proof),
+                (from_nsk.unwrap(), from_proof.unwrap()),
+                (to_nsk.unwrap(), to_proof),
             ],
             &program,
         )
@@ -111,28 +150,23 @@ impl WalletCore {
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 2]), ExecutionFailureKind> {
-        let Some((from_keys, from_acc)) =
-            self.storage.user_data.get_private_account(&from).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: from_nsk,
+            npk: from_npk,
+            ipk: from_ipk,
+            auth_acc: sender_pre,
+            proof: from_proof,
+        } = self.private_acc_preparation(from, true, true).await?;
 
-        let Some((to_keys, to_acc)) = self.storage.user_data.get_private_account(&to).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: _,
+            npk: to_npk,
+            ipk: to_ipk,
+            auth_acc: recipient_pre,
+            proof: _,
+        } = self.private_acc_preparation(to, false, false).await?;
 
-        tx_pre_check(&from_acc, &to_acc)?;
-
-        let from_npk = from_keys.nullifer_public_key;
-        let from_ipk = from_keys.incoming_viewing_public_key;
-        let to_npk = to_keys.nullifer_public_key.clone();
-        let to_ipk = to_keys.incoming_viewing_public_key.clone();
-
-        let sender_commitment = Commitment::new(&from_npk, &from_acc);
-
-        let sender_pre = AccountWithMetadata::new(from_acc.clone(), true, &from_npk);
-        let recipient_pre = AccountWithMetadata::new(to_acc.clone(), false, &to_npk);
+        tx_pre_check(&sender_pre.account, &recipient_pre.account)?;
 
         let eph_holder_from = EphemeralKeyHolder::new(&from_npk);
         let shared_secret_from = eph_holder_from.calculate_shared_secret_sender(&from_ipk);
@@ -149,14 +183,7 @@ impl WalletCore {
                 (from_npk.clone(), shared_secret_from.clone()),
                 (to_npk.clone(), shared_secret_to.clone()),
             ],
-            &[(
-                from_keys.private_key_holder.nullifier_secret_key,
-                self.sequencer_client
-                    .get_proof_for_commitment(sender_commitment)
-                    .await
-                    .unwrap()
-                    .unwrap(),
-            )],
+            &[(from_nsk.unwrap(), from_proof.unwrap())],
             &program,
         )
         .unwrap();
@@ -198,22 +225,17 @@ impl WalletCore {
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 2]), ExecutionFailureKind> {
-        let Some((from_keys, from_acc)) =
-            self.storage.user_data.get_private_account(&from).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: from_nsk,
+            npk: from_npk,
+            ipk: from_ipk,
+            auth_acc: sender_pre,
+            proof: from_proof,
+        } = self.private_acc_preparation(from, true, true).await?;
 
         let to_acc = nssa_core::account::Account::default();
 
-        tx_pre_check(&from_acc, &to_acc)?;
-
-        let from_npk = from_keys.nullifer_public_key;
-        let from_ipk = from_keys.incoming_viewing_public_key;
-
-        let sender_commitment = Commitment::new(&from_npk, &from_acc);
-
-        let sender_pre = AccountWithMetadata::new(from_acc.clone(), true, &from_npk);
+        tx_pre_check(&sender_pre.account, &to_acc)?;
 
         let recipient_pre = AccountWithMetadata::new(to_acc.clone(), false, &to_npk);
 
@@ -231,14 +253,7 @@ impl WalletCore {
                 (from_npk.clone(), shared_secret_from.clone()),
                 (to_npk.clone(), shared_secret_to.clone()),
             ],
-            &[(
-                from_keys.private_key_holder.nullifier_secret_key,
-                self.sequencer_client
-                    .get_proof_for_commitment(sender_commitment)
-                    .await
-                    .unwrap()
-                    .unwrap(),
-            )],
+            &[(from_nsk.unwrap(), from_proof.unwrap())],
             &program,
         )
         .unwrap();
@@ -280,43 +295,32 @@ impl WalletCore {
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
     ) -> Result<(SendTxResponse, [nssa_core::SharedSecretKey; 1]), ExecutionFailureKind> {
-        let Some((from_keys, from_acc)) =
-            self.storage.user_data.get_private_account(&from).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: from_nsk,
+            npk: from_npk,
+            ipk: from_ipk,
+            auth_acc: sender_pre,
+            proof: from_proof,
+        } = self.private_acc_preparation(from, true, true).await?;
 
         let Ok(to_acc) = self.get_account_public(to).await else {
             return Err(ExecutionFailureKind::KeyNotFoundError);
         };
 
-        tx_pre_check(&from_acc, &to_acc)?;
+        tx_pre_check(&sender_pre.account, &to_acc)?;
 
-        let npk_from = from_keys.nullifer_public_key;
-        let ipk_from = from_keys.incoming_viewing_public_key;
-
-        let sender_commitment = Commitment::new(&npk_from, &from_acc);
-
-        let sender_pre = AccountWithMetadata::new(from_acc.clone(), true, &npk_from);
         let recipient_pre = AccountWithMetadata::new(to_acc.clone(), false, to);
 
-        let eph_holder = EphemeralKeyHolder::new(&npk_from);
-        let shared_secret = eph_holder.calculate_shared_secret_sender(&ipk_from);
+        let eph_holder = EphemeralKeyHolder::new(&from_npk);
+        let shared_secret = eph_holder.calculate_shared_secret_sender(&from_ipk);
 
         let (output, proof) = circuit::execute_and_prove(
             &[sender_pre, recipient_pre],
             &instruction_data,
             &[1, 0],
             &produce_random_nonces(1),
-            &[(npk_from.clone(), shared_secret.clone())],
-            &[(
-                from_keys.private_key_holder.nullifier_secret_key,
-                self.sequencer_client
-                    .get_proof_for_commitment(sender_commitment)
-                    .await
-                    .unwrap()
-                    .unwrap(),
-            )],
+            &[(from_npk.clone(), shared_secret.clone())],
+            &[(from_nsk.unwrap(), from_proof.unwrap())],
             &program,
         )
         .unwrap();
@@ -325,8 +329,8 @@ impl WalletCore {
             vec![to],
             vec![],
             vec![(
-                npk_from.clone(),
-                ipk_from.clone(),
+                from_npk.clone(),
+                from_ipk.clone(),
                 eph_holder.generate_ephemeral_public_key(),
             )],
             output,
@@ -356,18 +360,17 @@ impl WalletCore {
             return Err(ExecutionFailureKind::KeyNotFoundError);
         };
 
-        let Some((to_keys, to_acc)) = self.storage.user_data.get_private_account(&to).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: to_nsk,
+            npk: to_npk,
+            ipk: to_ipk,
+            auth_acc: recipient_pre,
+            proof: _,
+        } = self.private_acc_preparation(to, true, false).await?;
 
-        let to_npk = to_keys.nullifer_public_key.clone();
-        let to_ipk = to_keys.incoming_viewing_public_key.clone();
-
-        tx_pre_check(&from_acc, &to_acc)?;
+        tx_pre_check(&from_acc, &recipient_pre.account)?;
 
         let sender_pre = AccountWithMetadata::new(from_acc.clone(), true, from);
-        let recipient_pre = AccountWithMetadata::new(to_acc.clone(), true, &to_npk);
 
         let eph_holder = EphemeralKeyHolder::new(&to_npk);
         let shared_secret = eph_holder.calculate_shared_secret_sender(&to_ipk);
@@ -378,7 +381,7 @@ impl WalletCore {
             &[0, 1],
             &produce_random_nonces(1),
             &[(to_npk.clone(), shared_secret.clone())],
-            &[(to_keys.private_key_holder.nullifier_secret_key, to_proof)],
+            &[(to_nsk.unwrap(), to_proof)],
             &program,
         )
         .unwrap();
@@ -423,18 +426,17 @@ impl WalletCore {
             return Err(ExecutionFailureKind::KeyNotFoundError);
         };
 
-        let Some((to_keys, to_acc)) = self.storage.user_data.get_private_account(&to).cloned()
-        else {
-            return Err(ExecutionFailureKind::KeyNotFoundError);
-        };
+        let AccountPreparedData {
+            nsk: _,
+            npk: to_npk,
+            ipk: to_ipk,
+            auth_acc: recipient_pre,
+            proof: _,
+        } = self.private_acc_preparation(to, false, false).await?;
 
-        let to_npk = to_keys.nullifer_public_key.clone();
-        let to_ipk = to_keys.incoming_viewing_public_key.clone();
-
-        tx_pre_check(&from_acc, &to_acc)?;
+        tx_pre_check(&from_acc, &recipient_pre.account)?;
 
         let sender_pre = AccountWithMetadata::new(from_acc.clone(), true, from);
-        let recipient_pre = AccountWithMetadata::new(to_acc.clone(), false, &to_npk);
 
         let eph_holder = EphemeralKeyHolder::new(&to_npk);
         let shared_secret = eph_holder.calculate_shared_secret_sender(&to_ipk);
