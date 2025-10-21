@@ -9,7 +9,7 @@ use common::{
     transaction::{EncodedTransaction, NSSATransaction},
 };
 use log::{info, warn};
-use nssa::{Address, PrivacyPreservingTransaction, program::Program};
+use nssa::{Address, PrivacyPreservingTransaction, ProgramDeploymentTransaction, program::Program};
 use nssa_core::{
     Commitment, NullifierPublicKey, encryption::shared_key_derivation::Secp256k1Point,
 };
@@ -47,15 +47,17 @@ struct Args {
     test_name: String,
 }
 
-pub const ACC_SENDER: &str = "0eee24287296ba55278f1e5403be014754866366388730303c2889be17ada065";
-pub const ACC_RECEIVER: &str = "9e3d8e654d440e95293aa2dceceb137899a59535e952f747068e7a0ee30965f2";
+pub const ACC_SENDER: &str = "d07ad2e84b27fa00c262f0a1eea0ff35ca0973547e6a106f72f193c2dc838b44";
+pub const ACC_RECEIVER: &str = "e7ae77c5ef1a05999344af499fc78a1705398d62ed06cf2e1479f6def89a39bc";
 
 pub const ACC_SENDER_PRIVATE: &str =
-    "9cb6b0035320266e430eac9d96745769e7efcf30d2b9cc21ff000b3f873dc2a8";
+    "d360d6b5763f71ac6af56253687fd7d556d5c6c64312e53c0b92ef039a4375df";
 pub const ACC_RECEIVER_PRIVATE: &str =
-    "a55f4f98d2f265c91d8a9868564242d8070b9bf7180a29363f52eb76988636fd";
+    "f27087ffc29b99035303697dcf6c8e323b1847d4261e6afd49e0d71c6dfa31ea";
 
 pub const TIME_TO_WAIT_FOR_BLOCK_SECONDS: u64 = 12;
+
+pub const NSSA_PROGRAM_FOR_TEST_DATA_CHANGER: &[u8] = include_bytes!("data_changer.bin");
 
 #[allow(clippy::type_complexity)]
 pub async fn pre_test(
@@ -1402,6 +1404,48 @@ pub async fn test_pinata() {
     info!("Success!");
 }
 
+pub async fn test_program_deployment() {
+    info!("test program deployment");
+    let bytecode = NSSA_PROGRAM_FOR_TEST_DATA_CHANGER.to_vec();
+    let message = nssa::program_deployment_transaction::Message::new(bytecode.clone());
+    let transaction = ProgramDeploymentTransaction::new(message);
+
+    let wallet_config = fetch_config().unwrap();
+    let seq_client = SequencerClient::new(wallet_config.sequencer_addr.clone()).unwrap();
+
+    let _response = seq_client.send_tx_program(transaction).await.unwrap();
+
+    info!("Waiting for next block creation");
+    tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
+
+    // The program is the data changer and takes one account as input.
+    // We pass an uninitialized account and we expect after execution to be owned by the data
+    // changer program (NSSA account claiming mechanism) with data equal to [0] (due to program logic)
+    let data_changer = Program::new(bytecode).unwrap();
+    let address: Address = "deadbeef".repeat(8).parse().unwrap();
+    let message =
+        nssa::public_transaction::Message::try_new(data_changer.id(), vec![address], vec![], ())
+            .unwrap();
+    let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);
+    let transaction = nssa::PublicTransaction::new(message, witness_set);
+    let _response = seq_client.send_tx_public(transaction).await.unwrap();
+
+    info!("Waiting for next block creation");
+    tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
+
+    let post_state_account = seq_client
+        .get_account(address.to_string())
+        .await
+        .unwrap()
+        .account;
+    assert_eq!(post_state_account.program_owner, data_changer.id());
+    assert_eq!(post_state_account.balance, 0);
+    assert_eq!(post_state_account.data, vec![0]);
+    assert_eq!(post_state_account.nonce, 0);
+
+    info!("Success!");
+}
+
 pub async fn test_authenticated_transfer_initialize_function() {
     info!("test initialize account for authenticated transfer");
     let command = Command::AuthenticatedTransferInitializePublicAccount {};
@@ -1429,6 +1473,7 @@ pub async fn test_authenticated_transfer_initialize_function() {
     assert_eq!(account.balance, expected_balance);
     assert_eq!(account.nonce, expected_nonce);
     assert!(account.data.is_empty());
+
     info!("Success!");
 }
 
@@ -1636,6 +1681,9 @@ pub async fn main_tests_runner() -> Result<()> {
         "test_pinata" => {
             test_cleanup_wrap!(home_dir, test_pinata);
         }
+        "test_program_deployment" => {
+            test_cleanup_wrap!(home_dir, test_program_deployment);
+        }
         "test_authenticated_transfer_initialize_function" => {
             test_cleanup_wrap!(home_dir, test_authenticated_transfer_initialize_function);
         }
@@ -1696,6 +1744,7 @@ pub async fn main_tests_runner() -> Result<()> {
             );
             test_cleanup_wrap!(home_dir, test_success_token_program_shielded_owned);
             test_cleanup_wrap!(home_dir, test_pinata);
+            test_cleanup_wrap!(home_dir, test_program_deployment);
             test_cleanup_wrap!(home_dir, test_authenticated_transfer_initialize_function);
             test_cleanup_wrap!(home_dir, test_pinata_private_receiver);
             test_cleanup_wrap!(home_dir, test_success_token_program_private_owned);
