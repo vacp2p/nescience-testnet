@@ -12,8 +12,9 @@ use serde_json::Value;
 
 use crate::rpc_primitives::requests::{
     GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
-    GetProgramIdsRequest, GetProgramIdsResponse, GetProofForCommitmentRequest,
-    GetProofForCommitmentResponse, GetTransactionByHashRequest, GetTransactionByHashResponse,
+    GetLastBlockRequest, GetLastBlockResponse, GetProgramIdsRequest, GetProgramIdsResponse,
+    GetProofForCommitmentRequest, GetProofForCommitmentResponse, GetTransactionByHashRequest,
+    GetTransactionByHashResponse,
 };
 use crate::sequencer_client::json::AccountInitialData;
 use crate::transaction::{EncodedTransaction, NSSATransaction};
@@ -71,6 +72,19 @@ impl SequencerClient {
         let req = serde_json::to_value(block_req)?;
 
         let resp = self.call_method_with_payload("get_block", req).await?;
+
+        let resp_deser = serde_json::from_value(resp)?;
+
+        Ok(resp_deser)
+    }
+
+    ///Get last known `blokc_id` from sequencer
+    pub async fn get_last_block(&self) -> Result<GetLastBlockResponse, SequencerClientError> {
+        let block_req = GetLastBlockRequest {};
+
+        let req = serde_json::to_value(block_req)?;
+
+        let resp = self.call_method_with_payload("get_last_block", req).await?;
 
         let resp_deser = serde_json::from_value(resp)?;
 
