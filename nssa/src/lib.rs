@@ -1,3 +1,12 @@
+#[cfg(not(feature = "no_docker"))]
+pub mod program_methods {
+    include!(concat!(env!("OUT_DIR"), "/program_methods/mod.rs"));
+}
+
+#[cfg(feature = "no_docker")]
+#[allow(clippy::single_component_path_imports)]
+use program_methods;
+
 pub mod encoding;
 pub mod error;
 mod merkle_tree;
@@ -12,6 +21,7 @@ pub use nssa_core::address::Address;
 pub use privacy_preserving_transaction::{
     PrivacyPreservingTransaction, circuit::execute_and_prove,
 };
+pub use program_methods::PRIVACY_PRESERVING_CIRCUIT_ID;
 pub use public_transaction::PublicTransaction;
 pub use signature::PrivateKey;
 pub use signature::PublicKey;
