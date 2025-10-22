@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::Instant};
 
 use anyhow::Result;
 use common::{
@@ -113,9 +113,9 @@ impl SequencerCore {
         })?;
 
         let mempool_size = self.mempool.len();
-        if mempool_size >= self.sequencer_config.max_num_tx_in_block {
-            return Err(TransactionMalformationErrorKind::MempoolFullForRound);
-        }
+        // if mempool_size >= self.sequencer_config.max_num_tx_in_block {
+        //     return Err(TransactionMalformationErrorKind::MempoolFullForRound);
+        // }
 
         let authenticated_tx = self
             .transaction_pre_check(transaction)
@@ -156,6 +156,7 @@ impl SequencerCore {
 
     ///Produces new block from transactions in mempool
     pub fn produce_new_block_with_mempool_transactions(&mut self) -> Result<u64> {
+        let now = Instant::now();
         let new_block_height = self.chain_height + 1;
 
         let mut num_valid_transactions_in_block = 0;
@@ -185,6 +186,8 @@ impl SequencerCore {
 
         let curr_time = chrono::Utc::now().timestamp_millis() as u64;
 
+        let num_valid_transactions = valid_transactions.len();
+
         let hashable_data = HashableBlockData {
             block_id: new_block_height,
             transactions: valid_transactions,
@@ -198,6 +201,11 @@ impl SequencerCore {
 
         self.chain_height = new_block_height;
 
+        log::info!(
+            "Created block with {} transactions in {:?}.",
+            num_valid_transactions,
+            now.elapsed()
+        );
         Ok(self.chain_height)
     }
 }

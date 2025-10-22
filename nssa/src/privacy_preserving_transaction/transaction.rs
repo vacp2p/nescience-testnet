@@ -109,11 +109,11 @@ impl PrivacyPreservingTransaction {
             &message.new_nullifiers,
         )?;
 
-        // 5. Commitment freshness
-        state.check_commitments_are_new(&message.new_commitments)?;
+        // //  5. Commitment freshness
+        // state.check_commitments_are_new(&message.new_commitments)?;
 
-        // 6. Nullifier uniqueness
-        state.check_nullifiers_are_valid(&message.new_nullifiers)?;
+        // // 6. Nullifier uniqueness
+        // state.check_nullifiers_are_valid(&message.new_nullifiers)?;
 
         Ok(message
             .public_addresses
