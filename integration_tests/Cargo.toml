@@ -37,3 +37,6 @@ path = "../common"
 [dependencies.nssa]
 path = "../nssa"
 features = ["no_docker"]
+
+[dependencies.key_protocol]
+path = "../key_protocol"

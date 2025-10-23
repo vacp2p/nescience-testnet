@@ -103,7 +103,7 @@ impl SequencerCore {
         })?;
 
         let mempool_size = self.mempool.len();
-        if mempool_size >= self.sequencer_config.max_num_tx_in_block {
+        if mempool_size >= self.sequencer_config.mempool_max_size {
             return Err(TransactionMalformationError::MempoolFullForRound);
         }
 
@@ -218,6 +218,7 @@ mod tests {
             genesis_id: 1,
             is_genesis_random: false,
             max_num_tx_in_block: 10,
+            mempool_max_size: 10000,
             block_create_timeout_millis: 1000,
             port: 8080,
             initial_accounts,
@@ -511,7 +512,7 @@ mod tests {
     #[test]
     fn test_push_tx_into_mempool_fails_mempool_full() {
         let config = SequencerConfig {
-            max_num_tx_in_block: 1,
+            mempool_max_size: 1,
             ..setup_sequencer_config()
         };
         let mut sequencer = SequencerCore::start_from_config(config);

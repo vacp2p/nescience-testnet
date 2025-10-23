@@ -357,6 +357,7 @@ mod tests {
             genesis_id: 1,
             is_genesis_random: false,
             max_num_tx_in_block: 10,
+            mempool_max_size: 1000,
             block_create_timeout_millis: 1000,
             port: 8080,
             initial_accounts,

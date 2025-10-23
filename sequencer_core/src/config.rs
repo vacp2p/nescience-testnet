@@ -28,6 +28,8 @@ pub struct SequencerConfig {
     pub is_genesis_random: bool,
     ///Maximum number of transactions in block
     pub max_num_tx_in_block: usize,
+    ///Mempool maximum size
+    pub mempool_max_size: usize,
     ///Interval in which blocks produced
     pub block_create_timeout_millis: u64,
     ///Port to listen

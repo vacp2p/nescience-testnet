@@ -1,5 +1,8 @@
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use actix_web::dev::ServerHandle;
 use anyhow::Result;
@@ -37,6 +40,10 @@ use wallet::{
     config::PersistentAccountData,
     helperfunctions::{fetch_config, fetch_persistent_accounts},
 };
+
+use crate::tps_test_utils::TpsTestManager;
+
+mod tps_test_utils;
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -81,6 +88,26 @@ pub async fn pre_test(
     ))
 }
 
+#[allow(clippy::type_complexity)]
+async fn pre_tps_test(
+    test: &TpsTestManager,
+) -> Result<(ServerHandle, JoinHandle<Result<()>>, TempDir)> {
+    info!("Generating tps test config");
+    let mut sequencer_config = test.generate_tps_test_config();
+    info!("Done");
+
+    let temp_dir_sequencer = replace_home_dir_with_temp_dir_in_configs(&mut sequencer_config);
+
+    let (seq_http_server_handle, sequencer_loop_handle) =
+        startup_sequencer(sequencer_config).await?;
+
+    Ok((
+        seq_http_server_handle,
+        sequencer_loop_handle,
+        temp_dir_sequencer,
+    ))
+}
+
 pub fn replace_home_dir_with_temp_dir_in_configs(
     sequencer_config: &mut SequencerConfig,
 ) -> TempDir {
@@ -110,6 +137,63 @@ pub async fn post_test(residual: (ServerHandle, JoinHandle<Result<()>>, TempDir)
 
     //At this point all of the references to sequencer_core must be lost.
     //So they are dropped and tempdirs will be dropped too,
+}
+
+pub async fn tps_test() {
+    let num_transactions = 300 * 5;
+    let target_tps = 12;
+    let tps_test = TpsTestManager::new(target_tps, num_transactions);
+    let target_time = tps_test.target_time();
+    info!("Target time: {:?} seconds", target_time.as_secs());
+    let res = pre_tps_test(&tps_test).await.unwrap();
+
+    let wallet_config = fetch_config().await.unwrap();
+    let seq_client = SequencerClient::new(wallet_config.sequencer_addr.clone()).unwrap();
+
+    info!("TPS test begin");
+    let txs = tps_test.build_public_txs();
+    let now = Instant::now();
+
+    let mut tx_hashes = vec![];
+    for (i, tx) in txs.into_iter().enumerate() {
+        let tx_hash = seq_client.send_tx_public(tx).await.unwrap().tx_hash;
+        info!("Sent tx {i}");
+        tx_hashes.push(tx_hash);
+    }
+
+    for (i, tx_hash) in tx_hashes.iter().enumerate() {
+        loop {
+            if now.elapsed().as_millis() > target_time.as_millis() {
+                panic!("TPS test failed by timout");
+            }
+
+            let tx_obj = seq_client
+                .get_transaction_by_hash(tx_hash.clone())
+                .await
+                .inspect_err(|err| {
+                    warn!("Failed to get transaction by hash {tx_hash:#?} with error: {err:#?}")
+                });
+
+            if let Ok(tx_obj) = tx_obj
+                && tx_obj.transaction.is_some()
+            {
+                info!("Found tx {i} with hash {tx_hash}");
+                break;
+            }
+        }
+    }
+    let time_elapsed = now.elapsed().as_secs();
+
+    info!("TPS test finished successfully");
+    info!("Target TPS: {}", target_tps);
+    info!(
+        "Processed {} transactions in {}s",
+        tx_hashes.len(),
+        time_elapsed
+    );
+    info!("Target time: {:?}s", target_time.as_secs());
+
+    post_test(res).await;
 }
 
 pub async fn test_success() {
@@ -1624,6 +1708,9 @@ pub async fn main_tests_runner() -> Result<()> {
     } = args;
 
     match test_name.as_str() {
+        "tps_test" => {
+            tps_test().await;
+        }
         "test_success_token_program" => {
             test_cleanup_wrap!(home_dir, test_success_token_program);
         }
