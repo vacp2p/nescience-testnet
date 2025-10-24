@@ -6,7 +6,7 @@ use tokio::io::AsyncReadExt;
 
 use anyhow::Result;
 use key_protocol::key_protocol_core::NSSAUserData;
-use nssa::Account;
+use nssa::{Account, Address};
 use serde::Serialize;
 
 use crate::{
@@ -86,6 +86,30 @@ pub(crate) fn produce_random_nonces(size: usize) -> Vec<Nonce> {
     result.into_iter().map(Nonce::from_le_bytes).collect()
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddressPrivacyKind {
+    Public,
+    Private,
+}
+
+pub(crate) fn parse_addr_with_privacy_prefix(
+    addr_base58: &str,
+) -> Result<(Address, AddressPrivacyKind)> {
+    if addr_base58.starts_with("Public/") {
+        Ok((
+            addr_base58.strip_prefix("Public/").unwrap().parse()?,
+            AddressPrivacyKind::Public,
+        ))
+    } else if addr_base58.starts_with("Private/") {
+        Ok((
+            addr_base58.strip_prefix("Private/").unwrap().parse()?,
+            AddressPrivacyKind::Private,
+        ))
+    } else {
+        anyhow::bail!("Unsupported privacy kind, available variants is Public/ and Private/");
+    }
+}
+
 /// Human-readable representation of an account.
 #[derive(Serialize)]
 pub(crate) struct HumanReadableAccount {
@@ -125,5 +149,21 @@ mod tests {
         unsafe {
             std::env::remove_var(HOME_DIR_ENV_VAR);
         }
+    }
+
+    #[test]
+    fn test_addr_parse_with_privacy() {
+        let addr_base58 = "Public/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
+        let (_, addr_kind) = parse_addr_with_privacy_prefix(addr_base58).unwrap();
+
+        assert_eq!(addr_kind, AddressPrivacyKind::Public);
+
+        let addr_base58 = "Private/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
+        let (_, addr_kind) = parse_addr_with_privacy_prefix(addr_base58).unwrap();
+
+        assert_eq!(addr_kind, AddressPrivacyKind::Private);
+
+        let addr_base58 = "asdsada/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
+        assert!(parse_addr_with_privacy_prefix(addr_base58).is_err());
     }
 }
