@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::block_store::SequecerBlockStore;
 
-pub mod config;
 pub mod block_store;
+pub mod config;
 
 pub struct SequencerCore {
     pub state: nssa::V02State,
@@ -97,13 +97,17 @@ impl SequencerCore {
         this
     }
 
+    /// If there are stored blocks ahead of the current height, this method will load and process all transaction
+    /// in them in the order they are stored. The NSSA state will be updated accordingly.
     fn sync_state_with_stored_blocks(&mut self) {
         let mut next_block_id = self.sequencer_config.genesis_id + 1;
         while let Ok(block) = self.block_store.get_block_at_id(next_block_id) {
             for encoded_transaction in block.body.transactions {
                 let transaction = NSSATransaction::try_from(&encoded_transaction).unwrap();
+                // Process transaction and update state
                 self.execute_check_transaction_on_state(transaction)
                     .unwrap();
+                // Update the tx hash to block id map.
                 self.block_store
                     .tx_hash_to_block_map
                     .insert(encoded_transaction.hash(), next_block_id);
@@ -236,6 +240,7 @@ impl SequencerCore {
 #[cfg(test)]
 mod tests {
     use common::test_utils::sequencer_sign_key_for_testing;
+    use nssa::PrivateKey;
 
     use crate::config::AccountInitialData;
 
@@ -678,5 +683,67 @@ mod tests {
             .get_block_at_id(current_height)
             .unwrap();
         assert!(block.body.transactions.is_empty());
+    }
+
+    #[test]
+    fn test_restart_from_storage() {
+        let config = setup_sequencer_config();
+        let acc1_addr = hex::decode(config.initial_accounts[0].addr.clone())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let acc2_addr = hex::decode(config.initial_accounts[1].addr.clone())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let balance_to_move = 13;
+
+        // In the following code block a transaction will be processed that moves `balance_to_move`
+        // from `acc_1` to `acc_2`. The block created with that transaction will be kept stored in
+        // the temporary directory for the block storage of this test.
+        {
+            let mut sequencer = SequencerCore::start_from_config(config.clone());
+            let signing_key = PrivateKey::try_new([1; 32]).unwrap();
+
+            let tx = common::test_utils::create_transaction_native_token_transfer(
+                acc1_addr,
+                0,
+                acc2_addr,
+                balance_to_move,
+                signing_key,
+            );
+
+            sequencer.mempool.push_item(tx.clone());
+            let current_height = sequencer
+                .produce_new_block_with_mempool_transactions()
+                .unwrap();
+            let block = sequencer
+                .block_store
+                .get_block_at_id(current_height)
+                .unwrap();
+            assert_eq!(block.body.transactions, vec![tx.clone()]);
+        }
+
+        // Instantiating a new sequencer from the same config. This should load the existing block
+        // with the above transaction and update the state to reflect that.
+        let sequencer = SequencerCore::start_from_config(config.clone());
+        let balance_acc_1 = sequencer
+            .state
+            .get_account_by_address(&nssa::Address::new(acc1_addr))
+            .balance;
+        let balance_acc_2 = sequencer
+            .state
+            .get_account_by_address(&nssa::Address::new(acc2_addr))
+            .balance;
+
+        // Balances should be consistent with the stored block
+        assert_eq!(
+            balance_acc_1,
+            config.initial_accounts[0].balance - balance_to_move
+        );
+        assert_eq!(
+            balance_acc_2,
+            config.initial_accounts[1].balance + balance_to_move
+        );
     }
 }

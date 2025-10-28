@@ -103,9 +103,7 @@ impl JsonHandler {
         let block = {
             let state = self.sequencer_state.lock().await;
 
-            state
-                .block_store
-                .get_block_at_id(get_block_req.block_id)?
+            state.block_store.get_block_at_id(get_block_req.block_id)?
         };
 
         let helperstruct = GetBlockDataResponse {
