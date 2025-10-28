@@ -3,7 +3,7 @@ extern crate proc_macro;
 use proc_macro::*;
 
 #[proc_macro_attribute]
-pub fn test_suite_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn nssa_integration_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = item.to_string();
 
     let fn_keyword = "fn ";

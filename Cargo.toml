@@ -11,7 +11,7 @@ members = [
   "sequencer_core",
   "common",
   "nssa",
-  "proc_macro_test_attribute",
+  "integration_tests/proc_macro_test_attribute",
 ]
 
 [workspace.dependencies]

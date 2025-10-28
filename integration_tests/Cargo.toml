@@ -17,7 +17,7 @@ borsh.workspace = true
 
 nssa-core = { path = "../nssa/core", features = ["host"] }
 
-proc_macro_test_attribute = { path = "../proc_macro_test_attribute" }
+proc_macro_test_attribute = { path = "./proc_macro_test_attribute" }
 
 [dependencies.clap]
 features = ["derive", "env"]
