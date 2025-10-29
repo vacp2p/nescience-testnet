@@ -263,6 +263,7 @@ pub mod tests {
         Commitment, Nullifier, NullifierPublicKey, NullifierSecretKey, SharedSecretKey,
         account::{Account, AccountId, AccountWithMetadata, Nonce},
         encryption::{EphemeralPublicKey, IncomingViewingPublicKey, Scalar},
+        program::ProgramId,
     };
 
     fn transfer_transaction(
@@ -475,6 +476,7 @@ pub mod tests {
             self.insert_program(Program::data_changer());
             self.insert_program(Program::minter());
             self.insert_program(Program::burner());
+            self.insert_program(Program::chain_caller());
             self
         }
 
@@ -2044,5 +2046,39 @@ pub mod tests {
         );
 
         assert!(matches!(result, Err(NssaError::CircuitProvingError(_))));
+    }
+
+    #[test]
+    fn test_chained_call() {
+        let program = Program::chain_caller();
+        let key = PrivateKey::try_new([1; 32]).unwrap();
+        let address = Address::from(&PublicKey::new_from_private_key(&key));
+        let initial_balance = 100;
+        let initial_data = [(address, initial_balance)];
+        let mut state =
+            V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
+        let from = address;
+        let from_key = key;
+        let to = Address::new([2; 32]);
+        let amount: u128 = 37;
+        let instruction: (u128, ProgramId) =
+            (amount, Program::authenticated_transfer_program().id());
+
+        let message = public_transaction::Message::try_new(
+            program.id(),
+            vec![to, from],
+            vec![0],
+            instruction,
+        )
+        .unwrap();
+        let witness_set = public_transaction::WitnessSet::for_message(&message, &[&from_key]);
+        let tx = PublicTransaction::new(message, witness_set);
+
+        state.transition_from_public_transaction(&tx).unwrap();
+
+        let from_post = state.get_account_by_address(&from);
+        let to_post = state.get_account_by_address(&to);
+        assert_eq!(from_post.balance, initial_balance - amount);
+        assert_eq!(to_post.balance, amount);
     }
 }

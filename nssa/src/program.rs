@@ -1,6 +1,6 @@
 use crate::program_methods::{AUTHENTICATED_TRANSFER_ELF, PINATA_ELF, TOKEN_ELF};
 use nssa_core::{
-    account::{Account, AccountWithMetadata},
+    account::AccountWithMetadata,
     program::{InstructionData, ProgramId, ProgramOutput},
 };
 
@@ -107,11 +107,11 @@ impl Program {
 
 #[cfg(test)]
 mod tests {
-    use nssa_core::account::{Account, AccountId, AccountWithMetadata};
-    use program_methods::{
+    use crate::program_methods::{
         AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID, PINATA_ELF, PINATA_ID, TOKEN_ELF,
         TOKEN_ID,
     };
+    use nssa_core::account::{Account, AccountId, AccountWithMetadata};
 
     use crate::program::Program;
 
@@ -193,6 +193,15 @@ mod tests {
             Program {
                 id: BURNER_ID,
                 elf: BURNER_ELF.to_vec(),
+            }
+        }
+
+        pub fn chain_caller() -> Self {
+            use test_program_methods::{CHAIN_CALLER_ELF, CHAIN_CALLER_ID};
+
+            Program {
+                id: CHAIN_CALLER_ID,
+                elf: CHAIN_CALLER_ELF.to_vec(),
             }
         }
     }

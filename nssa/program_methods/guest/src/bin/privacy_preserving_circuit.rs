@@ -30,9 +30,9 @@ fn main() {
         chained_call,
     } = program_output;
 
-    // TODO: implement tail calls for privacy preserving transactions
+    // TODO: implement chained calls for privacy preserving transactions
     if chained_call.is_some() {
-        panic!("Privacy preserving transactions do not support yet tail calls.")
+        panic!("Privacy preserving transactions do not support yet chained calls.")
     }
 
     // Check that there are no repeated account ids

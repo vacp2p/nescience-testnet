@@ -25,7 +25,7 @@ pub struct ChainedCall {
 pub struct ProgramOutput {
     pub pre_states: Vec<AccountWithMetadata>,
     pub post_states: Vec<Account>,
-    pub chained_call: Option<ChainedCall>
+    pub chained_call: Option<ChainedCall>,
 }
 
 pub fn read_nssa_inputs<T: DeserializeOwned>() -> ProgramInput<T> {
@@ -42,7 +42,20 @@ pub fn write_nssa_outputs(pre_states: Vec<AccountWithMetadata>, post_states: Vec
     let output = ProgramOutput {
         pre_states,
         post_states,
-        chained_call: None
+        chained_call: None,
+    };
+    env::commit(&output);
+}
+
+pub fn write_nssa_outputs_with_chained_call(
+    pre_states: Vec<AccountWithMetadata>,
+    post_states: Vec<Account>,
+    chained_call: Option<ChainedCall>,
+) {
+    let output = ProgramOutput {
+        pre_states,
+        post_states,
+        chained_call,
     };
     env::commit(&output);
 }

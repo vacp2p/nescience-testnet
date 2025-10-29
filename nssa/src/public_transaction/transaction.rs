@@ -114,7 +114,7 @@ impl PublicTransaction {
             account_indices: (0..pre_states.len()).collect(),
         };
 
-        for _ in 0..MAX_NUMBER_CHAINED_CALLS {
+        for _i in 0..MAX_NUMBER_CHAINED_CALLS {
             // Check the `program_id` corresponds to a deployed program
             let Some(program) = state.programs().get(&chained_call.program_id) else {
                 return Err(NssaError::InvalidInput("Unknown program".into()));
@@ -139,7 +139,7 @@ impl PublicTransaction {
             if validate_execution(
                 &program_output.pre_states,
                 &program_output.post_states,
-                message.program_id,
+                chained_call.program_id,
             ) {
                 for (pre, post) in program_output
                     .pre_states
