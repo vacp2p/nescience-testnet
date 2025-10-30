@@ -1,10 +1,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use nssa_core::account::Nonce;
 use rand::{RngCore, rngs::OsRng};
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{path::PathBuf, str::FromStr};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use anyhow::Result;
@@ -20,18 +17,29 @@ use crate::{
 };
 
 /// Get home dir for wallet. Env var `NSSA_WALLET_HOME_DIR` must be set before execution to succeed.
-pub fn get_home() -> Result<PathBuf> {
+pub fn get_home_nssa_var() -> Result<PathBuf> {
     Ok(PathBuf::from_str(&std::env::var(HOME_DIR_ENV_VAR)?)?)
 }
 
-pub fn get_home_default_path_linux() -> PathBuf {
-    let home = std::env::var("HOME").unwrap();
-    Path::new(&home).join(".nssa").join("wallet")
+/// Get home dir for wallet. Env var `HOME` must be set before execution to succeed.
+pub fn get_home_default_path() -> Result<PathBuf> {
+    std::env::home_dir()
+        .map(|path| path.join(".nssa").join("wallet"))
+        .ok_or(anyhow::anyhow!("Failed to get HOME"))
 }
 
-/// Fetch config from `NSSA_WALLET_HOME_DIR`
-pub async fn fetch_config_default_path_linux() -> Result<WalletConfig> {
-    let config_home = get_home_default_path_linux();
+/// Get home dir for wallet.
+pub fn get_home() -> Result<PathBuf> {
+    if let Ok(home) = get_home_nssa_var() {
+        Ok(home)
+    } else {
+        get_home_default_path()
+    }
+}
+
+/// Fetch config from default home
+pub async fn fetch_config() -> Result<WalletConfig> {
+    let config_home = get_home()?;
     let mut config_needs_setup = false;
 
     let config = match tokio::fs::OpenOptions::new()
@@ -79,15 +87,7 @@ pub async fn fetch_config_default_path_linux() -> Result<WalletConfig> {
     Ok(config)
 }
 
-/// Fetch config from `NSSA_WALLET_HOME_DIR`
-pub async fn fetch_config() -> Result<WalletConfig> {
-    let config_home = get_home()?;
-    let config_contents = tokio::fs::read(config_home.join("wallet_config.json")).await?;
-
-    Ok(serde_json::from_slice(&config_contents)?)
-}
-
-/// Fetch data stored at `NSSA_WALLET_HOME_DIR/storage.json`
+/// Fetch data stored at home
 ///
 /// If file not present, it is considered as empty list of persistent accounts
 pub async fn fetch_persistent_storage() -> Result<PersistentStorage> {
