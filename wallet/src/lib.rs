@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use common::{
@@ -10,14 +10,21 @@ use common::{
 use anyhow::Result;
 use chain_storage::WalletChainStore;
 use config::WalletConfig;
+use key_protocol::key_management::{
+    ephemeral_key_holder::EphemeralKeyHolder, secret_holders::IncomingViewingSecretKey,
+};
 use log::info;
 use nssa::{
-    Account, Address, privacy_preserving_transaction::message::EncryptedAccountData,
+    Account, Address,
+    privacy_preserving_transaction::{circuit, message::EncryptedAccountData},
     program::Program,
 };
 
 use clap::{Parser, Subcommand};
-use nssa_core::{Commitment, MembershipProof};
+use nssa_core::{
+    Commitment, MembershipProof, NullifierPublicKey, account::AccountWithMetadata,
+    encryption::IncomingViewingPublicKey,
+};
 use tokio::io::AsyncWriteExt;
 
 use crate::{
@@ -28,7 +35,7 @@ use crate::{
         token_program::TokenProgramAgnosticSubcommand,
     },
     config::PersistentStorage,
-    helperfunctions::fetch_persistent_storage,
+    helperfunctions::{fetch_persistent_storage, produce_random_nonces},
 };
 use crate::{
     helperfunctions::{fetch_config, get_home, produce_data_for_storage},
@@ -216,6 +223,7 @@ pub enum Command {
     /// Check the wallet can connect to the node and builtin local programs
     /// match the remote versions
     CheckHealth {},
+    BenchPrivateTransaction,
 }
 
 ///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
@@ -299,6 +307,74 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
         }
         Command::Token(token_subcommand) => {
             token_subcommand.handle_subcommand(&mut wallet_core).await?
+        }
+        Command::BenchPrivateTransaction => {
+            println!("Generating proof for a private transaction...");
+            let now = Instant::now();
+            let program = Program::authenticated_transfer_program();
+            let from_nsk = [1; 32];
+            let from_npk = NullifierPublicKey::from(&from_nsk);
+            let from_isk = IncomingViewingSecretKey::from([11; 32]);
+            let from_ipk = IncomingViewingPublicKey::from_scalar(from_isk);
+            let sender_pre = AccountWithMetadata::new(
+                Account {
+                    program_owner: program.id(),
+                    balance: 10,
+                    data: vec![],
+                    nonce: 1,
+                },
+                true,
+                Address::from(&from_npk),
+            );
+
+            let to_nsk = [2; 32];
+            let to_npk = NullifierPublicKey::from(&to_nsk);
+            let to_isk = IncomingViewingSecretKey::from([22; 32]);
+            let to_ipk = IncomingViewingPublicKey::from_scalar(to_isk);
+            let recipient_pre = AccountWithMetadata::new(
+                Account {
+                    program_owner: program.id(),
+                    balance: 10,
+                    data: vec![],
+                    nonce: 1,
+                },
+                true,
+                Address::from(&to_npk),
+            );
+
+            let instruction: u128 = 5;
+
+            let eph_holder_from = EphemeralKeyHolder::new(&from_npk);
+            let shared_secret_from = eph_holder_from.calculate_shared_secret_sender(&from_ipk);
+            let eph_holder_to = EphemeralKeyHolder::new(&to_npk);
+            let shared_secret_to = eph_holder_to.calculate_shared_secret_sender(&to_ipk);
+
+            let from_membership_proof: MembershipProof = (1, (0..16).map(|i| [i; 32]).collect());
+            let to_membership_proof: MembershipProof = (2, (0..16).map(|i| [i; 32]).collect());
+
+            let (_output, _proof) = circuit::execute_and_prove(
+                &[sender_pre, recipient_pre],
+                &Program::serialize_instruction(instruction).unwrap(),
+                &[1, 1],
+                &produce_random_nonces(2),
+                &[
+                    (from_npk.clone(), shared_secret_from.clone()),
+                    (to_npk.clone(), shared_secret_to.clone()),
+                ],
+                &[
+                    (from_nsk, from_membership_proof),
+                    (to_nsk, to_membership_proof),
+                ],
+                &program,
+            )
+            .unwrap();
+
+            println!(
+                "Proof generation time: {:.2} minutes",
+                now.elapsed().as_secs_f64() / 60.0
+            );
+
+            SubcommandReturnValue::Empty
         }
     };
 

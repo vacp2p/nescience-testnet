@@ -4,7 +4,7 @@ use nssa_core::{
     account::AccountWithMetadata,
     program::{InstructionData, ProgramOutput},
 };
-use risc0_zkvm::{ExecutorEnv, InnerReceipt, Receipt, default_prover};
+use risc0_zkvm::{ExecutorEnv, InnerReceipt, ProverOpts, Receipt, default_prover};
 
 use crate::{error::NssaError, program::Program};
 
@@ -47,9 +47,17 @@ pub fn execute_and_prove(
     env_builder.write(&circuit_input).unwrap();
     let env = env_builder.build().unwrap();
     let prover = default_prover();
-    let prove_info = prover
-        .prove(env, PRIVACY_PRESERVING_CIRCUIT_ELF)
-        .map_err(|e| NssaError::CircuitProvingError(e.to_string()))?;
+
+    let prove_info = if std::env::var("NSSA_GROTH16").is_ok() {
+        let opts = ProverOpts::groth16();
+        prover
+            .prove_with_opts(env, PRIVACY_PRESERVING_CIRCUIT_ELF, &opts)
+            .map_err(|e| NssaError::CircuitProvingError(e.to_string()))?
+    } else {
+        prover
+            .prove(env, PRIVACY_PRESERVING_CIRCUIT_ELF)
+            .map_err(|e| NssaError::CircuitProvingError(e.to_string()))?
+    };
 
     let proof = Proof(borsh::to_vec(&prove_info.receipt.inner)?);
 
