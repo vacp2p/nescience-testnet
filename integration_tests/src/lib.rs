@@ -125,6 +125,10 @@ pub async fn main_tests_runner() -> Result<()> {
             // Run TPS test with its own specific config
             tps_test().await;
         }
+        "tps_test" => {
+            // Run TPS test with its own specific config
+            tps_test().await;
+        }
         _ => {
             let fn_pointer = function_map.get(&test_name).expect("Unknown test name");
 
