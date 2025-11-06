@@ -3,17 +3,12 @@ use std::collections::HashSet;
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
-    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme,
-    Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
-    account::{Account, AccountId, AccountWithMetadata},
-    compute_digest_for_path,
-    encryption::Ciphertext,
-    program::{DEFAULT_PROGRAM_ID, ProgramOutput, validate_execution},
+    account::{Account, AccountId, AccountWithMetadata}, compute_digest_for_path, encryption::Ciphertext, program::{validate_execution, ProgramId, ProgramOutput, DEFAULT_PROGRAM_ID}, Commitment, CommitmentSetDigest, EncryptionScheme, Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput, DUMMY_COMMITMENT_HASH
 };
 
 fn main() {
     let PrivacyPreservingCircuitInput {
-        program_output,
+        program_outputs,
         visibility_mask,
         private_account_nonces,
         private_account_keys,
@@ -21,9 +16,43 @@ fn main() {
         program_id,
     } = env::read();
 
-    // Check that `program_output` is consistent with the execution of the corresponding program.
-    env::verify(program_id, &to_vec(&program_output).unwrap()).unwrap();
+    // These lists will be the public outputs of this circuit
+    // and will be populated next.
+    let mut public_pre_states: Vec<AccountWithMetadata> = Vec::new();
+    let mut public_post_states: Vec<Account> = Vec::new();
+    let mut ciphertexts: Vec<Ciphertext> = Vec::new();
+    let mut new_commitments: Vec<Commitment> = Vec::new();
+    let mut new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)> = Vec::new();
 
+    for program_output in program_outputs.iter() {
+        // Check that `program_output` is consistent with the execution of the corresponding program.
+        env::verify(program_id, &to_vec(program_output).unwrap()).unwrap();
+    }
+
+    if private_nonces_iter.next().is_some() {
+        panic!("Too many nonces.");
+    }
+
+    if private_keys_iter.next().is_some() {
+        panic!("Too many private account keys.");
+    }
+
+    if private_auth_iter.next().is_some() {
+        panic!("Too many private account authentication keys.");
+    }
+
+    let output = PrivacyPreservingCircuitOutput {
+        public_pre_states,
+        public_post_states,
+        ciphertexts,
+        new_commitments,
+        new_nullifiers,
+    };
+
+    env::commit(&output);
+}
+
+fn validate_program_execution(program_output: &ProgramOutput, program_id: ProgramId) {
     let ProgramOutput {
         pre_states,
         post_states,
@@ -50,14 +79,6 @@ fn main() {
     if visibility_mask.len() != n_accounts {
         panic!("Invalid visibility mask length");
     }
-
-    // These lists will be the public outputs of this circuit
-    // and will be populated next.
-    let mut public_pre_states: Vec<AccountWithMetadata> = Vec::new();
-    let mut public_post_states: Vec<Account> = Vec::new();
-    let mut ciphertexts: Vec<Ciphertext> = Vec::new();
-    let mut new_commitments: Vec<Commitment> = Vec::new();
-    let mut new_nullifiers: Vec<(Nullifier, CommitmentSetDigest)> = Vec::new();
 
     let mut private_nonces_iter = private_account_nonces.iter();
     let mut private_keys_iter = private_account_keys.iter();
@@ -152,28 +173,6 @@ fn main() {
             _ => panic!("Invalid visibility mask value"),
         }
     }
-
-    if private_nonces_iter.next().is_some() {
-        panic!("Too many nonces.");
-    }
-
-    if private_keys_iter.next().is_some() {
-        panic!("Too many private account keys.");
-    }
-
-    if private_auth_iter.next().is_some() {
-        panic!("Too many private account authentication keys.");
-    }
-
-    let output = PrivacyPreservingCircuitOutput {
-        public_pre_states,
-        public_post_states,
-        ciphertexts,
-        new_commitments,
-        new_nullifiers,
-    };
-
-    env::commit(&output);
 }
 
 fn validate_uniqueness_of_account_ids(pre_states: &[AccountWithMetadata]) -> bool {

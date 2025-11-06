@@ -10,6 +10,8 @@ use nssa_core::{
 };
 use std::collections::{HashMap, HashSet};
 
+pub const MAX_NUMBER_CHAINED_CALLS: usize = 10;
+
 pub(crate) struct CommitmentSet {
     merkle_tree: MerkleTree,
     commitments: HashMap<Commitment, usize>,

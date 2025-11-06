@@ -6,7 +6,7 @@ use nssa_core::{
 };
 use risc0_zkvm::{ExecutorEnv, InnerReceipt, Receipt, default_prover};
 
-use crate::{error::NssaError, program::Program};
+use crate::{error::NssaError, program::Program, state::MAX_NUMBER_CHAINED_CALLS};
 
 use crate::program_methods::{PRIVACY_PRESERVING_CIRCUIT_ELF, PRIVACY_PRESERVING_CIRCUIT_ID};
 
@@ -25,15 +25,29 @@ pub fn execute_and_prove(
     private_account_auth: &[(NullifierSecretKey, MembershipProof)],
     program: &Program,
 ) -> Result<(PrivacyPreservingCircuitOutput, Proof), NssaError> {
-    let inner_receipt = execute_and_prove_program(program, pre_states, instruction_data)?;
+    let mut env_builder = ExecutorEnv::builder();
+    let mut program_outputs = Vec::new();
+    for _i in 0..MAX_NUMBER_CHAINED_CALLS {
+        let inner_receipt = execute_and_prove_program(program, pre_states, instruction_data)?;
 
-    let program_output: ProgramOutput = inner_receipt
-        .journal
-        .decode()
-        .map_err(|e| NssaError::ProgramOutputDeserializationError(e.to_string()))?;
+        let program_output: ProgramOutput = inner_receipt
+            .journal
+            .decode()
+            .map_err(|e| NssaError::ProgramOutputDeserializationError(e.to_string()))?;
+
+        // TODO: remove clone
+        program_outputs.push(program_output.clone());
+
+        // Prove circuit.
+        env_builder.add_assumption(inner_receipt);
+
+        if program_output.chained_call.is_none() {
+            break;
+        }
+    }
 
     let circuit_input = PrivacyPreservingCircuitInput {
-        program_output,
+        program_outputs,
         visibility_mask: visibility_mask.to_vec(),
         private_account_nonces: private_account_nonces.to_vec(),
         private_account_keys: private_account_keys.to_vec(),
@@ -41,9 +55,6 @@ pub fn execute_and_prove(
         program_id: program.id(),
     };
 
-    // Prove circuit.
-    let mut env_builder = ExecutorEnv::builder();
-    env_builder.add_assumption(inner_receipt);
     env_builder.write(&circuit_input).unwrap();
     let env = env_builder.build().unwrap();
     let prover = default_prover();
