@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub type ProgramId = [u32; 8];
 pub type InstructionData = Vec<u32>;
 pub const DEFAULT_PROGRAM_ID: ProgramId = [0; 8];
+pub const MAX_NUMBER_CHAINED_CALLS: usize = 10;
 
 pub struct ProgramInput<T> {
     pub pre_states: Vec<AccountWithMetadata>,

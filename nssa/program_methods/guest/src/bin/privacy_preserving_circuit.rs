@@ -1,14 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
-    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme,
-    Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme, Nullifier,
+    NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
     account::{Account, AccountId, AccountWithMetadata},
     compute_digest_for_path,
     encryption::Ciphertext,
-    program::{DEFAULT_PROGRAM_ID, ProgramOutput, validate_execution},
+    program::{DEFAULT_PROGRAM_ID, MAX_NUMBER_CHAINED_CALLS, ProgramOutput, validate_execution},
 };
 
 fn main() {
@@ -18,30 +18,77 @@ fn main() {
         private_account_nonces,
         private_account_keys,
         private_account_auth,
-        program_id,
+        mut program_id,
     } = env::read();
 
-    // TODO: WIP
-    let program_output = program_outputs[0].clone();
+    let mut pre_states: Vec<AccountWithMetadata> = Vec::new();
+    let mut state_diff: HashMap<AccountId, Account> = HashMap::new();
 
-    // Check that `program_output` is consistent with the execution of the corresponding program.
-    env::verify(program_id, &to_vec(&program_output).unwrap()).unwrap();
+    let mut program_output = program_outputs[0].clone();
 
-    let ProgramOutput {
-        pre_states,
-        post_states,
-        chained_call,
-    } = program_output;
+    for _i in 0..MAX_NUMBER_CHAINED_CALLS {
+        // Check that `program_output` is consistent with the execution of the corresponding program.
+        // TODO: Program output should contain the instruction data to verify the chain of call si
+        // performed correctly.
+        env::verify(program_id, &to_vec(&program_output).unwrap()).unwrap();
 
-    // TODO: implement chained calls for privacy preserving transactions
-    if chained_call.is_some() {
-        panic!("Privacy preserving transactions do not support yet chained calls.")
-    }
+        // Check that the program is well behaved.
+        // See the # Programs section for the definition of the `validate_execution` method.
+        if !validate_execution(
+            &program_output.pre_states,
+            &program_output.post_states,
+            program_id,
+        ) {
+            panic!("Bad behaved program");
+        }
 
-    // Check that the program is well behaved.
-    // See the # Programs section for the definition of the `validate_execution` method.
-    if !validate_execution(&pre_states, &post_states, program_id) {
-        panic!("Bad behaved program");
+        // The invoked program claims the accounts with default program id.
+        for post in program_output.post_states.iter_mut() {
+            if post.program_owner == DEFAULT_PROGRAM_ID {
+                post.program_owner = program_id;
+            }
+        }
+
+        for (pre, post) in program_output
+            .pre_states
+            .iter()
+            .zip(&program_output.post_states)
+        {
+            if !state_diff.contains_key(&pre.account_id) {
+                pre_states.push(pre.clone());
+            } else {
+                state_diff.insert(pre.account_id, post.clone());
+            }
+        }
+
+        if let Some(next_chained_call) = program_output.chained_call {
+            program_id = next_chained_call.program_id;
+
+            // // Build post states with metadata for next call
+            // let mut post_states_with_metadata = Vec::new();
+            // for (pre, post) in program_output
+            //     .pre_states
+            //     .iter()
+            //     .zip(program_output.post_states)
+            // {
+            //     let mut post_with_metadata = pre.clone();
+            //     post_with_metadata.account = post.clone();
+            //     post_states_with_metadata.push(post_with_metadata);
+            // }
+
+            // input_pre_states = next_chained_call
+            //     .account_indices
+            //     .iter()
+            //     .map(|&i| {
+            //         post_states_with_metadata
+            //             .get(i)
+            //             .ok_or_else(|| NssaError::InvalidInput("Invalid account indices".into()))
+            //             .cloned()
+            //     })
+            //     .collect::<Result<Vec<_>, NssaError>>()?;
+        } else {
+            break;
+        };
     }
 
     let n_accounts = pre_states.len();

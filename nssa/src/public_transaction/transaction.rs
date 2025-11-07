@@ -3,12 +3,14 @@ use std::collections::{HashMap, HashSet};
 use nssa_core::{
     account::{Account, AccountWithMetadata},
     address::Address,
-    program::{DEFAULT_PROGRAM_ID, validate_execution},
+    program::{DEFAULT_PROGRAM_ID, MAX_NUMBER_CHAINED_CALLS, validate_execution},
 };
 use sha2::{Digest, digest::FixedOutput};
 
 use crate::{
-    error::NssaError, public_transaction::{Message, WitnessSet}, state::MAX_NUMBER_CHAINED_CALLS, V02State
+    V02State,
+    error::NssaError,
+    public_transaction::{Message, WitnessSet},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
