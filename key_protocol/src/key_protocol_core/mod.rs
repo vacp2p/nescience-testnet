@@ -4,18 +4,26 @@ use anyhow::Result;
 use k256::AffinePoint;
 use serde::{Deserialize, Serialize};
 
-use crate::key_management::KeyChain;
+use crate::key_management::{
+    KeyChain,
+    key_tree::{KeyTreePrivate, KeyTreePublic, chain_index::ChainIndex},
+};
 
 pub type PublicKey = AffinePoint;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NSSAUserData {
-    ///Map for all user public accounts
-    pub pub_account_signing_keys: HashMap<nssa::Address, nssa::PrivateKey>,
-    ///Map for all user private accounts
-    pub user_private_accounts: HashMap<nssa::Address, (KeyChain, nssa_core::account::Account)>,
+    ///Default public accounts
+    pub default_pub_account_signing_keys: HashMap<nssa::Address, nssa::PrivateKey>,
+    ///Default private accounts
+    pub default_user_private_accounts:
+        HashMap<nssa::Address, (KeyChain, nssa_core::account::Account)>,
     ///Mnemonic passphrase
     pub password: String,
+    /// Tree of public keys
+    pub public_key_tree: KeyTreePublic,
+    /// Tree of private keys
+    pub private_key_tree: KeyTreePrivate,
 }
 
 impl NSSAUserData {
@@ -97,13 +105,13 @@ impl NSSAUserData {
     /// Generated new private key for public transaction signatures
     ///
     /// Returns the address of new account
-    pub fn generate_new_public_transaction_private_key(&mut self) -> nssa::Address {
-        let private_key = nssa::PrivateKey::new_os_random();
-        let address = nssa::Address::from(&nssa::PublicKey::new_from_private_key(&private_key));
-
-        self.pub_account_signing_keys.insert(address, private_key);
-
-        address
+    pub fn generate_new_public_transaction_private_key(
+        &mut self,
+        parent_cci: ChainIndex,
+    ) -> nssa::Address {
+        self.public_key_tree
+            .generate_new_pub_keys(parent_cci)
+            .unwrap()
     }
 
     /// Returns the signing key for public transaction signatures
@@ -111,7 +119,7 @@ impl NSSAUserData {
         &self,
         address: &nssa::Address,
     ) -> Option<&nssa::PrivateKey> {
-        self.pub_account_signing_keys.get(address)
+        self.public_key_tree.get_pub_keys(address)
     }
 
     /// Generated new private key for privacy preserving transactions

@@ -1,10 +1,11 @@
 use nssa_core::address::Address;
+use serde::{Deserialize, Serialize};
 
 use crate::{PrivateKey, error::NssaError};
 
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicKey([u8; 32]);
 
 impl PublicKey {

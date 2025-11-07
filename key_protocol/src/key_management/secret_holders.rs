@@ -45,8 +45,8 @@ impl SeedHolder {
     }
 
     pub fn new_mnemonic(passphrase: String) -> Self {
-        let mut enthopy_bytes: [u8; 32] = [0; 32];
-        OsRng.fill_bytes(&mut enthopy_bytes);
+        //Enthropy bytes must be deterministic as well
+        let enthopy_bytes: [u8; 32] = [0; 32];
 
         let mnemonic = Mnemonic::from_entropy(&enthopy_bytes).unwrap();
         let seed_wide = mnemonic.to_seed(passphrase);
