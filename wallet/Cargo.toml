@@ -28,3 +28,6 @@ path = "../nssa"
 
 [dependencies.common]
 path = "../common"
+
+[features]
+no_docker = ["nssa/no_docker"]
