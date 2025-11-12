@@ -148,7 +148,7 @@ impl PublicTransaction {
                 state_diff.insert(pre.account_id, post.clone());
             }
 
-            chained_calls.extend_from_slice(&program_output.chained_call);
+            chained_calls.extend_from_slice(&program_output.chained_calls);
 
             if let Some(next_chained_call) = chained_calls.pop() {
                 program_id = next_chained_call.program_id;
