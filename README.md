@@ -1,6 +1,6 @@
 # Nescience
 
-Nescience State Separation Architecture (NSSA) is a programmable blockchain system that introduces a clean separation between public and private states, while keeping them fully interoperable. It lets developers build apps that can operate across both transparent and privacy-preserving accounts without changing how they write or deploy programs. Privacy is handled automatically by the protocol through zero-knowledge proofs (ZKPs). The result is a fully composable blockchain where privacy comes built-in.
+Nescience State Separation Architecture (NSSA) is a programmable blockchain system that introduces a clean separation between public and private states, while keeping them fully interoperable. It lets developers build apps that can operate across both transparent and privacy-preserving accounts. Privacy is handled automatically by the protocol through zero-knowledge proofs (ZKPs). The result is a programmable blockchain where privacy comes built-in.
 
 ## Background
 
@@ -138,33 +138,32 @@ If everything went well you should see an output similar to this:
 # Try the Wallet CLI
 
 ## Install
-This repo contains a CLI to interact with the Nescience sequencer. To install it run the following from the root directory of the repository.
+This repository includes a CLI for interacting with the Nescience sequencer. To install it, run the following command from the root of the repository:
 
 ```bash
 cargo install --path wallet --force
 ```
+Before using the CLI, set the environment variable `NSSA_WALLET_HOME_DIR` to the directory containing the wallet configuration file. A sample configuration is available at `integration_tests/configs/debug/wallet/`. To use it, run:
 
-To use it the environment variable `NSSA_WALLET_HOME_DIR` needs to be set to the path where the wallet configuration file is.
-There is one configuration file in `integration_tests/configs/debug/wallet/` that can be used. For that, from the root directory of this repository run:
 ```bash
-export NSSA_WALLET_HOME_DIR=$(pwd)/configs/debug/wallet/
+export NSSA_WALLET_HOME_DIR=$(pwd)/integration_tests/configs/debug/wallet/
 ```
 
 ## Tutorial
 
 ### Health-check
 
-Check that the node is running and the wallet can connect to it with the following command
+Verify that the node is running and that the wallet can connect to it:
 
 ```bash
 wallet check-health
 ```
 
-You should see `✅All looks good!`.
+You should see `✅ All looks good!`.
 
 ### The commands
 
-The wallet comes with a variety of commands to interact and fetch information from the node. Run `wallet help` to see the available commands.
+The wallet provides several commands to interact with the node and query state. To see the full list, run:
 
 ```bash
 Commands:
@@ -177,7 +176,8 @@ Commands:
 ```
 
 ### Accounts
-Every piece of state in NSSA is encoded in an account. Public and private accounts can be created with the CLI.
+
+Every piece of state in NSSA is stored in an account. You can create both public and private accounts through the CLI.
 
 #### Create a new public account
 ```bash
@@ -187,10 +187,11 @@ wallet account new public
 Generated new account with addr Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ
 ```
 
-The address is the identifier of the account needed when executing programs that involve it.
+This address is required when executing any program that interacts with the account.
 
-##### Account initialization
-To see the current status of the newly generated account run
+#### Account initialization
+
+To query the account’s current status, run:
 
 ```bash
 # Replace the address with yours
@@ -200,20 +201,20 @@ wallet account get --addr Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ
 Account is Uninitialized
 ```
 
-Every new account is uninitialized. That means that it is not yet associated with any program. Programs can claim uninitialized accounts. Once a program claims an account, it will be owned by that program. This process is irreversible.
+New accounts start as uninitialized, meaning no program owns them yet. Programs can claim uninitialized accounts; once claimed, the account becomes permanently owned by that program.
 
-How to do that depends on each program. In this section we'll initialize the account for the **Authenticated transfers program**. It is a program that safely handles native token transfers by requiring authentication to debit funds.
+In this example, we will initialize the account for the Authenticated transfer program, which securely manages native token transfers by requiring authentication for debits.
 
-To initialize the account under the ownership of the Authenticated transfer program run:
+Initialize the account by running:
 
 ```bash
-# This command will submit a public transaction to execute the `init` function of
-# the Authenticated-transfer program. The wallet will poll the sequencer to check
-# that the transaction was accepted in a block. That may take some seconds.
+# This command submits a public transaction executing the `init` function of the
+# Authenticated-transfer program. The wallet polls the sequencer until the
+# transaction is included in a block, which may take several seconds.
 wallet auth-transfer init --addr Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ
 ```
 
-Once that finishes, you can check the new status of the account with the same command as before
+After it completes, check the updated account status:
 
 ```bash
 wallet account get --addr Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ
@@ -223,15 +224,130 @@ Account owned by authenticated transfer program
 {"balance":0}
 ```
 
+#### Funding the account: executing the Piñata program
+
+Now that we have a public account initialized by the authenticated transfer program, we need to fund it. For that, the testnet provides the Piñata program.
+
+```bash
+# Complete with your address and the correct solution for your case
+# TODO: Explain how to find the solution
+wallet pinata claim --to-addr Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ --solution 989106
+```
+
+After the claim succeeds, the account will be funded with some tokens:
+
+```bash
+wallet account get --addr Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ
+
+# Output:
+Account owned by authenticated transfer program
+{"balance":150}
+```
+
+#### Token transfer: executing the Authenticated transfers program
+
+The wallet CLI provides commands to execute the `Transfer` function of the authenticated program. Let's create another account for the recipient of the transfer.
+
+```bash
+wallet account new public
+
+# Output:
+Generated new account with addr Public/Ev1JprP9BmhbFVQyBcbznU8bAXcwrzwRoPTetXdQPAWS
+```
+
+The new account is uninitialized. The authenticated transfers program will claim any uninitialized account used in a transfer. So we don't need to manually initialize the recipient account.
+
+Let's send 37 tokens to the new account.
+
+```bash
+wallet auth-transfer send \
+    --from Public/9ypzv6GGr3fwsgxY7EZezg5rz6zj52DPCkmf1vVujEiJ \
+    --to Public/Ev1JprP9BmhbFVQyBcbznU8bAXcwrzwRoPTetXdQPAWS \
+    --amount 37
+```
+
+Once that succeeds we can check the states.
+
+```bash
+# Sender account
+wallet account get --addr Public/HrA8TVjBS8UVf9akV7LRhyh6k4c7F6PS7PvqgtPmKAT8
+
+# Output:
+Account owned by authenticated transfer program
+{"balance":113}
+```
+
+```bash
+# Recipient account
+wallet account get --addr Public/Ev1JprP9BmhbFVQyBcbznU8bAXcwrzwRoPTetXdQPAWS
+
+# Output:
+Account owned by authenticated transfer program
+{"balance":37}
+```
+
 #### Create a new private account
+
+Now let’s switch to the private state and create a private account.
+
 ```bash
 wallet account new private
 
 # Output:
-Generated new account with addr Private/6n9d68Q3riGyWHbcGFLigmjaaE49bpGBpwq3TYbfgLNv
-With npk 5b09bc16a637c7154a85d3cfce2c0152fadfcd36b38dcc00479aac3f3dd291fc
-With ipk 02e12ecdabc33d207624823062e10e2d2c1246180431c476e816ffd9e634badf34
+Generated new account with addr Private/HacPU3hakLYzWtSqUPw6TUr8fqoMieVWovsUR6sJf7cL
+With npk e6366f79d026c8bd64ae6b3d601f0506832ec682ab54897f205fffe64ec0d951
+With ipk 02ddc96d0eb56e00ce14994cfdaec5ae1f76244180a919545983156e3519940a17
 ```
 
+For now, focus only on the account address. Ignore the `npk` and `ipk` values. These are stored locally in the wallet and are used internally to build privacy-preserving transactions. We won't need them yet.
 
+Just like public accounts, new private accounts start out uninitialized:
+
+```bash
+wallet account get --addr Private/HacPU3hakLYzWtSqUPw6TUr8fqoMieVWovsUR6sJf7cL
+
+# Output:
+Account is Uninitialized
+```
+Unlike public accounts, private accounts are never visible to the network. They exist only in your local wallet storage.
+
+#### Sending tokens from the public account to the private account
+
+Sending tokens to an uninitialized private account causes the Authenticated-Transfers program to claim it. This happens because program execution logic does not depend on whether the involved accounts are public or private.
+
+Let’s send 17 tokens to the new private account.
+
+The syntax is identical to the public-to-public transfer; just set the private address as the recipient.
+
+This command will run the Authenticated-Transfer program locally, generate a proof, and submit it to the sequencer. Depending on your machine, this can take from 30 seconds to 4 minutes.
+
+```bash
+wallet auth-transfer send \
+    --from Public/Ev1JprP9BmhbFVQyBcbznU8bAXcwrzwRoPTetXdQPAWS \
+    --to Private/HacPU3hakLYzWtSqUPw6TUr8fqoMieVWovsUR6sJf7cL \
+    --amount 17
+```
+
+After it succeeds, check both accounts:
+
+```bash
+# Public sender account
+wallet account get --addr Public/Ev1JprP9BmhbFVQyBcbznU8bAXcwrzwRoPTetXdQPAWS
+
+# Output:
+Account owned by authenticated transfer program
+{"balance":20}
+```
+
+```bash
+# Private recipient account
+wallet account get --addr Private/HacPU3hakLYzWtSqUPw6TUr8fqoMieVWovsUR6sJf7cL
+
+# Output:
+Account owned by authenticated transfer program
+{"balance":17}
+```
+
+Note: the last command does not query the network.
+It works even offline because private account data lives only in your wallet storage. Other users cannot read your private balances.
 
