@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
-    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme,
-    Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme, Nullifier,
+    NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
     account::{Account, AccountId, AccountWithMetadata},
     compute_digest_for_path,
     encryption::Ciphertext,
@@ -17,7 +17,8 @@ fn main() {
         visibility_mask,
         private_account_nonces,
         private_account_keys,
-        private_account_auth,
+        private_account_nsks,
+        private_account_membership_proofs,
         program_id,
     } = env::read();
 
@@ -61,7 +62,8 @@ fn main() {
 
     let mut private_nonces_iter = private_account_nonces.iter();
     let mut private_keys_iter = private_account_keys.iter();
-    let mut private_auth_iter = private_account_auth.iter();
+    let mut private_nsks_iter = private_account_nsks.iter();
+    let mut private_membership_proofs_iter = private_account_membership_proofs.iter();
 
     let mut output_index = 0;
     for i in 0..n_accounts {
@@ -90,8 +92,11 @@ fn main() {
 
                 if visibility_mask[i] == 1 {
                     // Private account with authentication
-                    let (nsk, membership_proof) =
-                        private_auth_iter.next().expect("Missing private auth");
+                    let nsk = private_nsks_iter.next().expect("Missing nsk");
+
+                    let membership_proof = private_membership_proofs_iter
+                        .next()
+                        .expect("Missing membership proof");
 
                     // Verify the nullifier public key
                     let expected_npk = NullifierPublicKey::from(nsk);

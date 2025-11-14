@@ -22,7 +22,8 @@ pub fn execute_and_prove(
     visibility_mask: &[u8],
     private_account_nonces: &[u128],
     private_account_keys: &[(NullifierPublicKey, SharedSecretKey)],
-    private_account_auth: &[(NullifierSecretKey, MembershipProof)],
+    private_account_nsks: &[NullifierSecretKey],
+    private_account_membership_proofs: &[MembershipProof],
     program: &Program,
 ) -> Result<(PrivacyPreservingCircuitOutput, Proof), NssaError> {
     let inner_receipt = execute_and_prove_program(program, pre_states, instruction_data)?;
@@ -37,7 +38,8 @@ pub fn execute_and_prove(
         visibility_mask: visibility_mask.to_vec(),
         private_account_nonces: private_account_nonces.to_vec(),
         private_account_keys: private_account_keys.to_vec(),
-        private_account_auth: private_account_auth.to_vec(),
+        private_account_nsks: private_account_nsks.to_vec(),
+        private_account_membership_proofs: private_account_membership_proofs.to_vec(),
         program_id: program.id(),
     };
 
@@ -154,6 +156,7 @@ mod tests {
             &[0xdeadbeef],
             &[(recipient_keys.npk(), shared_secret.clone())],
             &[],
+            &[],
             &Program::authenticated_transfer_program(),
         )
         .unwrap();
@@ -251,10 +254,8 @@ mod tests {
                 (sender_keys.npk(), shared_secret_1.clone()),
                 (recipient_keys.npk(), shared_secret_2.clone()),
             ],
-            &[(
-                sender_keys.nsk,
-                commitment_set.get_proof_for(&commitment_sender).unwrap(),
-            )],
+            &[sender_keys.nsk],
+            &[commitment_set.get_proof_for(&commitment_sender).unwrap()],
             &program,
         )
         .unwrap();
