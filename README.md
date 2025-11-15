@@ -163,7 +163,7 @@ You should see `✅ All looks good!`.
 
 ### The commands
 
-The wallet provides several commands to interact with the node and query state. To see the full list, run:
+The wallet provides several commands to interact with the node and query state. To see the full list, run `wallet help`:
 
 ```bash
 Commands:
@@ -177,9 +177,19 @@ Commands:
 
 ### Accounts
 
-Every piece of state in NSSA is stored in an account. You can create both public and private accounts through the CLI.
+Every piece of state in NSSA is stored in an account. The CLI provides commands to manage accounts. Run `wallet account` to see the options available:
+```bash
+Commands:
+  get           Get account data
+  new           Produce new public or private account
+  sync-private  Sync private accounts
+  help  Print this message or the help of the given subcommand(s)
+```
 
 #### Create a new public account
+
+You can create both public and private accounts through the CLI. For example:
+
 ```bash
 wallet account new public
 
@@ -246,7 +256,16 @@ Account owned by authenticated transfer program
 
 ### Native token transfers: executing the Authenticated transfers program
 
-The wallet CLI provides commands to execute the `Transfer` function of the authenticated program. Let's create another account for the recipient of the transfer.
+NSSA comes with a program for managing and transferring native tokens. Run `wallet auth-transfer` to see the options available:
+```bash
+Commands:
+  init  Initialize account under authenticated transfer program
+  send  Send native tokens from one account to another with variable privacy
+  help  Print this message or the help of the given subcommand(s)
+```
+
+We have already used the `init` command. The `send` command is used to execute the `Transfer` function of the authenticated program.
+Let's try it. For that we need to create another account for the recipient of the transfer.
 
 ```bash
 wallet account new public
@@ -397,6 +416,14 @@ We’ve shown how to use the authenticated-transfers program for transfers betwe
 ### The token program
 
 So far, we’ve made transfers using the authenticated-transfers program, which handles native token transfers. The Token program, on the other hand, is used for creating and managing custom tokens.
+The CLI provides commands to execute the token program. To see the options available run `wallet token`:
+
+```bash
+Commands:
+  new   Produce a new token
+  send  Send tokens from one account to another with variable privacy
+  help  Print this message or the help of the given subcommand(s)
+```
 
 The Token program manages its accounts in two categories. Meaning, all accounts owned by the Token program fall into one of these types.
 - Token definition accounts: these accounts store metadata about a token, such as its name, total supply, and other identifying properties. They act as the token’s unique identifier.
@@ -546,4 +573,23 @@ Holding account owned by token program
 {"account_type":"Token holding","definition_id":"GQ3C8rbprTtQUCvkuVBRu3v9wvUvjafCMFqoSPvTEVii","balance":10}
 ```
 
+### Chain information
+
+The wallet provides some commands to query information about the chain. These are under the `wallet chain-info` command.
+
+```bash
+Commands:
+  current-block-id  Get current block id from sequencer
+  block             Get block at id from sequencer
+  transaction       Get transaction at hash from sequencer
+```
+
+For example, run this to find the current block id.
+
+```bash
+wallet chain-info current-block-id
+
+# Output:
+Last block id is 65537
+```
 
