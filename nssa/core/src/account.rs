@@ -23,14 +23,13 @@ pub struct Account {
     pub nonce: Nonce,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
 pub struct AccountWithMetadata {
     pub account: Account,
     pub is_authorized: bool,
     pub account_id: AccountId,
 }
-
 #[cfg(feature = "host")]
 impl AccountWithMetadata {
     pub fn new(account: Account, is_authorized: bool, account_id: impl Into<AccountId>) -> Self {

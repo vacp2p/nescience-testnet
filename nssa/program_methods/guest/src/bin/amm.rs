@@ -145,22 +145,17 @@ fn new_definition(
         panic!("Invalid number of input account")
     }
 
-    /*
-    if pool_definitions.len() != 2 {
-        panic!("Invalid number of token definitions")
-    }*/
-
     if balance_in.len() != 2 {
         panic!("Invalid number of balance")
     }
 
-    let pool = pre_states[0].clone();
-    let vault_a = pre_states[1].clone();
-    let vault_b = pre_states[2].clone();
-    let pool_lp = pre_states[3].clone();
-    let user1 = pre_states[4].clone();
-    let user2 = pre_states[5].clone();
-    let user_lp = pre_states[6].clone();
+    let pool = &pre_states[0];
+    let vault_a = &pre_states[1];
+    let vault_b = &pre_states[2];
+    let pool_lp = &pre_states[3];
+    let user_a = &pre_states[4];
+    let user_b = &pre_states[5];
+    let user_lp = &pre_states[6];
 
     if pool.account != Account::default() || !pool.is_authorized {
         panic!("TODO-1");
@@ -183,19 +178,22 @@ fn new_definition(
     assert!(amount_b > 0);
 
     // Verify token_a and token_b are different
-    //TODO: crucial fix.
     let definition_token_a_id = TokenHolding::parse(&vault_a.account.data).unwrap().definition_id;
     let definition_token_b_id = TokenHolding::parse(&vault_b.account.data).unwrap().definition_id;
     let user1_id = TokenHolding::parse(&vault_a.account.data).unwrap().definition_id;
+
+    if definition_token_a_id == definition_token_b_id {
+        panic!("Vaults are for the same token")
+    }
 
     // 5. Update pool account
     let mut pool_post = Account::default();
     let pool_post_definition = PoolDefinition {
             definition_token_a_id,
             definition_token_b_id,
-            vault_a_addr: vault_a.account_id,
-            vault_b_addr: vault_b.account_id,
-            liquidity_pool_id: pool_lp.account_id,
+            vault_a_addr: vault_a.account_id.clone(),
+            vault_b_addr: vault_b.account_id.clone(),
+            liquidity_pool_id: pool_lp.account_id.clone(),
             liquidity_pool_cap: amount_a,
             reserve_a: amount_a,
             reserve_b: amount_b,
@@ -213,7 +211,7 @@ fn new_definition(
     let call_token_a = ChainedCall{
             program_id: token_program,
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![user_a.clone(), vault_a.clone()]
         };
 
 
@@ -221,14 +219,14 @@ fn new_definition(
     let call_token_b = ChainedCall{
             program_id: token_program,
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![user_b.clone(), vault_b.clone()]
         };
 
     instruction_data[1..17].copy_from_slice(&amount_a.to_le_bytes());
     let call_token_lp = ChainedCall{
             program_id: token_program,
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![pool_lp.clone(), user_lp.clone()]
         };
 
     chained_call.push(call_token_lp);
@@ -248,9 +246,7 @@ fn new_definition(
 }
 
 
-
 type Instruction = Vec<u8>;
-//deserialize is not implemented for 33???
 fn main() {
     let ProgramInput {
         pre_states,
@@ -259,24 +255,19 @@ fn main() {
 
     match instruction[0] {
         0 => {
-            /*
-                        program_id: pool_def_data.token_program_id.clone(),
-            instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),  
-                  pre_states: &[AccountWithMetadata], 
-        token_program: ProgramId,
-        balance_in: &[u128]
-            
-             */
+            let balance_a: u128 = u128::from_le_bytes(instruction[1..17].try_into().unwrap());
+            let balance_b: u128 = u128::from_le_bytes(instruction[17..33].try_into().unwrap());
+        
 
-       // let token_program_id : &[u32] = bytemuck::cast_slice(&instruction[33..55]);
+            let token_program_id : &[u32] = bytemuck::cast_slice(&instruction[33..55]);
+            let token_program_id : [u32;8] = token_program_id.try_into().unwrap();
 
-        /*
             let (post_states, chained_call) = new_definition(&pre_states,
-                &[u128::from_le_bytes(instruction[1..17].try_into().unwrap()),
-                    u128::from_le_bytes(instruction[16..33].try_into().unwrap()),],
-                    );
+                &[balance_a, balance_b],
+                token_program_id
+                );
 
-            write_nssa_outputs_with_chained_call(pre_states, post_states, chained_call);*/
+            write_nssa_outputs_with_chained_call(pre_states, post_states, chained_call);
         }
         1 => {
             let intent = SwapIntent {
@@ -293,8 +284,7 @@ fn main() {
                         &[u128::from_le_bytes(instruction[1..17].try_into().unwrap()),
                             u128::from_le_bytes(instruction[16..33].try_into().unwrap()),],
                         AccountId::new(instruction[33..65].try_into().unwrap()));
-
-            write_nssa_outputs_with_chained_call(pre_states, post_states, chained_call);
+           write_nssa_outputs_with_chained_call(pre_states, post_states, chained_call);
         }
         3 => {
 
@@ -323,25 +313,27 @@ fn swap(
     let pool = &pre_states[0];
     let vault1 = &pre_states[1];
     let vault2 = &pre_states[2];
+    let user_a = &pre_states[3];
+    let user_b = &pre_states[4];
 
     // Verify vaults are in fact vaults
-    let mut pool_def_data = PoolDefinition::parse(&pool.account.data).unwrap();
+    let pool_def_data = PoolDefinition::parse(&pool.account.data).unwrap();
 
-    let mut vault_a = Account::default();
-    let mut vault_b = Account::default();
+    let mut vault_a = AccountWithMetadata::default();
+    let mut vault_b = AccountWithMetadata::default();
 
     if vault1.account_id == pool_def_data.definition_token_a_id {
-            vault_a = vault1.account.clone();
+            vault_a = vault1.clone();
         } else if vault2.account_id == pool_def_data.definition_token_a_id {
-            vault_a = vault2.account.clone();
+            vault_a = vault2.clone();
         } else {
             panic!("Vault A was no provided");
         }
         
     if vault1.account_id == pool_def_data.definition_token_b_id {
-       vault_b = vault1.account.clone();
+       vault_b = vault1.clone();
     } else if vault2.account_id == pool_def_data.definition_token_b_id {
-        vault_b = vault2.account.clone();
+        vault_b = vault2.clone();
     } else {
         panic!("Vault B was no provided");
     }
@@ -362,8 +354,8 @@ fn swap(
 
     // 2. fetch pool reserves
     //validates reserves is at least the vaults' balances
-    assert!(vault_a.balance >= pool_def_data.reserve_a);
-    assert!(vault_b.balance >= pool_def_data.reserve_b);
+    assert!(vault_a.account.balance >= pool_def_data.reserve_a);
+    assert!(vault_b.account.balance >= pool_def_data.reserve_b);
     //Cannot swap if a reserve is 0
     assert!(pool_def_data.reserve_a > 0);
     assert!(pool_def_data.reserve_b > 0);
@@ -405,18 +397,18 @@ fn swap(
     instruction_data[0] = 1;
 
     let call_token_a = if a_to_b {
-        instruction_data[1..17].copy_from_slice(&withdraw_a.to_le_bytes());
-        ChainedCall{
-            program_id: pool_def_data.token_program_id.clone(),
-            instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![0]
-        }
-    } else {
         instruction_data[1..17].copy_from_slice(&deposit_a.to_le_bytes());
         ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![0]
+            pre_states: vec![user_a.clone(), vault_a.clone()]
+        }
+    } else {
+        instruction_data[1..17].copy_from_slice(&withdraw_a.to_le_bytes());
+        ChainedCall{
+            program_id: pool_def_data.token_program_id.clone(),
+            instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
+            pre_states: vec![vault_a.clone(), user_a.clone()]
         }
     };
 
@@ -425,14 +417,14 @@ fn swap(
         ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![user_b.clone(), vault_b.clone()]
         }
     } else {
         instruction_data[1..17].copy_from_slice(&withdraw_b.to_le_bytes());
         ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![vault_b.clone(), user_b.clone()]
         }
     };
 
@@ -465,23 +457,23 @@ fn add_liquidity(pre_states: &[AccountWithMetadata],
     let user_b = &pre_states[5];
     let user_lp = &pre_states[6];
 
-    let mut vault_a = Account::default();
-    let mut vault_b = Account::default();
+    let mut vault_a = AccountWithMetadata::default();
+    let mut vault_b = AccountWithMetadata::default();
     
     let pool_def_data = PoolDefinition::parse(&pool.account.data).unwrap();
 
     if vault1.account_id == pool_def_data.definition_token_a_id {
-            vault_a = vault1.account.clone();
+            vault_a = vault1.clone();
         } else if vault2.account_id == pool_def_data.definition_token_a_id {
-            vault_a = vault2.account.clone();
+            vault_a = vault2.clone();
         } else {
             panic!("Vault A was no provided");
         }
         
     if vault1.account_id == pool_def_data.definition_token_b_id {
-       vault_b = vault1.account.clone();
+       vault_b = vault1.clone();
     } else if vault2.account_id == pool_def_data.definition_token_b_id {
-        vault_b = vault2.account.clone();
+        vault_b = vault2.clone();
     } else {
         panic!("Vault B was no provided");
     }
@@ -500,10 +492,10 @@ fn add_liquidity(pre_states: &[AccountWithMetadata],
 
     if main_token == pool_def_data.definition_token_a_id {
         actual_amount_a = max_amount_a;
-        actual_amount_b = (vault_b.balance/vault_a.balance)*actual_amount_a;
+        actual_amount_b = (vault_b.account.balance/vault_a.account.balance)*actual_amount_a;
     } else if main_token == pool_def_data.definition_token_b_id {
         actual_amount_b = max_amount_b;
-        actual_amount_a = (vault_a.balance/vault_b.balance)*actual_amount_b;
+        actual_amount_a = (vault_a.account.balance/vault_b.account.balance)*actual_amount_b;
     } else {
         panic!("Mismatch of token types"); //main token does not match with vaults.
     }
@@ -541,7 +533,7 @@ fn add_liquidity(pre_states: &[AccountWithMetadata],
     let call_token_a = ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![user_a.clone(), vault_a]
         };
 
 
@@ -549,14 +541,14 @@ fn add_liquidity(pre_states: &[AccountWithMetadata],
     let call_token_b = ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![user_b.clone(), vault_b]
         };
 
     instruction_data[1..17].copy_from_slice(&delta_lp.to_le_bytes());
     let call_token_lp = ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![pool_lp.clone(), user_lp.clone()]
         };
 
     chained_call.push(call_token_lp);
@@ -576,6 +568,7 @@ fn add_liquidity(pre_states: &[AccountWithMetadata],
 
 }
 
+
 fn remove_liquidity(pre_states: &[AccountWithMetadata]) -> (Vec<Account>, Vec<ChainedCall>) {
 
     if pre_states.len() != 7 {
@@ -590,23 +583,23 @@ fn remove_liquidity(pre_states: &[AccountWithMetadata]) -> (Vec<Account>, Vec<Ch
     let user_b = &pre_states[5];
     let user_lp = &pre_states[6];
 
-    let mut vault_a = Account::default();
-    let mut vault_b = Account::default();
+    let mut vault_a = AccountWithMetadata::default();
+    let mut vault_b = AccountWithMetadata::default();
     
     let pool_def_data = PoolDefinition::parse(&pool.account.data).unwrap();
 
     if vault1.account_id == pool_def_data.definition_token_a_id {
-            vault_a = vault1.account.clone();
+            vault_a = vault1.clone();
         } else if vault2.account_id == pool_def_data.definition_token_a_id {
-            vault_a = vault2.account.clone();
+            vault_a = vault2.clone();
         } else {
             panic!("Vault A was no provided");
         }
         
     if vault1.account_id == pool_def_data.definition_token_b_id {
-       vault_b = vault1.account.clone();
+       vault_b = vault1.clone();
     } else if vault2.account_id == pool_def_data.definition_token_b_id {
-        vault_b = vault2.account.clone();
+        vault_b = vault2.clone();
     } else {
         panic!("Vault B was no provided");
     }
@@ -645,7 +638,7 @@ fn remove_liquidity(pre_states: &[AccountWithMetadata]) -> (Vec<Account>, Vec<Ch
     let call_token_a = ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![vault_a, user_a.clone()]
         };
 
 
@@ -653,14 +646,14 @@ fn remove_liquidity(pre_states: &[AccountWithMetadata]) -> (Vec<Account>, Vec<Ch
     let call_token_b = ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![vault_b, user_b.clone()]
         };
 
     instruction_data[1..17].copy_from_slice(&delta_lp.to_le_bytes());
     let call_token_lp = ChainedCall{
             program_id: pool_def_data.token_program_id.clone(),
             instruction_data: bytemuck::cast_slice(&instruction_data).to_vec(),
-            account_indices: vec![1]
+            pre_states: vec![user_lp.clone(), pool_lp.clone()]
         };
 
     chained_call.push(call_token_lp);
@@ -679,3 +672,4 @@ fn remove_liquidity(pre_states: &[AccountWithMetadata]) -> (Vec<Account>, Vec<Ch
     (post_states.clone(), chained_call)
 
 }
+
