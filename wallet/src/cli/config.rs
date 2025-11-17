@@ -14,6 +14,8 @@ pub enum ConfigSubcommand {
     Get { key: String },
     /// Setter of config fields
     Set { key: String, value: String },
+    /// Prints description of corresponding field
+    Description { key: String },
 }
 
 impl WalletSubcommand for ConfigSubcommand {
@@ -108,6 +110,38 @@ impl WalletSubcommand for ConfigSubcommand {
 
                 println!("Stored changed config at {path:#?}");
             }
+            ConfigSubcommand::Description { key } => match key.as_str() {
+                "override_rust_log" => {
+                    println!("Value of variable RUST_LOG to override, affects logging");
+                }
+                "sequencer_addr" => {
+                    println!("HTTP V4 address of sequencer");
+                }
+                "seq_poll_timeout_millis" => {
+                    println!(
+                        "Sequencer client retry variable: how much time to wait between retries in milliseconds(can be zero)"
+                    );
+                }
+                "seq_poll_max_blocks" => {
+                    println!("Sequencer client polling variable: max number of blocks to poll in parallel");
+                }
+                "seq_poll_max_retries" => {
+                    println!(
+                        "Sequencer client retry variable: MAX number of retries before failing(can be zero)"
+                    );
+                }
+                "seq_poll_retry_delay_millis" => {
+                    println!(
+                        "Sequencer client polling variable: how much time to wait in milliseconds between polling retries(can be zero)"
+                    );
+                }
+                "initial_accounts" => {
+                    println!("List of initial accounts' keys(both public and private)");
+                }
+                _ => {
+                    println!("Unknown field");
+                }
+            },
         }
 
         Ok(SubcommandReturnValue::Empty)
