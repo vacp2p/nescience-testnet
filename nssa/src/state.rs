@@ -2081,7 +2081,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_chained_call() {
+    fn test_public_chained_call() {
         let program = Program::chain_caller();
         let key = PrivateKey::try_new([1; 32]).unwrap();
         let address = Address::from(&PublicKey::new_from_private_key(&key));
@@ -2118,5 +2118,65 @@ pub mod tests {
         let to_post = state.get_account_by_address(&to);
         assert_eq!(from_post.balance, initial_balance - amount);
         assert_eq!(to_post, expected_to_post);
+    }
+
+    #[test]
+    fn test_private_chained_call() {
+        let program = Program::chain_caller();
+        let from_keys = test_private_account_keys_1();
+        let to_keys = test_private_account_keys_1();
+        let initial_balance = 100;
+        let from_account = AccountWithMetadata::new(
+            Account {
+                program_owner: Program::authenticated_transfer_program().id(),
+                balance: initial_balance,
+                ..Account::default()
+            },
+            true,
+            &from_keys.npk(),
+        );
+        let to_account = AccountWithMetadata::new(Account::default(), true, &from_keys.npk());
+        let from_commitment = Commitment::new(&from_keys.npk(), &from_account.account);
+        let mut state = V02State::new_with_genesis_accounts(&[], &[from_commitment.clone()])
+            .with_test_programs();
+        // let from = address;
+        // let from_key = key;
+        // let to = Address::new([2; 32]);
+        let amount: u128 = 37;
+        let instruction: (u128, ProgramId) =
+            (amount, Program::authenticated_transfer_program().id());
+
+        let from_esk = [3; 32];
+        let from_ss = SharedSecretKey::new(&from_esk, &from_keys.ivk());
+        let from_epk = EphemeralPublicKey::from_scalar(from_esk);
+
+        let to_esk = [4; 32];
+        let to_ss = SharedSecretKey::new(&to_esk, &to_keys.ivk());
+        let to_epk = EphemeralPublicKey::from_scalar(to_esk);
+
+        let (output, proof) = execute_and_prove(
+            &[from_account, to_account],
+            &Program::serialize_instruction(instruction).unwrap(),
+            &[1, 2],
+            &[0xdeadbeef1, 0xdeadbeef2],
+            &[(from_keys.npk(), from_ss), (to_keys.npk(), to_ss)],
+            &[(
+                from_keys.nsk,
+                state.get_proof_for_commitment(&from_commitment).unwrap(),
+            )],
+            &program,
+        )
+        .unwrap();
+
+        let message = Message::try_from_circuit_output(vec![], vec![], vec![], output).unwrap();
+        let witness_set = WitnessSet::for_message(&message, proof, &[]);
+        let tx = PrivacyPreservingTransaction::new(message, witness_set);
+        //
+        // state.transition_from_public_transaction(&tx).unwrap();
+        //
+        // let from_post = state.get_account_by_address(&from);
+        // let to_post = state.get_account_by_address(&to);
+        // assert_eq!(from_post.balance, initial_balance - amount);
+        // assert_eq!(to_post, expected_to_post);
     }
 }

@@ -26,7 +26,7 @@ fn main() {
 
     let num_calls = program_outputs.len();
     if num_calls > MAX_NUMBER_CHAINED_CALLS {
-        panic!("Max deapth is exceeded");
+        panic!("Max depth is exceeded");
     }
 
     if program_outputs[num_calls - 1].chained_call.is_some() {
@@ -44,7 +44,7 @@ fn main() {
         }
     }
 
-    for program_output in program_outputs {
+    for (i, program_output) in program_outputs.iter().enumerate() {
         let mut program_output = program_output.clone();
 
         // Check that `program_output` is consistent with the execution of the corresponding program.
@@ -84,8 +84,8 @@ fn main() {
 
         if let Some(next_chained_call) = &program_output.chained_call {
             program_id = next_chained_call.program_id;
-        } else {
-            break;
+        } else if i != program_outputs.len() - 1 {
+            panic!("Inner call without a chained call found")
         };
     }
 

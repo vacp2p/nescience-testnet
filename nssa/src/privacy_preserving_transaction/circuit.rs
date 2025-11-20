@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use nssa_core::{
     MembershipProof, NullifierPublicKey, NullifierSecretKey, PrivacyPreservingCircuitInput,
     PrivacyPreservingCircuitOutput, SharedSecretKey,
     account::AccountWithMetadata,
-    program::{InstructionData, ProgramOutput},
+    program::{InstructionData, ProgramId, ProgramOutput},
 };
 use risc0_zkvm::{ExecutorEnv, InnerReceipt, Receipt, default_prover};
 
@@ -24,12 +26,16 @@ pub fn execute_and_prove(
     private_account_keys: &[(NullifierPublicKey, SharedSecretKey)],
     private_account_auth: &[(NullifierSecretKey, MembershipProof)],
     program: &Program,
+    programs: &HashMap<ProgramId, Program>,
 ) -> Result<(PrivacyPreservingCircuitOutput, Proof), NssaError> {
+    let mut program = program;
+    let mut instruction_data = instruction_data.clone();
+    let mut pre_states = pre_states.to_vec();
     let mut env_builder = ExecutorEnv::builder();
     let mut program_outputs = Vec::new();
 
     for _i in 0..MAX_NUMBER_CHAINED_CALLS {
-        let inner_receipt = execute_and_prove_program(program, pre_states, instruction_data)?;
+        let inner_receipt = execute_and_prove_program(program, &pre_states, &instruction_data)?;
 
         let program_output: ProgramOutput = inner_receipt
             .journal
@@ -42,7 +48,33 @@ pub fn execute_and_prove(
         // Prove circuit.
         env_builder.add_assumption(inner_receipt);
 
-        if program_output.chained_call.is_none() {
+        if let Some(next_call) = program_output.chained_call {
+            // TODO: remove unwrap
+            program = programs.get(&next_call.program_id).unwrap();
+            instruction_data = next_call.instruction_data.clone();
+            // Build post states with metadata for next call
+            let mut post_states_with_metadata = Vec::new();
+            for (pre, post) in program_output
+                .pre_states
+                .iter()
+                .zip(program_output.post_states)
+            {
+                let mut post_with_metadata = pre.clone();
+                post_with_metadata.account = post.clone();
+                post_states_with_metadata.push(post_with_metadata);
+            }
+
+            pre_states = next_call
+                .account_indices
+                .iter()
+                .map(|&i| {
+                    post_states_with_metadata
+                        .get(i)
+                        .ok_or_else(|| NssaError::InvalidInput("Invalid account indices".into()))
+                        .cloned()
+                })
+                .collect::<Result<Vec<_>, NssaError>>()?;
+        } else {
             break;
         }
     }
