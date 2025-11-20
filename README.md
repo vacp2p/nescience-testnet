@@ -138,16 +138,14 @@ If everything went well you should see an output similar to this:
 # Try the Wallet CLI
 
 ## Install
+
 This repository includes a CLI for interacting with the Nescience sequencer. To install it, run the following command from the root of the repository:
 
 ```bash
 cargo install --path wallet --force
 ```
-Before using the CLI, set the environment variable `NSSA_WALLET_HOME_DIR` to the directory containing the wallet configuration file. A sample configuration is available at `integration_tests/configs/debug/wallet/`. To use it, run:
 
-```bash
-export NSSA_WALLET_HOME_DIR=$(pwd)/integration_tests/configs/debug/wallet/
-```
+Run `wallet help` to check everything went well.
 
 ## Tutorial
 
@@ -518,7 +516,6 @@ wallet token new \
 ```
 
 After it succeeds, we can check their values
-
 
 ```bash
 wallet account get --addr Public/GQ3C8rbprTtQUCvkuVBRu3v9wvUvjafCMFqoSPvTEVii
