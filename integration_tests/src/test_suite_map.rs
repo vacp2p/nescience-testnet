@@ -1185,9 +1185,20 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
         tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
+        let wallet_config = fetch_config().await.unwrap();
         let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
             .await
             .unwrap();
+
+        info!("All private accounts data");
+        for (addr, (_, acc)) in &wallet_storage.storage.user_data.user_private_accounts {
+            info!("{addr} :: {acc:#?}");
+        }
+
+        let new_commitment1 = wallet_storage
+            .get_private_account_commitment(&from)
+            .unwrap();
+        assert_eq!(tx.message.new_commitments[0], new_commitment1);
 
         assert_eq!(tx.message.new_commitments.len(), 2);
         for commitment in tx.message.new_commitments.into_iter() {
