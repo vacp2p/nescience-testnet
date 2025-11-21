@@ -1185,6 +1185,7 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
         tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
+        let wallet_config = fetch_config().await.unwrap();
         let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
             .await
             .unwrap();
