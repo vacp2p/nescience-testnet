@@ -2,7 +2,6 @@ use nssa_core::{
     account::{Account, AccountWithMetadata},
     program::{ProgramInput, read_nssa_inputs, write_nssa_outputs},
 };
-use risc0_zkvm::serde::to_vec;
 
 /// Initializes a default account under the ownership of this program.
 /// This is achieved by a noop.

@@ -2125,6 +2125,7 @@ pub mod tests {
 
     #[test]
     fn test_private_chained_call() {
+        // Arrange
         let chain_caller = Program::chain_caller();
         let auth_transfers = Program::authenticated_transfer_program();
         let from_keys = test_private_account_keys_1();
@@ -2147,9 +2148,10 @@ pub mod tests {
             true,
             &to_keys.npk(),
         );
+
         let from_commitment = Commitment::new(&from_keys.npk(), &from_account.account);
         let to_commitment = Commitment::new(&to_keys.npk(), &to_account.account);
-        let state = V02State::new_with_genesis_accounts(
+        let mut state = V02State::new_with_genesis_accounts(
             &[],
             &[from_commitment.clone(), to_commitment.clone()],
         )
@@ -2160,22 +2162,40 @@ pub mod tests {
 
         let from_esk = [3; 32];
         let from_ss = SharedSecretKey::new(&from_esk, &from_keys.ivk());
-        // let from_epk = EphemeralPublicKey::from_scalar(from_esk);
+        let from_epk = EphemeralPublicKey::from_scalar(from_esk);
 
         let to_esk = [3; 32];
         let to_ss = SharedSecretKey::new(&to_esk, &to_keys.ivk());
-        // let to_epk = EphemeralPublicKey::from_scalar(to_esk);
+        let to_epk = EphemeralPublicKey::from_scalar(to_esk);
         //
         let mut dependencies = HashMap::new();
 
         dependencies.insert(auth_transfers.id(), auth_transfers);
         let program_with_deps = ProgramWithDependencies::new(chain_caller, dependencies);
 
-        let result = execute_and_prove(
+        let from_new_nonce = 0xdeadbeef1;
+        let to_new_nonce = 0xdeadbeef1;
+
+        let from_expected_post = Account {
+            balance: initial_balance - amount,
+            nonce: from_new_nonce,
+            ..from_account.account.clone()
+        };
+        let from_expected_commitment = Commitment::new(&from_keys.npk(), &from_expected_post);
+
+        let to_expected_post = Account {
+            balance: amount,
+            nonce: to_new_nonce,
+            ..to_account.account.clone()
+        };
+        let to_expected_commitment = Commitment::new(&to_keys.npk(), &to_expected_post);
+
+        // Act
+        let (output, proof) = execute_and_prove(
             &[to_account, from_account],
             &Program::serialize_instruction(instruction).unwrap(),
             &[1, 1],
-            &[0xdeadbeef1, 0xdeadbeef2],
+            &[to_new_nonce, from_new_nonce],
             &[(to_keys.npk(), from_ss), (from_keys.npk(), to_ss)],
             &[
                 (
@@ -2190,28 +2210,34 @@ pub mod tests {
             &program_with_deps,
         )
         .unwrap();
-    }
 
-    // let expected_to_post = Account {
-    //     program_owner: Program::chain_caller().id(),
-    //     balance: amount,
-    //     ..Account::default()
-    // };
-    //
-    // let message = public_transaction::Message::try_new(
-    //     program.id(),
-    //     vec![to, from], //The chain_caller program permutes the account order in the chain call
-    //     vec![0],
-    //     instruction,
-    // )
-    // .unwrap();
-    // let witness_set = public_transaction::WitnessSet::for_message(&message, &[&from_key]);
-    // let tx = PublicTransaction::new(message, witness_set);
-    //
-    // state.transition_from_public_transaction(&tx).unwrap();
-    //
-    // let from_post = state.get_account_by_address(&from);
-    // let to_post = state.get_account_by_address(&to);
-    // assert_eq!(from_post.balance, initial_balance - amount);
-    // assert_eq!(to_post, expected_to_post);
+        let message = Message::try_from_circuit_output(
+            vec![],
+            vec![],
+            vec![
+                (to_keys.npk(), to_keys.ivk(), to_epk),
+                (from_keys.npk(), from_keys.ivk(), from_epk),
+            ],
+            output,
+        )
+        .unwrap();
+        let witness_set = WitnessSet::for_message(&message, proof, &[]);
+        let transaction = PrivacyPreservingTransaction::new(message, witness_set);
+
+        state
+            .transition_from_privacy_preserving_transaction(&transaction)
+            .unwrap();
+
+        // Assert
+        assert!(
+            state
+                .get_proof_for_commitment(&from_expected_commitment)
+                .is_some()
+        );
+        assert!(
+            state
+                .get_proof_for_commitment(&to_expected_commitment)
+                .is_some()
+        );
+    }
 }

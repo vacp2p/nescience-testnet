@@ -52,7 +52,7 @@ fn main() {
             pre_states,
             instruction: solution,
         },
-        instruction_data,
+        _,
     ) = read_nssa_inputs::<Instruction>();
 
     let [pinata, winner] = match pre_states.try_into() {

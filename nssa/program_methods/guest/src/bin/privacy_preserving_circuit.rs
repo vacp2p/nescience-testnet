@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use risc0_zkvm::{guest::env, serde::to_vec};
 

@@ -142,7 +142,7 @@ fn validate_uniqueness_of_account_ids(pre_states: &[AccountWithMetadata]) -> boo
     let number_of_accounts = pre_states.len();
     let number_of_account_ids = pre_states
         .iter()
-        .map(|account| account.account_id)
+        .map(|account| &account.account_id)
         .collect::<HashSet<_>>()
         .len();
 
