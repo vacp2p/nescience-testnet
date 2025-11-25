@@ -215,26 +215,35 @@ fn new_definition(
 
     let mut chained_call = Vec::new();
 
-    /*
-    let mut instruction_data = [0; 23];
-    instruction_data[0] = 1;      
-    instruction_data[1..17].copy_from_slice(&amount_a.to_le_bytes());
-*/
-    /*
-let mut token_program_id: [u32;8] = [0];
-            token_program_id[0] = u32::from_le_bytes(instruction[0..8].try_into().unwrap());
-            token_program_id[1] = u32::from_le_bytes(instruction[8..16].try_into().unwrap());
-            token_program_id[2] = u32::from_le_bytes(instruction[16..24].try_into().unwrap());
- 
-    */
+   
+    let mut instruction: [u8;32] = [0; 32];
+    instruction[0] = 1;      
+    instruction[1..17].copy_from_slice(&amount_a.to_le_bytes());
 
-    let instruction_data = to_vec(&amount_a).unwrap();
+    //works?
+    let instruction_data = risc0_zkvm::serde::to_vec(&instruction).unwrap();
+    /*
+    //works?
+    let mut instruction_data: [u32;8] = [0; 8];
+            instruction_data[0] = u32::from_le_bytes(instruction[0..4].try_into().unwrap());
+            instruction_data[1] = u32::from_le_bytes(instruction[4..8].try_into().unwrap());
+            instruction_data[2] = u32::from_le_bytes(instruction[8..12].try_into().unwrap());
+            instruction_data[3] = u32::from_le_bytes(instruction[12..16].try_into().unwrap());
+            instruction_data[4] = u32::from_le_bytes(instruction[16..20].try_into().unwrap());
+            instruction_data[5] = u32::from_le_bytes(instruction[20..24].try_into().unwrap());
+            instruction_data[6] = u32::from_le_bytes(instruction[24..28].try_into().unwrap());
+            instruction_data[7] = u32::from_le_bytes(instruction[28..32].try_into().unwrap());       
+*/
+    //TODO bytemuck seems to cause issues (non-deterministic)
+//    instruction_data = bytemuck::try_cast_slice(&instruction);
+   
+    //TODO: current testing location issue
     let call_token_a = ChainedCall{
-            program_id: token_program,
-            instruction_data: instruction_data,//bytemuck::cast_slice(&instruction_data).to_vec(),
+            program_id: token_program, // This is likely the issue
+            instruction_data: &instruction_data,//bytemuck::try_cast_slice(&instruction),//.to_vec(),
             pre_states: vec![user_a.clone(), vault_a.clone()]
         };
-
+        
     /*
     instruction_data[1..17].copy_from_slice(&amount_b.to_le_bytes());
     let call_token_b = ChainedCall{
@@ -455,7 +464,8 @@ fn swap(
     chained_call.push(call_token_a);
     chained_call.push(call_token_b);
 
-    let post_states = vec![pool_post.clone(), 
+    let post_states = vec![
+        pool_post.clone(), 
         pre_states[1].account.clone(),
         pre_states[2].account.clone(),
         pre_states[3].account.clone(),
@@ -605,7 +615,8 @@ fn add_liquidity(pre_states: &[AccountWithMetadata],
     chained_call.push(call_token_a);
 
 
-    let post_states = vec![pool_post.clone(), 
+    let post_states = vec![
+        pool_post.clone(), 
         pre_states[1].account.clone(),
         pre_states[2].account.clone(),
         pre_states[3].account.clone(),
@@ -715,7 +726,8 @@ fn remove_liquidity(pre_states: &[AccountWithMetadata]) -> (Vec<Account>, Vec<Ch
     chained_call.push(call_token_a);
 
 
-    let post_states = vec![pool_post.clone(), 
+    let post_states = vec!
+        [pool_post.clone(), 
         pre_states[1].account.clone(),
         pre_states[2].account.clone(),
         pre_states[3].account.clone(),
