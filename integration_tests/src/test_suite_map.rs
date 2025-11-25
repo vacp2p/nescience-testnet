@@ -1182,7 +1182,7 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         let tx = fetch_privacy_preserving_tx(&seq_client, tx_hash.clone()).await;
 
         println!("Waiting for next blocks to check if continoius run fetch account");
-        tokio::time::sleep(Duration::from_secs(6 * TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
+        tokio::time::sleep(Duration::from_secs(8 * TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
 
         let wallet_config = fetch_config().await.unwrap();
         let wallet_storage = WalletCore::start_from_config_update_chain(wallet_config)
