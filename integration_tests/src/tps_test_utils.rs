@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use nssa::{
-    Account, AccountId, Address, PrivacyPreservingTransaction, PrivateKey, PublicKey,
-    PublicTransaction,
+    Account, AccountId, PrivacyPreservingTransaction, PrivateKey, PublicKey, PublicTransaction,
     privacy_preserving_transaction::{self as pptx, circuit},
     program::Program,
     public_transaction as putx,
@@ -15,7 +14,7 @@ use nssa_core::{
 use sequencer_core::config::{AccountInitialData, CommitmentsInitialData, SequencerConfig};
 
 pub(crate) struct TpsTestManager {
-    public_keypairs: Vec<(PrivateKey, Address)>,
+    public_keypairs: Vec<(PrivateKey, AccountId)>,
     target_tps: u64,
 }
 
@@ -29,8 +28,8 @@ impl TpsTestManager {
                 private_key_bytes[..8].copy_from_slice(&i.to_le_bytes());
                 let private_key = PrivateKey::try_new(private_key_bytes).unwrap();
                 let public_key = PublicKey::new_from_private_key(&private_key);
-                let address = Address::from(&public_key);
-                (private_key, address)
+                let account_id = AccountId::from(&public_key);
+                (private_key, account_id)
             })
             .collect::<Vec<_>>();
         Self {
@@ -78,8 +77,8 @@ impl TpsTestManager {
         let initial_public_accounts = self
             .public_keypairs
             .iter()
-            .map(|(_, addr)| AccountInitialData {
-                addr: addr.to_string(),
+            .map(|(_, account_id)| AccountInitialData {
+                account_id: account_id.to_string(),
                 balance: 10,
             })
             .collect();

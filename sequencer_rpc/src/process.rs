@@ -166,23 +166,23 @@ impl JsonHandler {
         respond(initial_accounts)
     }
 
-    /// Returns the balance of the account at the given address.
-    /// The address must be a valid hex string of the correct length.
+    /// Returns the balance of the account at the given account_id.
+    /// The account_id must be a valid hex string of the correct length.
     async fn process_get_account_balance(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_req = GetAccountBalanceRequest::parse(Some(request.params))?;
-        let address_bytes = get_account_req
-            .address
+        let account_id_bytes = get_account_req
+            .account_id
             .from_base58()
             .map_err(|_| RpcError::invalid_params("invalid base58".to_string()))?;
-        let address = nssa::Address::new(
-            address_bytes
+        let account_id = nssa::AccountId::new(
+            account_id_bytes
                 .try_into()
                 .map_err(|_| RpcError::invalid_params("invalid length".to_string()))?,
         );
 
         let balance = {
             let state = self.sequencer_state.lock().await;
-            let account = state.state().get_account_by_address(&address);
+            let account = state.state().get_account_by_id(&account_id);
             account.balance
         };
 
@@ -191,25 +191,25 @@ impl JsonHandler {
         respond(response)
     }
 
-    /// Returns the nonces of the accounts at the given addresses.
-    /// Each address must be a valid hex string of the correct length.
+    /// Returns the nonces of the accounts at the given account_ids.
+    /// Each account_id must be a valid hex string of the correct length.
     async fn process_get_accounts_nonces(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_nonces_req = GetAccountsNoncesRequest::parse(Some(request.params))?;
-        let mut addresses = vec![];
-        for address_raw in get_account_nonces_req.addresses {
-            let address = address_raw
-                .parse::<nssa::Address>()
+        let mut account_ids = vec![];
+        for account_id_raw in get_account_nonces_req.account_ids {
+            let account_id = account_id_raw
+                .parse::<nssa::AccountId>()
                 .map_err(|e| RpcError::invalid_params(e.to_string()))?;
 
-            addresses.push(address);
+            account_ids.push(account_id);
         }
 
         let nonces = {
             let state = self.sequencer_state.lock().await;
 
-            addresses
+            account_ids
                 .into_iter()
-                .map(|addr| state.state().get_account_by_address(&addr).nonce)
+                .map(|account_id| state.state().get_account_by_id(&account_id).nonce)
                 .collect()
         };
 
@@ -218,20 +218,20 @@ impl JsonHandler {
         respond(response)
     }
 
-    /// Returns account struct for given address.
-    /// Address must be a valid hex string of the correct length.
+    /// Returns account struct for given account_id.
+    /// AccountId must be a valid hex string of the correct length.
     async fn process_get_account(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_nonces_req = GetAccountRequest::parse(Some(request.params))?;
 
-        let address = get_account_nonces_req
-            .address
-            .parse::<nssa::Address>()
+        let account_id = get_account_nonces_req
+            .account_id
+            .parse::<nssa::AccountId>()
             .map_err(|e| RpcError::invalid_params(e.to_string()))?;
 
         let account = {
             let state = self.sequencer_state.lock().await;
 
-            state.state().get_account_by_address(&address)
+            state.state().get_account_by_id(&account_id)
         };
 
         let response = GetAccountResponse { account };
@@ -334,23 +334,23 @@ mod tests {
     fn sequencer_config_for_tests() -> SequencerConfig {
         let tempdir = tempdir().unwrap();
         let home = tempdir.path().to_path_buf();
-        let acc1_addr: Vec<u8> = vec![
+        let acc1_id: Vec<u8> = vec![
             208, 122, 210, 232, 75, 39, 250, 0, 194, 98, 240, 161, 238, 160, 255, 53, 202, 9, 115,
             84, 126, 106, 16, 111, 114, 241, 147, 194, 220, 131, 139, 68,
         ];
 
-        let acc2_addr: Vec<u8> = vec![
+        let acc2_id: Vec<u8> = vec![
             231, 174, 119, 197, 239, 26, 5, 153, 147, 68, 175, 73, 159, 199, 138, 23, 5, 57, 141,
             98, 237, 6, 207, 46, 20, 121, 246, 222, 248, 154, 57, 188,
         ];
 
         let initial_acc1 = AccountInitialData {
-            addr: acc1_addr.to_base58(),
+            account_id: acc1_id.to_base58(),
             balance: 10000,
         };
 
         let initial_acc2 = AccountInitialData {
-            addr: acc2_addr.to_base58(),
+            account_id: acc2_id.to_base58(),
             balance: 20000,
         };
 
@@ -437,7 +437,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": "11".repeat(16) },
+            "params": { "account_id": "11".repeat(16) },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -459,7 +459,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": "not_a_valid_base58" },
+            "params": { "account_id": "not_a_valid_base58" },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -482,7 +482,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": "cafecafe" },
+            "params": { "account_id": "cafecafe" },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -503,12 +503,12 @@ mod tests {
     async fn test_get_account_balance_for_existing_account() {
         let (json_handler, initial_accounts, _) = components_for_tests().await;
 
-        let acc1_addr = initial_accounts[0].addr.clone();
+        let acc1_id = initial_accounts[0].account_id.clone();
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": acc1_addr },
+            "params": { "account_id": acc1_id },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -530,7 +530,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_accounts_nonces",
-            "params": { "addresses": ["11".repeat(16)] },
+            "params": { "account_ids": ["11".repeat(16)] },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -550,13 +550,13 @@ mod tests {
     async fn test_get_accounts_nonces_for_existent_account() {
         let (json_handler, initial_accounts, _) = components_for_tests().await;
 
-        let acc_1_addr = initial_accounts[0].addr.clone();
-        let acc_2_addr = initial_accounts[1].addr.clone();
+        let acc1_id = initial_accounts[0].account_id.clone();
+        let acc2_id = initial_accounts[1].account_id.clone();
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_accounts_nonces",
-            "params": { "addresses": [acc_1_addr, acc_2_addr] },
+            "params": { "account_ids": [acc1_id, acc2_id] },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -578,7 +578,7 @@ mod tests {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account",
-            "params": { "address": "11".repeat(16) },
+            "params": { "account_id": "11".repeat(16) },
             "id": 1
         });
         let expected_response = serde_json::json!({

@@ -6,7 +6,7 @@ use crate::{
 };
 use nssa_core::{
     Commitment, CommitmentSetDigest, DUMMY_COMMITMENT, MembershipProof, Nullifier,
-    account::Account, address::Address, program::ProgramId,
+    account::Account, account::AccountId, program::ProgramId,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -58,27 +58,27 @@ impl CommitmentSet {
 type NullifierSet = HashSet<Nullifier>;
 
 pub struct V02State {
-    public_state: HashMap<Address, Account>,
+    public_state: HashMap<AccountId, Account>,
     private_state: (CommitmentSet, NullifierSet),
     programs: HashMap<ProgramId, Program>,
 }
 
 impl V02State {
     pub fn new_with_genesis_accounts(
-        initial_data: &[(Address, u128)],
+        initial_data: &[(AccountId, u128)],
         initial_commitments: &[nssa_core::Commitment],
     ) -> Self {
         let authenticated_transfer_program = Program::authenticated_transfer_program();
         let public_state = initial_data
             .iter()
             .copied()
-            .map(|(address, balance)| {
+            .map(|(account_id, balance)| {
                 let account = Account {
                     balance,
                     program_owner: authenticated_transfer_program.id(),
                     ..Account::default()
                 };
-                (address, account)
+                (account_id, account)
             })
             .collect();
 
@@ -108,14 +108,14 @@ impl V02State {
     ) -> Result<(), NssaError> {
         let state_diff = tx.validate_and_produce_public_state_diff(self)?;
 
-        for (address, post) in state_diff.into_iter() {
-            let current_account = self.get_account_by_address_mut(address);
+        for (account_id, post) in state_diff.into_iter() {
+            let current_account = self.get_account_by_id_mut(account_id);
 
             *current_account = post;
         }
 
-        for address in tx.signer_addresses() {
-            let current_account = self.get_account_by_address_mut(address);
+        for account_id in tx.signer_account_ids() {
+            let current_account = self.get_account_by_id_mut(account_id);
             current_account.nonce += 1;
         }
 
@@ -144,8 +144,8 @@ impl V02State {
         self.private_state.1.extend(new_nullifiers);
 
         // 4. Update public accounts
-        for (address, post) in public_state_diff.into_iter() {
-            let current_account = self.get_account_by_address_mut(address);
+        for (account_id, post) in public_state_diff.into_iter() {
+            let current_account = self.get_account_by_id_mut(account_id);
             *current_account = post;
         }
 
@@ -161,13 +161,13 @@ impl V02State {
         Ok(())
     }
 
-    fn get_account_by_address_mut(&mut self, address: Address) -> &mut Account {
-        self.public_state.entry(address).or_default()
+    fn get_account_by_id_mut(&mut self, account_id: AccountId) -> &mut Account {
+        self.public_state.entry(account_id).or_default()
     }
 
-    pub fn get_account_by_address(&self, address: &Address) -> Account {
+    pub fn get_account_by_id(&self, account_id: &AccountId) -> Account {
         self.public_state
-            .get(address)
+            .get(account_id)
             .cloned()
             .unwrap_or(Account::default())
     }
@@ -220,11 +220,11 @@ impl V02State {
 
 // TODO: Testnet only. Refactor to prevent compilation on mainnet.
 impl V02State {
-    pub fn add_pinata_program(&mut self, address: Address) {
+    pub fn add_pinata_program(&mut self, account_id: AccountId) {
         self.insert_program(Program::pinata());
 
         self.public_state.insert(
-            address,
+            account_id,
             Account {
                 program_owner: Program::pinata().id(),
                 balance: 1500,
@@ -242,7 +242,7 @@ pub mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        Address, PublicKey, PublicTransaction, V02State,
+        PublicKey, PublicTransaction, V02State,
         error::NssaError,
         execute_and_prove,
         privacy_preserving_transaction::{
@@ -261,17 +261,17 @@ pub mod tests {
     };
 
     fn transfer_transaction(
-        from: Address,
+        from: AccountId,
         from_key: PrivateKey,
         nonce: u128,
-        to: Address,
+        to: AccountId,
         balance: u128,
     ) -> PublicTransaction {
-        let addresses = vec![from, to];
+        let account_ids = vec![from, to];
         let nonces = vec![nonce];
         let program_id = Program::authenticated_transfer_program().id();
         let message =
-            public_transaction::Message::try_new(program_id, addresses, nonces, balance).unwrap();
+            public_transaction::Message::try_new(program_id, account_ids, nonces, balance).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[&from_key]);
         PublicTransaction::new(message, witness_set)
     }
@@ -280,8 +280,8 @@ pub mod tests {
     fn test_new_with_genesis() {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let addr1 = Address::from(&PublicKey::new_from_private_key(&key1));
-        let addr2 = Address::from(&PublicKey::new_from_private_key(&key2));
+        let addr1 = AccountId::from(&PublicKey::new_from_private_key(&key1));
+        let addr2 = AccountId::from(&PublicKey::new_from_private_key(&key2));
         let initial_data = [(addr1, 100u128), (addr2, 151u128)];
         let authenticated_transfers_program = Program::authenticated_transfer_program();
         let expected_public_state = {
@@ -333,25 +333,25 @@ pub mod tests {
     }
 
     #[test]
-    fn test_get_account_by_address_non_default_account() {
+    fn test_get_account_by_account_id_non_default_account() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let addr = Address::from(&PublicKey::new_from_private_key(&key));
-        let initial_data = [(addr, 100u128)];
+        let account_id = AccountId::from(&PublicKey::new_from_private_key(&key));
+        let initial_data = [(account_id, 100u128)];
         let state = V02State::new_with_genesis_accounts(&initial_data, &[]);
-        let expected_account = state.public_state.get(&addr).unwrap();
+        let expected_account = state.public_state.get(&account_id).unwrap();
 
-        let account = state.get_account_by_address(&addr);
+        let account = state.get_account_by_id(&account_id);
 
         assert_eq!(&account, expected_account);
     }
 
     #[test]
-    fn test_get_account_by_address_default_account() {
-        let addr2 = Address::new([0; 32]);
+    fn test_get_account_by_account_id_default_account() {
+        let addr2 = AccountId::new([0; 32]);
         let state = V02State::new_with_genesis_accounts(&[], &[]);
         let expected_account = Account::default();
 
-        let account = state.get_account_by_address(&addr2);
+        let account = state.get_account_by_id(&addr2);
 
         assert_eq!(account, expected_account);
     }
@@ -368,96 +368,96 @@ pub mod tests {
     #[test]
     fn transition_from_authenticated_transfer_program_invocation_default_account_destination() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let address = Address::from(&PublicKey::new_from_private_key(&key));
-        let initial_data = [(address, 100)];
+        let account_id = AccountId::from(&PublicKey::new_from_private_key(&key));
+        let initial_data = [(account_id, 100)];
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[]);
-        let from = address;
-        let to = Address::new([2; 32]);
-        assert_eq!(state.get_account_by_address(&to), Account::default());
+        let from = account_id;
+        let to = AccountId::new([2; 32]);
+        assert_eq!(state.get_account_by_id(&to), Account::default());
         let balance_to_move = 5;
 
         let tx = transfer_transaction(from, key, 0, to, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
 
-        assert_eq!(state.get_account_by_address(&from).balance, 95);
-        assert_eq!(state.get_account_by_address(&to).balance, 5);
-        assert_eq!(state.get_account_by_address(&from).nonce, 1);
-        assert_eq!(state.get_account_by_address(&to).nonce, 0);
+        assert_eq!(state.get_account_by_id(&from).balance, 95);
+        assert_eq!(state.get_account_by_id(&to).balance, 5);
+        assert_eq!(state.get_account_by_id(&from).nonce, 1);
+        assert_eq!(state.get_account_by_id(&to).nonce, 0);
     }
 
     #[test]
     fn transition_from_authenticated_transfer_program_invocation_insuficient_balance() {
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let address = Address::from(&PublicKey::new_from_private_key(&key));
-        let initial_data = [(address, 100)];
+        let account_id = AccountId::from(&PublicKey::new_from_private_key(&key));
+        let initial_data = [(account_id, 100)];
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[]);
-        let from = address;
+        let from = account_id;
         let from_key = key;
-        let to = Address::new([2; 32]);
+        let to = AccountId::new([2; 32]);
         let balance_to_move = 101;
-        assert!(state.get_account_by_address(&from).balance < balance_to_move);
+        assert!(state.get_account_by_id(&from).balance < balance_to_move);
 
         let tx = transfer_transaction(from, from_key, 0, to, balance_to_move);
         let result = state.transition_from_public_transaction(&tx);
 
         assert!(matches!(result, Err(NssaError::ProgramExecutionFailed(_))));
-        assert_eq!(state.get_account_by_address(&from).balance, 100);
-        assert_eq!(state.get_account_by_address(&to).balance, 0);
-        assert_eq!(state.get_account_by_address(&from).nonce, 0);
-        assert_eq!(state.get_account_by_address(&to).nonce, 0);
+        assert_eq!(state.get_account_by_id(&from).balance, 100);
+        assert_eq!(state.get_account_by_id(&to).balance, 0);
+        assert_eq!(state.get_account_by_id(&from).nonce, 0);
+        assert_eq!(state.get_account_by_id(&to).nonce, 0);
     }
 
     #[test]
     fn transition_from_authenticated_transfer_program_invocation_non_default_account_destination() {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let address1 = Address::from(&PublicKey::new_from_private_key(&key1));
-        let address2 = Address::from(&PublicKey::new_from_private_key(&key2));
-        let initial_data = [(address1, 100), (address2, 200)];
+        let account_id1 = AccountId::from(&PublicKey::new_from_private_key(&key1));
+        let account_id2 = AccountId::from(&PublicKey::new_from_private_key(&key2));
+        let initial_data = [(account_id1, 100), (account_id2, 200)];
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[]);
-        let from = address2;
+        let from = account_id2;
         let from_key = key2;
-        let to = address1;
-        assert_ne!(state.get_account_by_address(&to), Account::default());
+        let to = account_id1;
+        assert_ne!(state.get_account_by_id(&to), Account::default());
         let balance_to_move = 8;
 
         let tx = transfer_transaction(from, from_key, 0, to, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
 
-        assert_eq!(state.get_account_by_address(&from).balance, 192);
-        assert_eq!(state.get_account_by_address(&to).balance, 108);
-        assert_eq!(state.get_account_by_address(&from).nonce, 1);
-        assert_eq!(state.get_account_by_address(&to).nonce, 0);
+        assert_eq!(state.get_account_by_id(&from).balance, 192);
+        assert_eq!(state.get_account_by_id(&to).balance, 108);
+        assert_eq!(state.get_account_by_id(&from).nonce, 1);
+        assert_eq!(state.get_account_by_id(&to).nonce, 0);
     }
 
     #[test]
     fn transition_from_sequence_of_authenticated_transfer_program_invocations() {
         let key1 = PrivateKey::try_new([8; 32]).unwrap();
-        let address1 = Address::from(&PublicKey::new_from_private_key(&key1));
+        let account_id1 = AccountId::from(&PublicKey::new_from_private_key(&key1));
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let address2 = Address::from(&PublicKey::new_from_private_key(&key2));
-        let initial_data = [(address1, 100)];
+        let account_id2 = AccountId::from(&PublicKey::new_from_private_key(&key2));
+        let initial_data = [(account_id1, 100)];
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[]);
-        let address3 = Address::new([3; 32]);
+        let account_id3 = AccountId::new([3; 32]);
         let balance_to_move = 5;
 
-        let tx = transfer_transaction(address1, key1, 0, address2, balance_to_move);
+        let tx = transfer_transaction(account_id1, key1, 0, account_id2, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
         let balance_to_move = 3;
-        let tx = transfer_transaction(address2, key2, 0, address3, balance_to_move);
+        let tx = transfer_transaction(account_id2, key2, 0, account_id3, balance_to_move);
         state.transition_from_public_transaction(&tx).unwrap();
 
-        assert_eq!(state.get_account_by_address(&address1).balance, 95);
-        assert_eq!(state.get_account_by_address(&address2).balance, 2);
-        assert_eq!(state.get_account_by_address(&address3).balance, 3);
-        assert_eq!(state.get_account_by_address(&address1).nonce, 1);
-        assert_eq!(state.get_account_by_address(&address2).nonce, 1);
-        assert_eq!(state.get_account_by_address(&address3).nonce, 0);
+        assert_eq!(state.get_account_by_id(&account_id1).balance, 95);
+        assert_eq!(state.get_account_by_id(&account_id2).balance, 2);
+        assert_eq!(state.get_account_by_id(&account_id3).balance, 3);
+        assert_eq!(state.get_account_by_id(&account_id1).nonce, 1);
+        assert_eq!(state.get_account_by_id(&account_id2).nonce, 1);
+        assert_eq!(state.get_account_by_id(&account_id3).nonce, 0);
     }
 
     impl V02State {
-        pub fn force_insert_account(&mut self, address: Address, account: Account) {
-            self.public_state.insert(address, account);
+        pub fn force_insert_account(&mut self, account_id: AccountId, account: Account) {
+            self.public_state.insert(account_id, account);
         }
 
         /// Include test programs in the builtin programs map
@@ -488,15 +488,15 @@ pub mod tests {
                 ..Account::default()
             };
             self.force_insert_account(
-                Address::new([255; 32]),
+                AccountId::new([255; 32]),
                 account_with_default_values_except_balance,
             );
             self.force_insert_account(
-                Address::new([254; 32]),
+                AccountId::new([254; 32]),
                 account_with_default_values_except_nonce,
             );
             self.force_insert_account(
-                Address::new([253; 32]),
+                AccountId::new([253; 32]),
                 account_with_default_values_except_data,
             );
             self
@@ -508,7 +508,7 @@ pub mod tests {
                 balance: 100,
                 ..Default::default()
             };
-            self.force_insert_account(Address::new([252; 32]), account);
+            self.force_insert_account(AccountId::new([252; 32]), account);
             self
         }
 
@@ -521,13 +521,13 @@ pub mod tests {
 
     #[test]
     fn test_program_should_fail_if_modifies_nonces() {
-        let initial_data = [(Address::new([1; 32]), 100)];
+        let initial_data = [(AccountId::new([1; 32]), 100)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let addresses = vec![Address::new([1; 32])];
+        let account_ids = vec![AccountId::new([1; 32])];
         let program_id = Program::nonce_changer_program().id();
         let message =
-            public_transaction::Message::try_new(program_id, addresses, vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, account_ids, vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -538,13 +538,13 @@ pub mod tests {
 
     #[test]
     fn test_program_should_fail_if_output_accounts_exceed_inputs() {
-        let initial_data = [(Address::new([1; 32]), 100)];
+        let initial_data = [(AccountId::new([1; 32]), 100)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let addresses = vec![Address::new([1; 32])];
+        let account_ids = vec![AccountId::new([1; 32])];
         let program_id = Program::extra_output_program().id();
         let message =
-            public_transaction::Message::try_new(program_id, addresses, vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, account_ids, vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -555,13 +555,13 @@ pub mod tests {
 
     #[test]
     fn test_program_should_fail_with_missing_output_accounts() {
-        let initial_data = [(Address::new([1; 32]), 100)];
+        let initial_data = [(AccountId::new([1; 32]), 100)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let addresses = vec![Address::new([1; 32]), Address::new([2; 32])];
+        let account_ids = vec![AccountId::new([1; 32]), AccountId::new([2; 32])];
         let program_id = Program::missing_output_program().id();
         let message =
-            public_transaction::Message::try_new(program_id, addresses, vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, account_ids, vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -572,11 +572,11 @@ pub mod tests {
 
     #[test]
     fn test_program_should_fail_if_modifies_program_owner_with_only_non_default_program_owner() {
-        let initial_data = [(Address::new([1; 32]), 0)];
+        let initial_data = [(AccountId::new([1; 32]), 0)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let address = Address::new([1; 32]);
-        let account = state.get_account_by_address(&address);
+        let account_id = AccountId::new([1; 32]);
+        let account = state.get_account_by_id(&account_id);
         // Assert the target account only differs from the default account in the program owner field
         assert_ne!(account.program_owner, Account::default().program_owner);
         assert_eq!(account.balance, Account::default().balance);
@@ -584,7 +584,7 @@ pub mod tests {
         assert_eq!(account.data, Account::default().data);
         let program_id = Program::program_owner_changer().id();
         let message =
-            public_transaction::Message::try_new(program_id, vec![address], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -599,8 +599,8 @@ pub mod tests {
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[])
             .with_test_programs()
             .with_non_default_accounts_but_default_program_owners();
-        let address = Address::new([255; 32]);
-        let account = state.get_account_by_address(&address);
+        let account_id = AccountId::new([255; 32]);
+        let account = state.get_account_by_id(&account_id);
         // Assert the target account only differs from the default account in balance field
         assert_eq!(account.program_owner, Account::default().program_owner);
         assert_ne!(account.balance, Account::default().balance);
@@ -608,7 +608,7 @@ pub mod tests {
         assert_eq!(account.data, Account::default().data);
         let program_id = Program::program_owner_changer().id();
         let message =
-            public_transaction::Message::try_new(program_id, vec![address], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -623,8 +623,8 @@ pub mod tests {
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[])
             .with_test_programs()
             .with_non_default_accounts_but_default_program_owners();
-        let address = Address::new([254; 32]);
-        let account = state.get_account_by_address(&address);
+        let account_id = AccountId::new([254; 32]);
+        let account = state.get_account_by_id(&account_id);
         // Assert the target account only differs from the default account in nonce field
         assert_eq!(account.program_owner, Account::default().program_owner);
         assert_eq!(account.balance, Account::default().balance);
@@ -632,7 +632,7 @@ pub mod tests {
         assert_eq!(account.data, Account::default().data);
         let program_id = Program::program_owner_changer().id();
         let message =
-            public_transaction::Message::try_new(program_id, vec![address], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -647,8 +647,8 @@ pub mod tests {
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[])
             .with_test_programs()
             .with_non_default_accounts_but_default_program_owners();
-        let address = Address::new([253; 32]);
-        let account = state.get_account_by_address(&address);
+        let account_id = AccountId::new([253; 32]);
+        let account = state.get_account_by_id(&account_id);
         // Assert the target account only differs from the default account in data field
         assert_eq!(account.program_owner, Account::default().program_owner);
         assert_eq!(account.balance, Account::default().balance);
@@ -656,7 +656,7 @@ pub mod tests {
         assert_ne!(account.data, Account::default().data);
         let program_id = Program::program_owner_changer().id();
         let message =
-            public_transaction::Message::try_new(program_id, vec![address], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -667,20 +667,20 @@ pub mod tests {
 
     #[test]
     fn test_program_should_fail_if_transfers_balance_from_non_owned_account() {
-        let initial_data = [(Address::new([1; 32]), 100)];
+        let initial_data = [(AccountId::new([1; 32]), 100)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let sender_address = Address::new([1; 32]);
-        let receiver_address = Address::new([2; 32]);
+        let sender_account_id = AccountId::new([1; 32]);
+        let receiver_account_id = AccountId::new([2; 32]);
         let balance_to_move: u128 = 1;
         let program_id = Program::simple_balance_transfer().id();
         assert_ne!(
-            state.get_account_by_address(&sender_address).program_owner,
+            state.get_account_by_id(&sender_account_id).program_owner,
             program_id
         );
         let message = public_transaction::Message::try_new(
             program_id,
-            vec![sender_address, receiver_address],
+            vec![sender_account_id, receiver_account_id],
             vec![],
             balance_to_move,
         )
@@ -699,16 +699,16 @@ pub mod tests {
         let mut state = V02State::new_with_genesis_accounts(&initial_data, &[])
             .with_test_programs()
             .with_non_default_accounts_but_default_program_owners();
-        let address = Address::new([255; 32]);
+        let account_id = AccountId::new([255; 32]);
         let program_id = Program::data_changer().id();
 
-        assert_ne!(state.get_account_by_address(&address), Account::default());
+        assert_ne!(state.get_account_by_id(&account_id), Account::default());
         assert_ne!(
-            state.get_account_by_address(&address).program_owner,
+            state.get_account_by_id(&account_id).program_owner,
             program_id
         );
         let message =
-            public_transaction::Message::try_new(program_id, vec![address], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -722,11 +722,11 @@ pub mod tests {
         let initial_data = [];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let address = Address::new([1; 32]);
+        let account_id = AccountId::new([1; 32]);
         let program_id = Program::minter().id();
 
         let message =
-            public_transaction::Message::try_new(program_id, vec![address], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -742,17 +742,17 @@ pub mod tests {
             .with_test_programs()
             .with_account_owned_by_burner_program();
         let program_id = Program::burner().id();
-        let address = Address::new([252; 32]);
+        let account_id = AccountId::new([252; 32]);
         assert_eq!(
-            state.get_account_by_address(&address).program_owner,
+            state.get_account_by_id(&account_id).program_owner,
             program_id
         );
         let balance_to_burn: u128 = 1;
-        assert!(state.get_account_by_address(&address).balance > balance_to_burn);
+        assert!(state.get_account_by_id(&account_id).balance > balance_to_burn);
 
         let message = public_transaction::Message::try_new(
             program_id,
-            vec![address],
+            vec![account_id],
             vec![],
             balance_to_burn,
         )
@@ -769,8 +769,8 @@ pub mod tests {
     }
 
     impl TestPublicKeys {
-        pub fn address(&self) -> Address {
-            Address::from(&PublicKey::new_from_private_key(&self.signing_key))
+        pub fn account_id(&self) -> AccountId {
+            AccountId::from(&PublicKey::new_from_private_key(&self.signing_key))
         }
     }
 
@@ -816,9 +816,9 @@ pub mod tests {
         state: &V02State,
     ) -> PrivacyPreservingTransaction {
         let sender = AccountWithMetadata::new(
-            state.get_account_by_address(&sender_keys.address()),
+            state.get_account_by_id(&sender_keys.account_id()),
             true,
-            sender_keys.address(),
+            sender_keys.account_id(),
         );
 
         let sender_nonce = sender.account.nonce;
@@ -841,7 +841,7 @@ pub mod tests {
         .unwrap();
 
         let message = Message::try_from_circuit_output(
-            vec![sender_keys.address()],
+            vec![sender_keys.account_id()],
             vec![sender_nonce],
             vec![(recipient_keys.npk(), recipient_keys.ivk(), epk)],
             output,
@@ -911,7 +911,7 @@ pub mod tests {
     fn deshielded_balance_transfer_for_tests(
         sender_keys: &TestPrivateKeys,
         sender_private_account: &Account,
-        recipient_address: &Address,
+        recipient_account_id: &AccountId,
         balance_to_move: u128,
         new_nonce: Nonce,
         state: &V02State,
@@ -921,9 +921,9 @@ pub mod tests {
         let sender_pre =
             AccountWithMetadata::new(sender_private_account.clone(), true, &sender_keys.npk());
         let recipient_pre = AccountWithMetadata::new(
-            state.get_account_by_address(recipient_address),
+            state.get_account_by_id(recipient_account_id),
             false,
-            *recipient_address,
+            *recipient_account_id,
         );
 
         let esk = [3; 32];
@@ -945,7 +945,7 @@ pub mod tests {
         .unwrap();
 
         let message = Message::try_from_circuit_output(
-            vec![*recipient_address],
+            vec![*recipient_account_id],
             vec![],
             vec![(sender_keys.npk(), sender_keys.ivk(), epk)],
             output,
@@ -962,7 +962,8 @@ pub mod tests {
         let sender_keys = test_public_account_keys_1();
         let recipient_keys = test_private_account_keys_1();
 
-        let mut state = V02State::new_with_genesis_accounts(&[(sender_keys.address(), 200)], &[]);
+        let mut state =
+            V02State::new_with_genesis_accounts(&[(sender_keys.account_id(), 200)], &[]);
 
         let balance_to_move = 37;
 
@@ -974,7 +975,7 @@ pub mod tests {
         );
 
         let expected_sender_post = {
-            let mut this = state.get_account_by_address(&sender_keys.address());
+            let mut this = state.get_account_by_id(&sender_keys.account_id());
             this.balance -= balance_to_move;
             this.nonce += 1;
             this
@@ -987,12 +988,12 @@ pub mod tests {
             .transition_from_privacy_preserving_transaction(&tx)
             .unwrap();
 
-        let sender_post = state.get_account_by_address(&sender_keys.address());
+        let sender_post = state.get_account_by_id(&sender_keys.account_id());
         assert_eq!(sender_post, expected_sender_post);
         assert!(state.private_state.0.contains(&expected_new_commitment));
 
         assert_eq!(
-            state.get_account_by_address(&sender_keys.address()).balance,
+            state.get_account_by_id(&sender_keys.account_id()).balance,
             200 - balance_to_move
         );
     }
@@ -1075,7 +1076,7 @@ pub mod tests {
         let recipient_keys = test_public_account_keys_1();
         let recipient_initial_balance = 400;
         let mut state = V02State::new_with_genesis_accounts(
-            &[(recipient_keys.address(), recipient_initial_balance)],
+            &[(recipient_keys.account_id(), recipient_initial_balance)],
             &[],
         )
         .with_private_account(&sender_keys, &sender_private_account);
@@ -1083,7 +1084,7 @@ pub mod tests {
         let balance_to_move = 37;
 
         let expected_recipient_post = {
-            let mut this = state.get_account_by_address(&recipient_keys.address());
+            let mut this = state.get_account_by_id(&recipient_keys.account_id());
             this.balance += balance_to_move;
             this
         };
@@ -1091,7 +1092,7 @@ pub mod tests {
         let tx = deshielded_balance_transfer_for_tests(
             &sender_keys,
             &sender_private_account,
-            &recipient_keys.address(),
+            &recipient_keys.account_id(),
             balance_to_move,
             0xcafecafe,
             &state,
@@ -1119,14 +1120,14 @@ pub mod tests {
             .transition_from_privacy_preserving_transaction(&tx)
             .unwrap();
 
-        let recipient_post = state.get_account_by_address(&recipient_keys.address());
+        let recipient_post = state.get_account_by_id(&recipient_keys.account_id());
         assert_eq!(recipient_post, expected_recipient_post);
         assert!(state.private_state.0.contains(&sender_pre_commitment));
         assert!(state.private_state.0.contains(&expected_new_commitment));
         assert!(state.private_state.1.contains(&expected_new_nullifier));
         assert_eq!(
             state
-                .get_account_by_address(&recipient_keys.address())
+                .get_account_by_id(&recipient_keys.account_id())
                 .balance,
             recipient_initial_balance + balance_to_move
         );
@@ -2046,18 +2047,18 @@ pub mod tests {
     fn test_claiming_mechanism() {
         let program = Program::authenticated_transfer_program();
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let address = Address::from(&PublicKey::new_from_private_key(&key));
+        let account_id = AccountId::from(&PublicKey::new_from_private_key(&key));
         let initial_balance = 100;
-        let initial_data = [(address, initial_balance)];
+        let initial_data = [(account_id, initial_balance)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let from = address;
+        let from = account_id;
         let from_key = key;
-        let to = Address::new([2; 32]);
+        let to = AccountId::new([2; 32]);
         let amount: u128 = 37;
 
         // Check the recipient is an uninitialized account
-        assert_eq!(state.get_account_by_address(&to), Account::default());
+        assert_eq!(state.get_account_by_id(&to), Account::default());
 
         let expected_recipient_post = Account {
             program_owner: program.id(),
@@ -2073,7 +2074,7 @@ pub mod tests {
 
         state.transition_from_public_transaction(&tx).unwrap();
 
-        let recipient_post = state.get_account_by_address(&to);
+        let recipient_post = state.get_account_by_id(&to);
 
         assert_eq!(recipient_post, expected_recipient_post);
     }
@@ -2082,14 +2083,14 @@ pub mod tests {
     fn test_chained_call() {
         let program = Program::chain_caller();
         let key = PrivateKey::try_new([1; 32]).unwrap();
-        let address = Address::from(&PublicKey::new_from_private_key(&key));
+        let account_id = AccountId::from(&PublicKey::new_from_private_key(&key));
         let initial_balance = 100;
-        let initial_data = [(address, initial_balance)];
+        let initial_data = [(account_id, initial_balance)];
         let mut state =
             V02State::new_with_genesis_accounts(&initial_data, &[]).with_test_programs();
-        let from = address;
+        let from = account_id;
         let from_key = key;
-        let to = Address::new([2; 32]);
+        let to = AccountId::new([2; 32]);
         let amount: u128 = 37;
         let instruction: (u128, ProgramId) =
             (amount, Program::authenticated_transfer_program().id());
@@ -2112,8 +2113,8 @@ pub mod tests {
 
         state.transition_from_public_transaction(&tx).unwrap();
 
-        let from_post = state.get_account_by_address(&from);
-        let to_post = state.get_account_by_address(&to);
+        let from_post = state.get_account_by_id(&from);
+        let to_post = state.get_account_by_id(&to);
         assert_eq!(from_post.balance, initial_balance - amount);
         assert_eq!(to_post, expected_to_post);
     }

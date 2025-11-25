@@ -1,5 +1,5 @@
 use common::{error::ExecutionFailureKind, sequencer_client::json::SendTxResponse};
-use nssa::{Account, Address, program::Program};
+use nssa::{Account, AccountId, program::Program};
 use nssa_core::{
     MembershipProof, NullifierPublicKey, SharedSecretKey, encryption::IncomingViewingPublicKey,
     program::InstructionData,
@@ -47,20 +47,24 @@ impl WalletCore {
 
     pub async fn send_new_token_definition(
         &self,
-        definition_address: Address,
-        supply_address: Address,
+        definition_account_id: AccountId,
+        supply_account_id: AccountId,
         name: [u8; 6],
         total_supply: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let addresses = vec![definition_address, supply_address];
+        let account_ids = vec![definition_account_id, supply_account_id];
         let program_id = nssa::program::Program::token().id();
         // Instruction must be: [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)]
         let mut instruction = [0; 23];
         instruction[1..17].copy_from_slice(&total_supply.to_le_bytes());
         instruction[17..].copy_from_slice(&name);
-        let message =
-            nssa::public_transaction::Message::try_new(program_id, addresses, vec![], instruction)
-                .unwrap();
+        let message = nssa::public_transaction::Message::try_new(
+            program_id,
+            account_ids,
+            vec![],
+            instruction,
+        )
+        .unwrap();
 
         let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);
 
@@ -71,8 +75,8 @@ impl WalletCore {
 
     pub async fn send_new_token_definition_private_owned(
         &self,
-        definition_addr: Address,
-        supply_addr: Address,
+        definition_account_id: AccountId,
+        supply_account_id: AccountId,
         name: [u8; 6],
         total_supply: u128,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
@@ -82,8 +86,8 @@ impl WalletCore {
         // Kind of non-obvious naming
         // Basically this funtion is called because authentication mask is [0, 2]
         self.shielded_two_accs_receiver_uninit(
-            definition_addr,
-            supply_addr,
+            definition_account_id,
+            supply_account_id,
             instruction_data,
             tx_pre_check,
             program,
@@ -93,27 +97,31 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction(
         &self,
-        sender_address: Address,
-        recipient_address: Address,
+        sender_account_id: AccountId,
+        recipient_account_id: AccountId,
         amount: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let addresses = vec![sender_address, recipient_address];
+        let account_ids = vec![sender_account_id, recipient_account_id];
         let program_id = nssa::program::Program::token().id();
         // Instruction must be: [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00].
         let mut instruction = [0; 23];
         instruction[0] = 0x01;
         instruction[1..17].copy_from_slice(&amount.to_le_bytes());
-        let Ok(nonces) = self.get_accounts_nonces(vec![sender_address]).await else {
+        let Ok(nonces) = self.get_accounts_nonces(vec![sender_account_id]).await else {
             return Err(ExecutionFailureKind::SequencerError);
         };
-        let message =
-            nssa::public_transaction::Message::try_new(program_id, addresses, nonces, instruction)
-                .unwrap();
+        let message = nssa::public_transaction::Message::try_new(
+            program_id,
+            account_ids,
+            nonces,
+            instruction,
+        )
+        .unwrap();
 
         let Some(signing_key) = self
             .storage
             .user_data
-            .get_pub_account_signing_key(&sender_address)
+            .get_pub_account_signing_key(&sender_account_id)
         else {
             return Err(ExecutionFailureKind::KeyNotFoundError);
         };
@@ -127,8 +135,8 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_private_owned_account_already_initialized(
         &self,
-        sender_address: Address,
-        recipient_address: Address,
+        sender_account_id: AccountId,
+        recipient_account_id: AccountId,
         amount: u128,
         recipient_proof: MembershipProof,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 2]), ExecutionFailureKind> {
@@ -136,8 +144,8 @@ impl WalletCore {
             WalletCore::token_program_preparation_transfer(amount);
 
         self.private_tx_two_accs_all_init(
-            sender_address,
-            recipient_address,
+            sender_account_id,
+            recipient_account_id,
             instruction_data,
             tx_pre_check,
             program,
@@ -148,16 +156,16 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_private_owned_account_not_initialized(
         &self,
-        sender_address: Address,
-        recipient_address: Address,
+        sender_account_id: AccountId,
+        recipient_account_id: AccountId,
         amount: u128,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 2]), ExecutionFailureKind> {
         let (instruction_data, program, tx_pre_check) =
             WalletCore::token_program_preparation_transfer(amount);
 
         self.private_tx_two_accs_receiver_uninit(
-            sender_address,
-            recipient_address,
+            sender_account_id,
+            recipient_account_id,
             instruction_data,
             tx_pre_check,
             program,
@@ -167,7 +175,7 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_private_foreign_account(
         &self,
-        sender_address: Address,
+        sender_account_id: AccountId,
         recipient_npk: NullifierPublicKey,
         recipient_ipk: IncomingViewingPublicKey,
         amount: u128,
@@ -176,7 +184,7 @@ impl WalletCore {
             WalletCore::token_program_preparation_transfer(amount);
 
         self.private_tx_two_accs_receiver_outer(
-            sender_address,
+            sender_account_id,
             recipient_npk,
             recipient_ipk,
             instruction_data,
@@ -188,16 +196,16 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_deshielded(
         &self,
-        sender_address: Address,
-        recipient_address: Address,
+        sender_account_id: AccountId,
+        recipient_account_id: AccountId,
         amount: u128,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
         let (instruction_data, program, tx_pre_check) =
             WalletCore::token_program_preparation_transfer(amount);
 
         self.deshielded_tx_two_accs(
-            sender_address,
-            recipient_address,
+            sender_account_id,
+            recipient_account_id,
             instruction_data,
             tx_pre_check,
             program,
@@ -207,8 +215,8 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_shielded_owned_account_already_initialized(
         &self,
-        sender_address: Address,
-        recipient_address: Address,
+        sender_account_id: AccountId,
+        recipient_account_id: AccountId,
         amount: u128,
         recipient_proof: MembershipProof,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
@@ -216,8 +224,8 @@ impl WalletCore {
             WalletCore::token_program_preparation_transfer(amount);
 
         self.shielded_two_accs_all_init(
-            sender_address,
-            recipient_address,
+            sender_account_id,
+            recipient_account_id,
             instruction_data,
             tx_pre_check,
             program,
@@ -228,16 +236,16 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_shielded_owned_account_not_initialized(
         &self,
-        sender_address: Address,
-        recipient_address: Address,
+        sender_account_id: AccountId,
+        recipient_account_id: AccountId,
         amount: u128,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
         let (instruction_data, program, tx_pre_check) =
             WalletCore::token_program_preparation_transfer(amount);
 
         self.shielded_two_accs_receiver_uninit(
-            sender_address,
-            recipient_address,
+            sender_account_id,
+            recipient_account_id,
             instruction_data,
             tx_pre_check,
             program,
@@ -247,7 +255,7 @@ impl WalletCore {
 
     pub async fn send_transfer_token_transaction_shielded_foreign_account(
         &self,
-        sender_address: Address,
+        sender_account_id: AccountId,
         recipient_npk: NullifierPublicKey,
         recipient_ipk: IncomingViewingPublicKey,
         amount: u128,
@@ -256,7 +264,7 @@ impl WalletCore {
             WalletCore::token_program_preparation_transfer(amount);
 
         self.shielded_two_accs_receiver_outer(
-            sender_address,
+            sender_account_id,
             recipient_npk,
             recipient_ipk,
             instruction_data,

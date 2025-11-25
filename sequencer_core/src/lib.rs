@@ -75,10 +75,10 @@ impl SequencerCore {
             initial_commitments.push(comm);
         }
 
-        let init_accs: Vec<(nssa::Address, u128)> = config
+        let init_accs: Vec<(nssa::AccountId, u128)> = config
             .initial_accounts
             .iter()
-            .map(|acc_data| (acc_data.addr.parse().unwrap(), acc_data.balance))
+            .map(|acc_data| (acc_data.account_id.parse().unwrap(), acc_data.balance))
             .collect();
 
         let mut state = nssa::V02State::new_with_genesis_accounts(&init_accs, &initial_commitments);
@@ -276,23 +276,23 @@ mod tests {
     }
 
     fn setup_sequencer_config() -> SequencerConfig {
-        let acc1_addr: Vec<u8> = vec![
+        let acc1_account_id: Vec<u8> = vec![
             208, 122, 210, 232, 75, 39, 250, 0, 194, 98, 240, 161, 238, 160, 255, 53, 202, 9, 115,
             84, 126, 106, 16, 111, 114, 241, 147, 194, 220, 131, 139, 68,
         ];
 
-        let acc2_addr: Vec<u8> = vec![
+        let acc2_account_id: Vec<u8> = vec![
             231, 174, 119, 197, 239, 26, 5, 153, 147, 68, 175, 73, 159, 199, 138, 23, 5, 57, 141,
             98, 237, 6, 207, 46, 20, 121, 246, 222, 248, 154, 57, 188,
         ];
 
         let initial_acc1 = AccountInitialData {
-            addr: acc1_addr.to_base58(),
+            account_id: acc1_account_id.to_base58(),
             balance: 10000,
         };
 
         let initial_acc2 = AccountInitialData {
-            addr: acc2_addr.to_base58(),
+            account_id: acc2_account_id.to_base58(),
             balance: 20000,
         };
 
@@ -338,15 +338,15 @@ mod tests {
         assert_eq!(sequencer.sequencer_config.max_num_tx_in_block, 10);
         assert_eq!(sequencer.sequencer_config.port, 8080);
 
-        let acc1_addr = config.initial_accounts[0]
-            .addr
+        let acc1_account_id = config.initial_accounts[0]
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
-        let acc2_addr = config.initial_accounts[1]
-            .addr
+        let acc2_account_id = config.initial_accounts[1]
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -355,11 +355,11 @@ mod tests {
 
         let balance_acc_1 = sequencer
             .state
-            .get_account_by_address(&nssa::Address::new(acc1_addr))
+            .get_account_by_id(&nssa::AccountId::new(acc1_account_id))
             .balance;
         let balance_acc_2 = sequencer
             .state
-            .get_account_by_address(&nssa::Address::new(acc2_addr))
+            .get_account_by_id(&nssa::AccountId::new(acc2_account_id))
             .balance;
 
         assert_eq!(10000, balance_acc_1);
@@ -368,23 +368,23 @@ mod tests {
 
     #[test]
     fn test_start_different_intial_accounts_balances() {
-        let acc1_addr: Vec<u8> = vec![
+        let acc1_account_id: Vec<u8> = vec![
             27, 132, 197, 86, 123, 18, 100, 64, 153, 93, 62, 213, 170, 186, 5, 101, 215, 30, 24,
             52, 96, 72, 25, 255, 156, 23, 245, 233, 213, 221, 7, 143,
         ];
 
-        let acc2_addr: Vec<u8> = vec![
+        let acc2_account_id: Vec<u8> = vec![
             77, 75, 108, 209, 54, 16, 50, 202, 155, 210, 174, 185, 217, 0, 170, 77, 69, 217, 234,
             216, 10, 201, 66, 51, 116, 196, 81, 167, 37, 77, 7, 102,
         ];
 
         let initial_acc1 = AccountInitialData {
-            addr: acc1_addr.to_base58(),
+            account_id: acc1_account_id.to_base58(),
             balance: 10000,
         };
 
         let initial_acc2 = AccountInitialData {
-            addr: acc2_addr.to_base58(),
+            account_id: acc2_account_id.to_base58(),
             balance: 20000,
         };
 
@@ -393,15 +393,15 @@ mod tests {
         let config = setup_sequencer_config_variable_initial_accounts(initial_accounts);
         let (sequencer, _mempool_handle) = SequencerCore::start_from_config(config.clone());
 
-        let acc1_addr = config.initial_accounts[0]
-            .addr
+        let acc1_account_id = config.initial_accounts[0]
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
-        let acc2_addr = config.initial_accounts[1]
-            .addr
+        let acc2_account_id = config.initial_accounts[1]
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -412,14 +412,14 @@ mod tests {
             10000,
             sequencer
                 .state
-                .get_account_by_address(&nssa::Address::new(acc1_addr))
+                .get_account_by_id(&nssa::AccountId::new(acc1_account_id))
                 .balance
         );
         assert_eq!(
             20000,
             sequencer
                 .state
-                .get_account_by_address(&nssa::Address::new(acc2_addr))
+                .get_account_by_id(&nssa::AccountId::new(acc2_account_id))
                 .balance
         );
     }
@@ -437,14 +437,14 @@ mod tests {
         let (sequencer, _mempool_handle) = common_setup().await;
 
         let acc1 = sequencer.sequencer_config.initial_accounts[0]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
         let acc2 = sequencer.sequencer_config.initial_accounts[1]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -466,14 +466,14 @@ mod tests {
         let (mut sequencer, _mempool_handle) = common_setup().await;
 
         let acc1 = sequencer.sequencer_config.initial_accounts[0]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
         let acc2 = sequencer.sequencer_config.initial_accounts[1]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -503,14 +503,14 @@ mod tests {
         let (mut sequencer, _mempool_handle) = common_setup().await;
 
         let acc1 = sequencer.sequencer_config.initial_accounts[0]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
         let acc2 = sequencer.sequencer_config.initial_accounts[1]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -542,14 +542,14 @@ mod tests {
         let (mut sequencer, _mempool_handle) = common_setup().await;
 
         let acc1 = sequencer.sequencer_config.initial_accounts[0]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
         let acc2 = sequencer.sequencer_config.initial_accounts[1]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -568,11 +568,11 @@ mod tests {
 
         let bal_from = sequencer
             .state
-            .get_account_by_address(&nssa::Address::new(acc1))
+            .get_account_by_id(&nssa::AccountId::new(acc1))
             .balance;
         let bal_to = sequencer
             .state
-            .get_account_by_address(&nssa::Address::new(acc2))
+            .get_account_by_id(&nssa::AccountId::new(acc2))
             .balance;
 
         assert_eq!(bal_from, 9900);
@@ -624,14 +624,14 @@ mod tests {
         let (mut sequencer, mempool_handle) = common_setup().await;
 
         let acc1 = sequencer.sequencer_config.initial_accounts[0]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
         let acc2 = sequencer.sequencer_config.initial_accounts[1]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -668,14 +668,14 @@ mod tests {
         let (mut sequencer, mempool_handle) = common_setup().await;
 
         let acc1 = sequencer.sequencer_config.initial_accounts[0]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
             .try_into()
             .unwrap();
         let acc2 = sequencer.sequencer_config.initial_accounts[1]
-            .addr
+            .account_id
             .clone()
             .from_base58()
             .unwrap()
@@ -714,8 +714,10 @@ mod tests {
     #[tokio::test]
     async fn test_restart_from_storage() {
         let config = setup_sequencer_config();
-        let acc1_addr: nssa::Address = config.initial_accounts[0].addr.parse().unwrap();
-        let acc2_addr: nssa::Address = config.initial_accounts[1].addr.parse().unwrap();
+        let acc1_account_id: nssa::AccountId =
+            config.initial_accounts[0].account_id.parse().unwrap();
+        let acc2_account_id: nssa::AccountId =
+            config.initial_accounts[1].account_id.parse().unwrap();
         let balance_to_move = 13;
 
         // In the following code block a transaction will be processed that moves `balance_to_move`
@@ -726,9 +728,9 @@ mod tests {
             let signing_key = PrivateKey::try_new([1; 32]).unwrap();
 
             let tx = common::test_utils::create_transaction_native_token_transfer(
-                *acc1_addr.value(),
+                *acc1_account_id.value(),
                 0,
-                *acc2_addr.value(),
+                *acc2_account_id.value(),
                 balance_to_move,
                 signing_key,
             );
@@ -747,8 +749,8 @@ mod tests {
         // Instantiating a new sequencer from the same config. This should load the existing block
         // with the above transaction and update the state to reflect that.
         let (sequencer, _mempool_handle) = SequencerCore::start_from_config(config.clone());
-        let balance_acc_1 = sequencer.state.get_account_by_address(&acc1_addr).balance;
-        let balance_acc_2 = sequencer.state.get_account_by_address(&acc2_addr).balance;
+        let balance_acc_1 = sequencer.state.get_account_by_id(&acc1_account_id).balance;
+        let balance_acc_2 = sequencer.state.get_account_by_id(&acc2_account_id).balance;
 
         // Balances should be consistent with the stored block
         assert_eq!(

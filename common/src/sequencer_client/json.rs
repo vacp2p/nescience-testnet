@@ -45,9 +45,9 @@ pub struct SequencerRpcResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-///Helperstruct for account serialization
+/// Helperstruct for account serialization
 pub struct AccountInitialData {
-    ///Hex encoded `AccountAddress`
-    pub addr: String,
+    /// Hex encoded account id
+    pub account_id: String,
     pub balance: u64,
 }

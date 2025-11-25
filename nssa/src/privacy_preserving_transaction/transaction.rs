@@ -8,7 +8,7 @@ use nssa_core::{
 use crate::error::NssaError;
 use crate::privacy_preserving_transaction::circuit::Proof;
 use crate::privacy_preserving_transaction::message::EncryptedAccountData;
-use crate::{Address, V02State};
+use crate::{AccountId, V02State};
 
 use super::message::Message;
 use super::witness_set::WitnessSet;
@@ -30,7 +30,7 @@ impl PrivacyPreservingTransaction {
     pub(crate) fn validate_and_produce_public_state_diff(
         &self,
         state: &V02State,
-    ) -> Result<HashMap<Address, Account>, NssaError> {
+    ) -> Result<HashMap<AccountId, Account>, NssaError> {
         let message = &self.message;
         let witness_set = &self.witness_set;
 
@@ -41,10 +41,10 @@ impl PrivacyPreservingTransaction {
             ));
         }
 
-        // 2. Check there are no duplicate addresses in the public_addresses list.
-        if n_unique(&message.public_addresses) != message.public_addresses.len() {
+        // 2. Check there are no duplicate account_ids in the public_account_ids list.
+        if n_unique(&message.public_account_ids) != message.public_account_ids.len() {
             return Err(NssaError::InvalidInput(
-                "Duplicate addresses found in message".into(),
+                "Duplicate account_ids found in message".into(),
             ));
         }
 
@@ -77,10 +77,10 @@ impl PrivacyPreservingTransaction {
             ));
         }
 
-        let signer_addresses = self.signer_addresses();
+        let signer_account_ids = self.signer_account_ids();
         // Check nonces corresponds to the current nonces on the public state.
-        for (address, nonce) in signer_addresses.iter().zip(&message.nonces) {
-            let current_nonce = state.get_account_by_address(address).nonce;
+        for (account_id, nonce) in signer_account_ids.iter().zip(&message.nonces) {
+            let current_nonce = state.get_account_by_id(account_id).nonce;
             if current_nonce != *nonce {
                 return Err(NssaError::InvalidInput("Nonce mismatch".into()));
             }
@@ -88,13 +88,13 @@ impl PrivacyPreservingTransaction {
 
         // Build pre_states for proof verification
         let public_pre_states: Vec<_> = message
-            .public_addresses
+            .public_account_ids
             .iter()
-            .map(|address| {
+            .map(|account_id| {
                 AccountWithMetadata::new(
-                    state.get_account_by_address(address),
-                    signer_addresses.contains(address),
-                    *address,
+                    state.get_account_by_id(account_id),
+                    signer_account_ids.contains(account_id),
+                    *account_id,
                 )
             })
             .collect();
@@ -116,7 +116,7 @@ impl PrivacyPreservingTransaction {
         state.check_nullifiers_are_valid(&message.new_nullifiers)?;
 
         Ok(message
-            .public_addresses
+            .public_account_ids
             .iter()
             .cloned()
             .zip(message.public_post_states.clone())
@@ -131,11 +131,11 @@ impl PrivacyPreservingTransaction {
         &self.witness_set
     }
 
-    pub(crate) fn signer_addresses(&self) -> Vec<Address> {
+    pub(crate) fn signer_account_ids(&self) -> Vec<AccountId> {
         self.witness_set
             .signatures_and_public_keys()
             .iter()
-            .map(|(_, public_key)| Address::from(public_key))
+            .map(|(_, public_key)| AccountId::from(public_key))
             .collect()
     }
 }
@@ -174,17 +174,17 @@ fn n_unique<T: Eq + Hash>(data: &[T]) -> usize {
 #[cfg(test)]
 mod tests {
     use crate::{
-        Address, PrivacyPreservingTransaction, PrivateKey, PublicKey,
+        AccountId, PrivacyPreservingTransaction, PrivateKey, PublicKey,
         privacy_preserving_transaction::{
             circuit::Proof, message::tests::message_for_tests, witness_set::WitnessSet,
         },
     };
 
-    fn keys_for_tests() -> (PrivateKey, PrivateKey, Address, Address) {
+    fn keys_for_tests() -> (PrivateKey, PrivateKey, AccountId, AccountId) {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let addr1 = Address::from(&PublicKey::new_from_private_key(&key1));
-        let addr2 = Address::from(&PublicKey::new_from_private_key(&key2));
+        let addr1 = AccountId::from(&PublicKey::new_from_private_key(&key1));
+        let addr2 = AccountId::from(&PublicKey::new_from_private_key(&key2));
         (key1, key2, addr1, addr2)
     }
 

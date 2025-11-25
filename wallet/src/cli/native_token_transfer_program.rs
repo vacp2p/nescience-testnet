@@ -1,12 +1,12 @@
 use anyhow::Result;
 use clap::Subcommand;
 use common::transaction::NSSATransaction;
-use nssa::Address;
+use nssa::AccountId;
 
 use crate::{
     SubcommandReturnValue, WalletCore,
     cli::WalletSubcommand,
-    helperfunctions::{AddressPrivacyKind, parse_addr_with_privacy_prefix},
+    helperfunctions::{AccountPrivacyKind, parse_addr_with_privacy_prefix},
 };
 
 ///Represents generic CLI subcommand for a wallet working with native token transfer program
@@ -14,9 +14,9 @@ use crate::{
 pub enum AuthTransferSubcommand {
     ///Initialize account under authenticated transfer program
     Init {
-        ///addr - valid 32 byte base58 string with privacy prefix
+        ///account_id - valid 32 byte base58 string with privacy prefix
         #[arg(long)]
-        addr: String,
+        account_id: String,
     },
     ///Send native tokens from one account to another with variable privacy
     ///
@@ -48,15 +48,15 @@ impl WalletSubcommand for AuthTransferSubcommand {
         wallet_core: &mut WalletCore,
     ) -> Result<SubcommandReturnValue> {
         match self {
-            AuthTransferSubcommand::Init { addr } => {
-                let (addr, addr_privacy) = parse_addr_with_privacy_prefix(&addr)?;
+            AuthTransferSubcommand::Init { account_id } => {
+                let (account_id, addr_privacy) = parse_addr_with_privacy_prefix(&account_id)?;
 
                 match addr_privacy {
-                    AddressPrivacyKind::Public => {
-                        let addr = addr.parse()?;
+                    AccountPrivacyKind::Public => {
+                        let account_id = account_id.parse()?;
 
                         let res = wallet_core
-                            .register_account_under_authenticated_transfers_programs(addr)
+                            .register_account_under_authenticated_transfers_programs(account_id)
                             .await?;
 
                         println!("Results of tx send is {res:#?}");
@@ -70,11 +70,13 @@ impl WalletSubcommand for AuthTransferSubcommand {
 
                         println!("Stored persistent accounts at {path:#?}");
                     }
-                    AddressPrivacyKind::Private => {
-                        let addr = addr.parse()?;
+                    AccountPrivacyKind::Private => {
+                        let account_id = account_id.parse()?;
 
                         let (res, [secret]) = wallet_core
-                            .register_account_under_authenticated_transfers_programs_private(addr)
+                            .register_account_under_authenticated_transfers_programs_private(
+                                account_id,
+                            )
                             .await?;
 
                         println!("Results of tx send is {res:#?}");
@@ -85,7 +87,7 @@ impl WalletSubcommand for AuthTransferSubcommand {
                             .await?;
 
                         if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                            let acc_decode_data = vec![(secret, addr)];
+                            let acc_decode_data = vec![(secret, account_id)];
 
                             wallet_core.decode_insert_privacy_preserving_transaction_results(
                                 tx,
@@ -111,12 +113,12 @@ impl WalletSubcommand for AuthTransferSubcommand {
                 let underlying_subcommand = match (to, to_npk, to_ipk) {
                     (None, None, None) => {
                         anyhow::bail!(
-                            "Provide either account address of receiver or their public keys"
+                            "Provide either account account_id of receiver or their public keys"
                         );
                     }
                     (Some(_), Some(_), Some(_)) => {
                         anyhow::bail!(
-                            "Provide only one variant: either account address of receiver or their public keys"
+                            "Provide only one variant: either account account_id of receiver or their public keys"
                         );
                     }
                     (_, Some(_), None) | (_, None, Some(_)) => {
@@ -127,10 +129,10 @@ impl WalletSubcommand for AuthTransferSubcommand {
                         let (to, to_privacy) = parse_addr_with_privacy_prefix(&to)?;
 
                         match (from_privacy, to_privacy) {
-                            (AddressPrivacyKind::Public, AddressPrivacyKind::Public) => {
+                            (AccountPrivacyKind::Public, AccountPrivacyKind::Public) => {
                                 NativeTokenTransferProgramSubcommand::Public { from, to, amount }
                             }
-                            (AddressPrivacyKind::Private, AddressPrivacyKind::Private) => {
+                            (AccountPrivacyKind::Private, AccountPrivacyKind::Private) => {
                                 NativeTokenTransferProgramSubcommand::Private(
                                     NativeTokenTransferProgramSubcommandPrivate::PrivateOwned {
                                         from,
@@ -139,14 +141,14 @@ impl WalletSubcommand for AuthTransferSubcommand {
                                     },
                                 )
                             }
-                            (AddressPrivacyKind::Private, AddressPrivacyKind::Public) => {
+                            (AccountPrivacyKind::Private, AccountPrivacyKind::Public) => {
                                 NativeTokenTransferProgramSubcommand::Deshielded {
                                     from,
                                     to,
                                     amount,
                                 }
                             }
-                            (AddressPrivacyKind::Public, AddressPrivacyKind::Private) => {
+                            (AccountPrivacyKind::Public, AccountPrivacyKind::Private) => {
                                 NativeTokenTransferProgramSubcommand::Shielded(
                                     NativeTokenTransferProgramSubcommandShielded::ShieldedOwned {
                                         from,
@@ -161,7 +163,7 @@ impl WalletSubcommand for AuthTransferSubcommand {
                         let (from, from_privacy) = parse_addr_with_privacy_prefix(&from)?;
 
                         match from_privacy {
-                            AddressPrivacyKind::Private => {
+                            AccountPrivacyKind::Private => {
                                 NativeTokenTransferProgramSubcommand::Private(
                                     NativeTokenTransferProgramSubcommandPrivate::PrivateForeign {
                                         from,
@@ -171,7 +173,7 @@ impl WalletSubcommand for AuthTransferSubcommand {
                                     },
                                 )
                             }
-                            AddressPrivacyKind::Public => {
+                            AccountPrivacyKind::Public => {
                                 NativeTokenTransferProgramSubcommand::Shielded(
                                     NativeTokenTransferProgramSubcommandShielded::ShieldedForeign {
                                         from,
@@ -309,8 +311,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandPrivate {
     ) -> Result<SubcommandReturnValue> {
         match self {
             NativeTokenTransferProgramSubcommandPrivate::PrivateOwned { from, to, amount } => {
-                let from: Address = from.parse().unwrap();
-                let to: Address = to.parse().unwrap();
+                let from: AccountId = from.parse().unwrap();
+                let to: AccountId = to.parse().unwrap();
 
                 let to_initialization = wallet_core.check_private_account_initialized(&to).await?;
 
@@ -356,7 +358,7 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandPrivate {
                 to_ipk,
                 amount,
             } => {
-                let from: Address = from.parse().unwrap();
+                let from: AccountId = from.parse().unwrap();
                 let to_npk_res = hex::decode(to_npk)?;
                 let mut to_npk = [0; 32];
                 to_npk.copy_from_slice(&to_npk_res);
@@ -405,8 +407,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandShielded {
     ) -> Result<SubcommandReturnValue> {
         match self {
             NativeTokenTransferProgramSubcommandShielded::ShieldedOwned { from, to, amount } => {
-                let from: Address = from.parse().unwrap();
-                let to: Address = to.parse().unwrap();
+                let from: AccountId = from.parse().unwrap();
+                let to: AccountId = to.parse().unwrap();
 
                 let to_initialization = wallet_core.check_private_account_initialized(&to).await?;
 
@@ -450,7 +452,7 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandShielded {
                 to_ipk,
                 amount,
             } => {
-                let from: Address = from.parse().unwrap();
+                let from: AccountId = from.parse().unwrap();
 
                 let to_npk_res = hex::decode(to_npk)?;
                 let mut to_npk = [0; 32];
@@ -494,8 +496,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommand {
                 shielded_subcommand.handle_subcommand(wallet_core).await
             }
             NativeTokenTransferProgramSubcommand::Deshielded { from, to, amount } => {
-                let from: Address = from.parse().unwrap();
-                let to: Address = to.parse().unwrap();
+                let from: AccountId = from.parse().unwrap();
+                let to: AccountId = to.parse().unwrap();
 
                 let (res, [secret]) = wallet_core
                     .send_deshielded_native_token_transfer(from, to, amount)
@@ -524,8 +526,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommand {
                 Ok(SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash })
             }
             NativeTokenTransferProgramSubcommand::Public { from, to, amount } => {
-                let from: Address = from.parse().unwrap();
-                let to: Address = to.parse().unwrap();
+                let from: AccountId = from.parse().unwrap();
+                let to: AccountId = to.parse().unwrap();
 
                 let res = wallet_core
                     .send_public_native_token_transfer(from, to, amount)

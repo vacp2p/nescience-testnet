@@ -1,4 +1,4 @@
-use nssa_core::address::Address;
+use nssa_core::account::AccountId;
 
 use crate::{PrivateKey, error::NssaError};
 
@@ -31,7 +31,7 @@ impl PublicKey {
     }
 }
 
-impl From<&PublicKey> for Address {
+impl From<&PublicKey> for AccountId {
     fn from(key: &PublicKey) -> Self {
         const PUBLIC_ACCOUNT_ID_PREFIX: &[u8; 32] = b"/NSSA/v0.2/AccountId/Public/\x00\x00\x00\x00";
 

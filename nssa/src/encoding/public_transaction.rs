@@ -5,7 +5,7 @@ use std::io::{Cursor, Read};
 use nssa_core::program::ProgramId;
 
 use crate::{
-    Address, PublicKey, PublicTransaction, Signature,
+    AccountId, PublicKey, PublicTransaction, Signature,
     error::NssaError,
     public_transaction::{Message, WitnessSet},
 };
@@ -16,7 +16,7 @@ const MESSAGE_ENCODING_PREFIX: &[u8; MESSAGE_ENCODING_PREFIX_LEN] =
 
 impl Message {
     /// Serializes a `Message` into bytes in the following layout:
-    /// PREFIX || <program_id>  (4 bytes LE) * 8 || addresses_len (4 bytes LE) || addresses (32 bytes * N) || nonces_len (4 bytes LE) || nonces (16 bytes LE * M) || instruction_data_len || instruction_data (4 bytes LE * K)
+    /// PREFIX || <program_id>  (4 bytes LE) * 8 || account_ids_len (4 bytes LE) || account_ids (32 bytes * N) || nonces_len (4 bytes LE) || nonces (16 bytes LE * M) || instruction_data_len || instruction_data (4 bytes LE * K)
     /// Integers and words are encoded in little-endian byte order, and fields appear in the above order.
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = MESSAGE_ENCODING_PREFIX.to_vec();
@@ -24,12 +24,12 @@ impl Message {
         for word in &self.program_id {
             bytes.extend_from_slice(&word.to_le_bytes());
         }
-        // addresses: Vec<[u8;32]>
-        // serialize length as u32 little endian, then all addresses concatenated
-        let addresses_len = self.addresses.len() as u32;
-        bytes.extend(&addresses_len.to_le_bytes());
-        for addr in &self.addresses {
-            bytes.extend_from_slice(addr.value());
+        // account_ids: Vec<[u8;32]>
+        // serialize length as u32 little endian, then all account_ids concatenated
+        let account_ids_len = self.account_ids.len() as u32;
+        bytes.extend(&account_ids_len.to_le_bytes());
+        for account_id in &self.account_ids {
+            bytes.extend_from_slice(account_id.value());
         }
         // nonces: Vec<u128>
         // serialize length as u32 little endian, then all nonces concatenated in LE
@@ -39,7 +39,7 @@ impl Message {
             bytes.extend(&nonce.to_le_bytes());
         }
         // instruction_data: Vec<u32>
-        // serialize length as u32 little endian, then all addresses concatenated
+        // serialize length as u32 little endian, then all account_ids concatenated
         let instr_len = self.instruction_data.len() as u32;
         bytes.extend(&instr_len.to_le_bytes());
         for word in &self.instruction_data {
@@ -68,12 +68,12 @@ impl Message {
             }
             this
         };
-        let addresses_len = u32_from_cursor(cursor)?;
-        let mut addresses = Vec::with_capacity(addresses_len as usize);
-        for _ in 0..addresses_len {
+        let account_ids_len = u32_from_cursor(cursor)?;
+        let mut account_ids = Vec::with_capacity(account_ids_len as usize);
+        for _ in 0..account_ids_len {
             let mut value = [0u8; 32];
             cursor.read_exact(&mut value)?;
-            addresses.push(Address::new(value))
+            account_ids.push(AccountId::new(value))
         }
         let nonces_len = u32_from_cursor(cursor)?;
         let mut nonces = Vec::with_capacity(nonces_len as usize);
@@ -90,7 +90,7 @@ impl Message {
         }
         Ok(Self {
             program_id,
-            addresses,
+            account_ids,
             nonces,
             instruction_data,
         })

@@ -120,20 +120,20 @@ pub fn produce_data_for_storage(
 ) -> PersistentStorage {
     let mut vec_for_storage = vec![];
 
-    for (addr, key) in &user_data.pub_account_signing_keys {
+    for (account_id, key) in &user_data.pub_account_signing_keys {
         vec_for_storage.push(
             PersistentAccountDataPublic {
-                address: *addr,
+                account_id: *account_id,
                 pub_sign_key: key.clone(),
             }
             .into(),
         );
     }
 
-    for (addr, (key, acc)) in &user_data.user_private_accounts {
+    for (account_id, (key, acc)) in &user_data.user_private_accounts {
         vec_for_storage.push(
             PersistentAccountDataPrivate {
-                address: *addr,
+                account_id: *account_id,
                 account: acc.clone(),
                 key_chain: key.clone(),
             }
@@ -154,23 +154,23 @@ pub(crate) fn produce_random_nonces(size: usize) -> Vec<Nonce> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AddressPrivacyKind {
+pub enum AccountPrivacyKind {
     Public,
     Private,
 }
 
 pub(crate) fn parse_addr_with_privacy_prefix(
-    addr_base58: &str,
-) -> Result<(String, AddressPrivacyKind)> {
-    if addr_base58.starts_with("Public/") {
+    account_base58: &str,
+) -> Result<(String, AccountPrivacyKind)> {
+    if account_base58.starts_with("Public/") {
         Ok((
-            addr_base58.strip_prefix("Public/").unwrap().to_string(),
-            AddressPrivacyKind::Public,
+            account_base58.strip_prefix("Public/").unwrap().to_string(),
+            AccountPrivacyKind::Public,
         ))
-    } else if addr_base58.starts_with("Private/") {
+    } else if account_base58.starts_with("Private/") {
         Ok((
-            addr_base58.strip_prefix("Private/").unwrap().to_string(),
-            AddressPrivacyKind::Private,
+            account_base58.strip_prefix("Private/").unwrap().to_string(),
+            AccountPrivacyKind::Private,
         ))
     } else {
         anyhow::bail!("Unsupported privacy kind, available variants is Public/ and Private/");
@@ -223,12 +223,12 @@ mod tests {
         let addr_base58 = "Public/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
         let (_, addr_kind) = parse_addr_with_privacy_prefix(addr_base58).unwrap();
 
-        assert_eq!(addr_kind, AddressPrivacyKind::Public);
+        assert_eq!(addr_kind, AccountPrivacyKind::Public);
 
         let addr_base58 = "Private/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
         let (_, addr_kind) = parse_addr_with_privacy_prefix(addr_base58).unwrap();
 
-        assert_eq!(addr_kind, AddressPrivacyKind::Private);
+        assert_eq!(addr_kind, AccountPrivacyKind::Private);
 
         let addr_base58 = "asdsada/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
         assert!(parse_addr_with_privacy_prefix(addr_base58).is_err());

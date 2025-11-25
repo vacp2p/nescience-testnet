@@ -3,26 +3,26 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitialAccountDataPublic {
-    pub address: String,
+    pub account_id: String,
     pub pub_sign_key: nssa::PrivateKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistentAccountDataPublic {
-    pub address: nssa::Address,
+    pub account_id: nssa::AccountId,
     pub pub_sign_key: nssa::PrivateKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitialAccountDataPrivate {
-    pub address: String,
+    pub account_id: String,
     pub account: nssa_core::account::Account,
     pub key_chain: KeyChain,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistentAccountDataPrivate {
-    pub address: nssa::Address,
+    pub account_id: nssa::AccountId,
     pub account: nssa_core::account::Account,
     pub key_chain: KeyChain,
 }
@@ -52,19 +52,19 @@ pub struct PersistentStorage {
 }
 
 impl InitialAccountData {
-    pub fn address(&self) -> nssa::Address {
+    pub fn account_id(&self) -> nssa::AccountId {
         match &self {
-            Self::Public(acc) => acc.address.parse().unwrap(),
-            Self::Private(acc) => acc.address.parse().unwrap(),
+            Self::Public(acc) => acc.account_id.parse().unwrap(),
+            Self::Private(acc) => acc.account_id.parse().unwrap(),
         }
     }
 }
 
 impl PersistentAccountData {
-    pub fn address(&self) -> nssa::Address {
+    pub fn account_id(&self) -> nssa::AccountId {
         match &self {
-            Self::Public(acc) => acc.address,
-            Self::Private(acc) => acc.address,
+            Self::Public(acc) => acc.account_id,
+            Self::Private(acc) => acc.account_id,
         }
     }
 }
@@ -143,7 +143,7 @@ impl Default for WalletConfig {
                 [
         {
             "Public": {
-                "address": "BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy",
+                "account_id": "BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy",
                 "pub_sign_key": [
                     16,
                     162,
@@ -182,7 +182,7 @@ impl Default for WalletConfig {
         },
         {
             "Public": {
-                "address": "Gj1mJy5W7J5pfmLRujmQaLfLMWidNxQ6uwnhb666ZwHw",
+                "account_id": "Gj1mJy5W7J5pfmLRujmQaLfLMWidNxQ6uwnhb666ZwHw",
                 "pub_sign_key": [
                     113,
                     121,
@@ -221,7 +221,7 @@ impl Default for WalletConfig {
         },
         {
             "Private": {
-                "address": "3oCG8gqdKLMegw4rRfyaMQvuPHpcASt7xwttsmnZLSkw",
+                "account_id": "3oCG8gqdKLMegw4rRfyaMQvuPHpcASt7xwttsmnZLSkw",
                 "account": {
                     "program_owner": [
                         0,
@@ -450,7 +450,7 @@ impl Default for WalletConfig {
         },
         {
             "Private": {
-                "address": "AKTcXgJ1xoynta1Ec7y6Jso1z1JQtHqd7aPQ1h9er6xX",
+                "account_id": "AKTcXgJ1xoynta1Ec7y6Jso1z1JQtHqd7aPQ1h9er6xX",
                 "account": {
                     "program_owner": [
                         0,

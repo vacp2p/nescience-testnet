@@ -91,12 +91,12 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get account public balance for `address`. `address` must be a valid hex-string for 32 bytes.
+    ///Get account public balance for `account_id`. `account_id` must be a valid hex-string for 32 bytes.
     pub async fn get_account_balance(
         &self,
-        address: String,
+        account_id: String,
     ) -> Result<GetAccountBalanceResponse, SequencerClientError> {
-        let block_req = GetAccountBalanceRequest { address };
+        let block_req = GetAccountBalanceRequest { account_id };
 
         let req = serde_json::to_value(block_req)?;
 
@@ -109,12 +109,12 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get accounts nonces for `addresses`. `addresses` must be a list of valid hex-strings for 32 bytes.
+    ///Get accounts nonces for `account_ids`. `account_ids` must be a list of valid hex-strings for 32 bytes.
     pub async fn get_accounts_nonces(
         &self,
-        addresses: Vec<String>,
+        account_ids: Vec<String>,
     ) -> Result<GetAccountsNoncesResponse, SequencerClientError> {
-        let block_req = GetAccountsNoncesRequest { addresses };
+        let block_req = GetAccountsNoncesRequest { account_ids };
 
         let req = serde_json::to_value(block_req)?;
 
@@ -129,9 +129,9 @@ impl SequencerClient {
 
     pub async fn get_account(
         &self,
-        address: String,
+        account_id: String,
     ) -> Result<GetAccountResponse, SequencerClientError> {
-        let block_req = GetAccountRequest { address };
+        let block_req = GetAccountRequest { account_id };
 
         let req = serde_json::to_value(block_req)?;
 

@@ -6,7 +6,7 @@ use log::info;
 use crate::{
     SubcommandReturnValue, WalletCore,
     cli::WalletSubcommand,
-    helperfunctions::{AddressPrivacyKind, parse_addr_with_privacy_prefix},
+    helperfunctions::{AccountPrivacyKind, parse_addr_with_privacy_prefix},
 };
 
 ///Represents generic CLI subcommand for a wallet working with pinata program
@@ -14,9 +14,9 @@ use crate::{
 pub enum PinataProgramAgnosticSubcommand {
     ///Claim pinata
     Claim {
-        ///to_addr - valid 32 byte base58 string with privacy prefix
+        ///to_account_id - valid 32 byte base58 string with privacy prefix
         #[arg(long)]
-        to_addr: String,
+        to_account_id: String,
         ///solution - solution to pinata challenge
         #[arg(long)]
         solution: u128,
@@ -29,21 +29,25 @@ impl WalletSubcommand for PinataProgramAgnosticSubcommand {
         wallet_core: &mut WalletCore,
     ) -> Result<SubcommandReturnValue> {
         let underlying_subcommand = match self {
-            PinataProgramAgnosticSubcommand::Claim { to_addr, solution } => {
-                let (to_addr, to_addr_privacy) = parse_addr_with_privacy_prefix(&to_addr)?;
+            PinataProgramAgnosticSubcommand::Claim {
+                to_account_id,
+                solution,
+            } => {
+                let (to_account_id, to_addr_privacy) =
+                    parse_addr_with_privacy_prefix(&to_account_id)?;
 
                 match to_addr_privacy {
-                    AddressPrivacyKind::Public => {
+                    AccountPrivacyKind::Public => {
                         PinataProgramSubcommand::Public(PinataProgramSubcommandPublic::Claim {
-                            pinata_addr: PINATA_BASE58.to_string(),
-                            winner_addr: to_addr,
+                            pinata_account_id: PINATA_BASE58.to_string(),
+                            winner_account_id: to_account_id,
                             solution,
                         })
                     }
-                    AddressPrivacyKind::Private => PinataProgramSubcommand::Private(
+                    AccountPrivacyKind::Private => PinataProgramSubcommand::Private(
                         PinataProgramSubcommandPrivate::ClaimPrivateOwned {
-                            pinata_addr: PINATA_BASE58.to_string(),
-                            winner_addr: to_addr,
+                            pinata_account_id: PINATA_BASE58.to_string(),
+                            winner_account_id: to_account_id,
                             solution,
                         },
                     ),
@@ -72,12 +76,12 @@ pub enum PinataProgramSubcommandPublic {
     // TODO: Testnet only. Refactor to prevent compilation on mainnet.
     // Claim piñata prize
     Claim {
-        ///pinata_addr - valid 32 byte hex string
+        ///pinata_account_id - valid 32 byte hex string
         #[arg(long)]
-        pinata_addr: String,
-        ///winner_addr - valid 32 byte hex string
+        pinata_account_id: String,
+        ///winner_account_id - valid 32 byte hex string
         #[arg(long)]
-        winner_addr: String,
+        winner_account_id: String,
         ///solution - solution to pinata challenge
         #[arg(long)]
         solution: u128,
@@ -90,12 +94,12 @@ pub enum PinataProgramSubcommandPrivate {
     // TODO: Testnet only. Refactor to prevent compilation on mainnet.
     // Claim piñata prize
     ClaimPrivateOwned {
-        ///pinata_addr - valid 32 byte hex string
+        ///pinata_account_id - valid 32 byte hex string
         #[arg(long)]
-        pinata_addr: String,
-        ///winner_addr - valid 32 byte hex string
+        pinata_account_id: String,
+        ///winner_account_id - valid 32 byte hex string
         #[arg(long)]
-        winner_addr: String,
+        winner_account_id: String,
         ///solution - solution to pinata challenge
         #[arg(long)]
         solution: u128,
@@ -109,14 +113,14 @@ impl WalletSubcommand for PinataProgramSubcommandPublic {
     ) -> Result<SubcommandReturnValue> {
         match self {
             PinataProgramSubcommandPublic::Claim {
-                pinata_addr,
-                winner_addr,
+                pinata_account_id,
+                winner_account_id,
                 solution,
             } => {
                 let res = wallet_core
                     .claim_pinata(
-                        pinata_addr.parse().unwrap(),
-                        winner_addr.parse().unwrap(),
+                        pinata_account_id.parse().unwrap(),
+                        winner_account_id.parse().unwrap(),
                         solution,
                     )
                     .await?;
@@ -135,22 +139,22 @@ impl WalletSubcommand for PinataProgramSubcommandPrivate {
     ) -> Result<SubcommandReturnValue> {
         match self {
             PinataProgramSubcommandPrivate::ClaimPrivateOwned {
-                pinata_addr,
-                winner_addr,
+                pinata_account_id,
+                winner_account_id,
                 solution,
             } => {
-                let pinata_addr = pinata_addr.parse().unwrap();
-                let winner_addr = winner_addr.parse().unwrap();
+                let pinata_account_id = pinata_account_id.parse().unwrap();
+                let winner_account_id = winner_account_id.parse().unwrap();
 
                 let winner_initialization = wallet_core
-                    .check_private_account_initialized(&winner_addr)
+                    .check_private_account_initialized(&winner_account_id)
                     .await?;
 
                 let (res, [secret_winner]) = if let Some(winner_proof) = winner_initialization {
                     wallet_core
                         .claim_pinata_private_owned_account_already_initialized(
-                            pinata_addr,
-                            winner_addr,
+                            pinata_account_id,
+                            winner_account_id,
                             solution,
                             winner_proof,
                         )
@@ -158,8 +162,8 @@ impl WalletSubcommand for PinataProgramSubcommandPrivate {
                 } else {
                     wallet_core
                         .claim_pinata_private_owned_account_not_initialized(
-                            pinata_addr,
-                            winner_addr,
+                            pinata_account_id,
+                            winner_account_id,
                             solution,
                         )
                         .await?
@@ -173,7 +177,7 @@ impl WalletSubcommand for PinataProgramSubcommandPrivate {
                     .await?;
 
                 if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                    let acc_decode_data = vec![(secret_winner, winner_addr)];
+                    let acc_decode_data = vec![(secret_winner, winner_account_id)];
 
                     wallet_core.decode_insert_privacy_preserving_transaction_results(
                         tx,

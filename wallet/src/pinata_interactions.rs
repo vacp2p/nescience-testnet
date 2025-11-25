@@ -1,6 +1,6 @@
 use common::{error::ExecutionFailureKind, sequencer_client::json::SendTxResponse};
 use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
-use nssa::{Address, privacy_preserving_transaction::circuit};
+use nssa::{AccountId, privacy_preserving_transaction::circuit};
 use nssa_core::{MembershipProof, SharedSecretKey, account::AccountWithMetadata};
 
 use crate::{
@@ -10,14 +10,14 @@ use crate::{
 impl WalletCore {
     pub async fn claim_pinata(
         &self,
-        pinata_addr: Address,
-        winner_addr: Address,
+        pinata_account_id: AccountId,
+        winner_account_id: AccountId,
         solution: u128,
     ) -> Result<SendTxResponse, ExecutionFailureKind> {
-        let addresses = vec![pinata_addr, winner_addr];
+        let account_ids = vec![pinata_account_id, winner_account_id];
         let program_id = nssa::program::Program::pinata().id();
         let message =
-            nssa::public_transaction::Message::try_new(program_id, addresses, vec![], solution)
+            nssa::public_transaction::Message::try_new(program_id, account_ids, vec![], solution)
                 .unwrap();
 
         let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);
@@ -28,8 +28,8 @@ impl WalletCore {
 
     pub async fn claim_pinata_private_owned_account_already_initialized(
         &self,
-        pinata_addr: Address,
-        winner_addr: Address,
+        pinata_account_id: AccountId,
+        winner_account_id: AccountId,
         solution: u128,
         winner_proof: MembershipProof,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
@@ -40,14 +40,14 @@ impl WalletCore {
             auth_acc: winner_pre,
             proof: _,
         } = self
-            .private_acc_preparation(winner_addr, true, false)
+            .private_acc_preparation(winner_account_id, true, false)
             .await?;
 
-        let pinata_acc = self.get_account_public(pinata_addr).await.unwrap();
+        let pinata_acc = self.get_account_public(pinata_account_id).await.unwrap();
 
         let program = nssa::program::Program::pinata();
 
-        let pinata_pre = AccountWithMetadata::new(pinata_acc.clone(), false, pinata_addr);
+        let pinata_pre = AccountWithMetadata::new(pinata_acc.clone(), false, pinata_account_id);
 
         let eph_holder_winner = EphemeralKeyHolder::new(&winner_npk);
         let shared_secret_winner = eph_holder_winner.calculate_shared_secret_sender(&winner_ipk);
@@ -65,7 +65,7 @@ impl WalletCore {
 
         let message =
             nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
-                vec![pinata_addr],
+                vec![pinata_account_id],
                 vec![],
                 vec![(
                     winner_npk.clone(),
@@ -95,8 +95,8 @@ impl WalletCore {
 
     pub async fn claim_pinata_private_owned_account_not_initialized(
         &self,
-        pinata_addr: Address,
-        winner_addr: Address,
+        pinata_account_id: AccountId,
+        winner_account_id: AccountId,
         solution: u128,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
         let AccountPreparedData {
@@ -106,14 +106,14 @@ impl WalletCore {
             auth_acc: winner_pre,
             proof: _,
         } = self
-            .private_acc_preparation(winner_addr, false, false)
+            .private_acc_preparation(winner_account_id, false, false)
             .await?;
 
-        let pinata_acc = self.get_account_public(pinata_addr).await.unwrap();
+        let pinata_acc = self.get_account_public(pinata_account_id).await.unwrap();
 
         let program = nssa::program::Program::pinata();
 
-        let pinata_pre = AccountWithMetadata::new(pinata_acc.clone(), false, pinata_addr);
+        let pinata_pre = AccountWithMetadata::new(pinata_acc.clone(), false, pinata_account_id);
 
         let eph_holder_winner = EphemeralKeyHolder::new(&winner_npk);
         let shared_secret_winner = eph_holder_winner.calculate_shared_secret_sender(&winner_ipk);
@@ -131,7 +131,7 @@ impl WalletCore {
 
         let message =
             nssa::privacy_preserving_transaction::message::Message::try_from_circuit_output(
-                vec![pinata_addr],
+                vec![pinata_account_id],
                 vec![],
                 vec![(
                     winner_npk.clone(),

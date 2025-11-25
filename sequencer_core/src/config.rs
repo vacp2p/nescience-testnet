@@ -4,13 +4,13 @@ use std::path::PathBuf;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 ///Helperstruct for account serialization
 pub struct AccountInitialData {
-    ///Hex encoded `AccountAddress`
-    pub addr: String,
+    /// Hex encoded account id
+    pub account_id: String,
     pub balance: u128,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-///Helperstruct to initialize commitments
+/// Helperstruct to initialize commitments
 pub struct CommitmentsInitialData {
     pub npk: nssa_core::NullifierPublicKey,
     pub account: nssa_core::account::Account,

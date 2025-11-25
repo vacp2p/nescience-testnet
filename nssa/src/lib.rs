@@ -18,7 +18,6 @@ mod signature;
 mod state;
 
 pub use nssa_core::account::{Account, AccountId};
-pub use nssa_core::address::Address;
 pub use privacy_preserving_transaction::{
     PrivacyPreservingTransaction, circuit::execute_and_prove,
 };

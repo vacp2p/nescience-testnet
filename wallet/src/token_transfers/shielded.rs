@@ -1,5 +1,5 @@
 use common::{error::ExecutionFailureKind, sequencer_client::json::SendTxResponse};
-use nssa::Address;
+use nssa::AccountId;
 use nssa_core::{
     MembershipProof, NullifierPublicKey, SharedSecretKey, encryption::IncomingViewingPublicKey,
 };
@@ -9,8 +9,8 @@ use crate::WalletCore;
 impl WalletCore {
     pub async fn send_shielded_native_token_transfer_already_initialized(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         balance_to_move: u128,
         to_proof: MembershipProof,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
@@ -23,8 +23,8 @@ impl WalletCore {
 
     pub async fn send_shielded_native_token_transfer_not_initialized(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         balance_to_move: u128,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
         let (instruction_data, program, tx_pre_check) =
@@ -36,7 +36,7 @@ impl WalletCore {
 
     pub async fn send_shielded_native_token_transfer_outer_account(
         &self,
-        from: Address,
+        from: AccountId,
         to_npk: NullifierPublicKey,
         to_ipk: IncomingViewingPublicKey,
         balance_to_move: u128,

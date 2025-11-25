@@ -65,15 +65,18 @@ mod tests {
     #[test]
     fn test_new_os_random() {
         // Ensure that a new KeyChain instance can be created without errors.
-        let address_key_holder = KeyChain::new_os_random();
+        let account_id_key_holder = KeyChain::new_os_random();
 
         // Check that key holder fields are initialized with expected types
-        assert_ne!(address_key_holder.nullifer_public_key.as_ref(), &[0u8; 32]);
+        assert_ne!(
+            account_id_key_holder.nullifer_public_key.as_ref(),
+            &[0u8; 32]
+        );
     }
 
     #[test]
     fn test_calculate_shared_secret_receiver() {
-        let address_key_holder = KeyChain::new_os_random();
+        let account_id_key_holder = KeyChain::new_os_random();
 
         // Generate a random ephemeral public key sender
         let mut scalar = [0; 32];
@@ -82,7 +85,7 @@ mod tests {
 
         // Calculate shared secret
         let _shared_secret =
-            address_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
+            account_id_key_holder.calculate_shared_secret_receiver(ephemeral_public_key_sender);
     }
 
     #[test]
@@ -99,7 +102,7 @@ mod tests {
 
         let public_key = nssa::PublicKey::new_from_private_key(&pub_account_signing_key);
 
-        let address = nssa::Address::from(&public_key);
+        let account = nssa::AccountId::from(&public_key);
 
         println!("======Prerequisites======");
         println!();
@@ -120,7 +123,7 @@ mod tests {
 
         println!("======Public data======");
         println!();
-        println!("Address{:?}", address.value().to_base58());
+        println!("Account {:?}", account.value().to_base58());
         println!(
             "Nulifier public key {:?}",
             hex::encode(nullifer_public_key.to_byte_array())

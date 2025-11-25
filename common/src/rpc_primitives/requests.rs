@@ -14,7 +14,7 @@ pub struct HelloRequest {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RegisterAccountRequest {
-    pub address: [u8; 32],
+    pub account_id: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -38,7 +38,7 @@ pub struct GetInitialTestnetAccountsRequest {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetAccountBalanceRequest {
-    pub address: String,
+    pub account_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -48,12 +48,12 @@ pub struct GetTransactionByHashRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetAccountsNoncesRequest {
-    pub addresses: Vec<String>,
+    pub account_ids: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetAccountRequest {
-    pub address: String,
+    pub account_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

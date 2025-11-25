@@ -44,12 +44,12 @@ pub const TIME_TO_WAIT_FOR_BLOCK_SECONDS: u64 = 12;
 
 pub const NSSA_PROGRAM_FOR_TEST_DATA_CHANGER: &[u8] = include_bytes!("data_changer.bin");
 
-fn make_public_account_input_from_str(addr: &str) -> String {
-    format!("Public/{addr}")
+fn make_public_account_input_from_str(account_id: &str) -> String {
+    format!("Public/{account_id}")
 }
 
-fn make_private_account_input_from_str(addr: &str) -> String {
-    format!("Private/{addr}")
+fn make_private_account_input_from_str(account_id: &str) -> String {
+    format!("Private/{account_id}")
 }
 
 #[allow(clippy::type_complexity)]
@@ -174,14 +174,14 @@ mod tests {
     use crate::{make_private_account_input_from_str, make_public_account_input_from_str};
 
     #[test]
-    fn correct_addr_from_prefix() {
-        let addr1 = "cafecafe";
-        let addr2 = "deadbeaf";
+    fn correct_account_id_from_prefix() {
+        let account_id1 = "cafecafe";
+        let account_id2 = "deadbeaf";
 
-        let addr1_pub = make_public_account_input_from_str(addr1);
-        let addr2_priv = make_private_account_input_from_str(addr2);
+        let account_id1_pub = make_public_account_input_from_str(account_id1);
+        let account_id2_priv = make_private_account_input_from_str(account_id2);
 
-        assert_eq!(addr1_pub, "Public/cafecafe".to_string());
-        assert_eq!(addr2_priv, "Private/deadbeaf".to_string());
+        assert_eq!(account_id1_pub, "Public/cafecafe".to_string());
+        assert_eq!(account_id2_priv, "Private/deadbeaf".to_string());
     }
 }
