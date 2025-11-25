@@ -29,7 +29,11 @@ fn main() {
         panic!("Max chained calls depth is exceeded");
     }
 
-    if program_outputs.last().and_then(|last| last.chained_call.as_ref()).is_some() {
+    if program_outputs
+        .last()
+        .and_then(|last| last.chained_call.as_ref())
+        .is_some()
+    {
         panic!("Call stack is incomplete");
     }
 
@@ -48,7 +52,10 @@ fn main() {
         let mut program_output = program_output.clone();
 
         // Check that `program_output` is consistent with the execution of the corresponding program.
-        env::verify(program_id, &to_vec(&program_output).unwrap()).unwrap();
+        let program_output_words =
+            &to_vec(&program_output).expect("program_output must be serializable");
+        env::verify(program_id, program_output_words)
+            .expect("program output must match the program's execution");
 
         // Check that the program is well behaved.
         // See the # Programs section for the definition of the `validate_execution` method.
