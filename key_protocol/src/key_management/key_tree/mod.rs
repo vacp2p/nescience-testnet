@@ -16,19 +16,23 @@ pub mod keys_public;
 pub mod traits;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct KeyTree<Node: KeyNode> {
-    pub key_map: BTreeMap<ChainIndex, Node>,
+pub struct KeyTree<N: KeyNode> {
+    pub key_map: BTreeMap<ChainIndex, N>,
     pub addr_map: HashMap<nssa::Address, ChainIndex>,
 }
 
 pub type KeyTreePublic = KeyTree<ChildKeysPublic>;
 pub type KeyTreePrivate = KeyTree<ChildKeysPrivate>;
 
-impl<Node: KeyNode> KeyTree<Node> {
+impl<N: KeyNode> KeyTree<N> {
     pub fn new(seed: &SeedHolder) -> Self {
-        let seed_fit: [u8; 64] = seed.seed.clone().try_into().unwrap();
+        let seed_fit: [u8; 64] = seed
+            .seed
+            .clone()
+            .try_into()
+            .expect("SeedHolder seed is 64 bytes long");
 
-        let root_keys = Node::root(seed_fit);
+        let root_keys = N::root(seed_fit);
         let address = root_keys.address();
 
         let key_map = BTreeMap::from_iter([(ChainIndex::root(), root_keys)]);
@@ -37,12 +41,9 @@ impl<Node: KeyNode> KeyTree<Node> {
         Self { key_map, addr_map }
     }
 
-    pub fn new_from_root(root: Node) -> Self {
-        let mut key_map = BTreeMap::new();
-        let mut addr_map = HashMap::new();
-
-        addr_map.insert(root.address(), ChainIndex::root());
-        key_map.insert(ChainIndex::root(), root);
+    pub fn new_from_root(root: N) -> Self {
+        let addr_map = HashMap::from_iter([(root.address(), ChainIndex::root())]);
+        let key_map = BTreeMap::from_iter([(ChainIndex::root(), root)]);
 
         Self { key_map, addr_map }
     }
@@ -91,7 +92,9 @@ impl<Node: KeyNode> KeyTree<Node> {
 
     pub fn generate_new_node(&mut self, parent_cci: ChainIndex) -> Option<nssa::Address> {
         let father_keys = self.key_map.get(&parent_cci)?;
-        let next_child_id = self.find_next_last_child_of_id(&parent_cci).unwrap();
+        let next_child_id = self
+            .find_next_last_child_of_id(&parent_cci)
+            .expect("Can be None only if parent is not present");
         let next_cci = parent_cci.nth_child(next_child_id);
 
         let child_keys = father_keys.nth_child(next_child_id);
@@ -104,19 +107,19 @@ impl<Node: KeyNode> KeyTree<Node> {
         Some(address)
     }
 
-    pub fn get_node(&self, addr: nssa::Address) -> Option<&Node> {
+    pub fn get_node(&self, addr: nssa::Address) -> Option<&N> {
         self.addr_map
             .get(&addr)
             .and_then(|chain_id| self.key_map.get(chain_id))
     }
 
-    pub fn get_node_mut(&mut self, addr: nssa::Address) -> Option<&mut Node> {
+    pub fn get_node_mut(&mut self, addr: nssa::Address) -> Option<&mut N> {
         self.addr_map
             .get(&addr)
             .and_then(|chain_id| self.key_map.get_mut(chain_id))
     }
 
-    pub fn insert(&mut self, addr: nssa::Address, chain_index: ChainIndex, node: Node) {
+    pub fn insert(&mut self, addr: nssa::Address, chain_index: ChainIndex, node: N) {
         self.addr_map.insert(addr, chain_index.clone());
         self.key_map.insert(chain_index, node);
     }

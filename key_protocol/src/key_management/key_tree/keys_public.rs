@@ -34,8 +34,15 @@ impl KeyNode for ChildKeysPublic {
 
         let hash_value = hmac_sha512::HMAC::mac(&hash_input, self.ccc);
 
-        let csk = nssa::PrivateKey::try_new(*hash_value.first_chunk::<32>().unwrap()).unwrap();
-        let ccc = *hash_value.last_chunk::<32>().unwrap();
+        let csk = nssa::PrivateKey::try_new(
+            *hash_value
+                .first_chunk::<32>()
+                .expect("hash_value is 64 bytes, must be safe to get first 32"),
+        )
+        .unwrap();
+        let ccc = *hash_value
+            .last_chunk::<32>()
+            .expect("hash_value is 64 bytes, must be safe to get last 32");
         let cpk = nssa::PublicKey::new_from_private_key(&csk);
 
         Self {
