@@ -1157,6 +1157,8 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         info!("Success!");
     }
 
+    //
+
     #[nssa_integration_test]
     pub async fn test_success_private_transfer_to_another_owned_account_cont_run_path() {
         info!(
