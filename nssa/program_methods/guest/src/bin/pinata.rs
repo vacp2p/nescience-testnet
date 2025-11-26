@@ -1,5 +1,7 @@
 use nssa_core::program::{ProgramInput, read_nssa_inputs, write_nssa_outputs};
-use risc0_zkvm::sha::{Impl, Sha256};
+use risc0_zkvm::{
+    sha::{Impl, Sha256},
+};
 
 const PRIZE: u128 = 150;
 
@@ -44,10 +46,13 @@ impl Challenge {
 fn main() {
     // Read input accounts.
     // It is expected to receive only two accounts: [pinata_account, winner_account]
-    let ProgramInput {
-        pre_states,
-        instruction: solution,
-    } = read_nssa_inputs::<Instruction>();
+    let (
+        ProgramInput {
+            pre_states,
+            instruction: solution,
+        },
+        instruction_words,
+    ) = read_nssa_inputs::<Instruction>();
 
     let [pinata, winner] = match pre_states.try_into() {
         Ok(array) => array,
@@ -66,5 +71,9 @@ fn main() {
     pinata_post.data = data.next_data().to_vec();
     winner_post.balance += PRIZE;
 
-    write_nssa_outputs(vec![pinata, winner], vec![pinata_post, winner_post]);
+    write_nssa_outputs(
+        instruction_words,
+        vec![pinata, winner],
+        vec![pinata_post, winner_post],
+    );
 }

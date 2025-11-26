@@ -1,49 +1,102 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use risc0_zkvm::{guest::env, serde::to_vec};
 
 use nssa_core::{
-    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme,
-    Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme, Nullifier,
+    NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
     account::{Account, AccountId, AccountWithMetadata},
     compute_digest_for_path,
     encryption::Ciphertext,
-    program::{DEFAULT_PROGRAM_ID, ProgramOutput, validate_execution},
+    program::{DEFAULT_PROGRAM_ID, MAX_NUMBER_CHAINED_CALLS, validate_execution},
 };
 
 fn main() {
     let PrivacyPreservingCircuitInput {
-        program_output,
+        program_outputs,
         visibility_mask,
         private_account_nonces,
         private_account_keys,
         private_account_auth,
-        program_id,
+        mut program_id,
     } = env::read();
 
-    // Check that `program_output` is consistent with the execution of the corresponding program.
-    env::verify(program_id, &to_vec(&program_output).unwrap()).unwrap();
+    let mut pre_states: Vec<AccountWithMetadata> = Vec::new();
+    let mut state_diff: HashMap<AccountId, Account> = HashMap::new();
 
-    let ProgramOutput {
-        pre_states,
-        post_states,
-        chained_call,
-    } = program_output;
-
-    // TODO: implement chained calls for privacy preserving transactions
-    if chained_call.is_some() {
-        panic!("Privacy preserving transactions do not support yet chained calls.")
+    let num_calls = program_outputs.len();
+    if num_calls > MAX_NUMBER_CHAINED_CALLS {
+        panic!("Max chained calls depth is exceeded");
     }
 
-    // Check that there are no repeated account ids
-    if !validate_uniqueness_of_account_ids(&pre_states) {
-        panic!("Repeated account ids found")
+    if program_outputs
+        .last()
+        .and_then(|last| last.chained_call.as_ref())
+        .is_some()
+    {
+        panic!("Call stack is incomplete");
     }
 
-    // Check that the program is well behaved.
-    // See the # Programs section for the definition of the `validate_execution` method.
-    if !validate_execution(&pre_states, &post_states, program_id) {
-        panic!("Bad behaved program");
+    for window in program_outputs.windows(2) {
+        let caller = &window[0];
+        let callee = &window[1];
+
+        let Some(chained_call) = &caller.chained_call else {
+            panic!("Expected chained call");
+        };
+
+        // Check that instruction data in caller is the instruction data in callee
+        if chained_call.instruction_data != callee.instruction_data {
+            panic!("Invalid instruction data");
+        }
+    }
+
+    for (i, program_output) in program_outputs.iter().enumerate() {
+        let mut program_output = program_output.clone();
+
+        // Check that `program_output` is consistent with the execution of the corresponding program.
+        let program_output_words =
+            &to_vec(&program_output).expect("program_output must be serializable");
+        env::verify(program_id, program_output_words)
+            .expect("program output must match the program's execution");
+
+        // Check that the program is well behaved.
+        // See the # Programs section for the definition of the `validate_execution` method.
+        if !validate_execution(
+            &program_output.pre_states,
+            &program_output.post_states,
+            program_id,
+        ) {
+            panic!("Bad behaved program");
+        }
+
+        // The invoked program claims the accounts with default program id.
+        for post in program_output.post_states.iter_mut() {
+            if post.program_owner == DEFAULT_PROGRAM_ID {
+                post.program_owner = program_id;
+            }
+        }
+
+        for (pre, post) in program_output
+            .pre_states
+            .iter()
+            .zip(&program_output.post_states)
+        {
+            if let Some(account_pre) = state_diff.get(&pre.account_id) {
+                if account_pre != &pre.account {
+                    panic!("Invalid input");
+                }
+            } else {
+                pre_states.push(pre.clone());
+            }
+            state_diff.insert(pre.account_id.clone(), post.clone());
+        }
+
+        if let Some(next_chained_call) = &program_output.chained_call {
+            program_id = next_chained_call.program_id;
+        } else if i != program_outputs.len() - 1 {
+            panic!("Inner call without a chained call found")
+        };
     }
 
     let n_accounts = pre_states.len();
@@ -70,7 +123,7 @@ fn main() {
                 // Public account
                 public_pre_states.push(pre_states[i].clone());
 
-                let mut post = post_states[i].clone();
+                let mut post = state_diff.get(&pre_states[i].account_id).unwrap().clone();
                 if pre_states[i].is_authorized {
                     post.nonce += 1;
                 }
@@ -126,7 +179,8 @@ fn main() {
                 }
 
                 // Update post-state with new nonce
-                let mut post_with_updated_values = post_states[i].clone();
+                let mut post_with_updated_values =
+                    state_diff.get(&pre_states[i].account_id).unwrap().clone();
                 post_with_updated_values.nonce = *new_nonce;
 
                 if post_with_updated_values.program_owner == DEFAULT_PROGRAM_ID {
@@ -174,15 +228,4 @@ fn main() {
     };
 
     env::commit(&output);
-}
-
-fn validate_uniqueness_of_account_ids(pre_states: &[AccountWithMetadata]) -> bool {
-    let number_of_accounts = pre_states.len();
-    let number_of_account_ids = pre_states
-        .iter()
-        .map(|account| account.account_id.clone())
-        .collect::<HashSet<_>>()
-        .len();
-
-    number_of_accounts == number_of_account_ids
 }

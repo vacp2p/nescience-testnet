@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use nssa_core::{
     account::{Account, AccountId, AccountWithMetadata},
-    program::{DEFAULT_PROGRAM_ID, validate_execution},
+    program::{DEFAULT_PROGRAM_ID, MAX_NUMBER_CHAINED_CALLS, validate_execution},
 };
 use sha2::{Digest, digest::FixedOutput};
 
@@ -17,7 +17,6 @@ pub struct PublicTransaction {
     message: Message,
     witness_set: WitnessSet,
 }
-const MAX_NUMBER_CHAINED_CALLS: usize = 10;
 
 impl PublicTransaction {
     pub fn new(message: Message, witness_set: WitnessSet) -> Self {

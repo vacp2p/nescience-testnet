@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use risc0_zkvm::{DeserializeOwned, guest::env, serde::Deserializer};
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +8,7 @@ use crate::account::{Account, AccountWithMetadata};
 pub type ProgramId = [u32; 8];
 pub type InstructionData = Vec<u32>;
 pub const DEFAULT_PROGRAM_ID: ProgramId = [0; 8];
+pub const MAX_NUMBER_CHAINED_CALLS: usize = 10;
 
 pub struct ProgramInput<T> {
     pub pre_states: Vec<AccountWithMetadata>,
@@ -15,7 +18,9 @@ pub struct ProgramInput<T> {
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
 pub struct ChainedCall {
+    /// The program ID of the program to execute
     pub program_id: ProgramId,
+    /// The instruction data to pass
     pub instruction_data: InstructionData,
     pub account_indices: Vec<usize>,
 }
@@ -23,23 +28,36 @@ pub struct ChainedCall {
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
 pub struct ProgramOutput {
+    /// The instruction data the program received to produce this output
+    pub instruction_data: InstructionData,
+    /// The account pre states the program received to produce this output
     pub pre_states: Vec<AccountWithMetadata>,
+    /// The account post states produced with the given pre states and instruction data
     pub post_states: Vec<Account>,
+    /// The optional next call of a program
     pub chained_call: Option<ChainedCall>,
 }
 
-pub fn read_nssa_inputs<T: DeserializeOwned>() -> ProgramInput<T> {
+pub fn read_nssa_inputs<T: DeserializeOwned>() -> (ProgramInput<T>, InstructionData) {
     let pre_states: Vec<AccountWithMetadata> = env::read();
     let instruction_words: InstructionData = env::read();
     let instruction = T::deserialize(&mut Deserializer::new(instruction_words.as_ref())).unwrap();
-    ProgramInput {
-        pre_states,
-        instruction,
-    }
+    (
+        ProgramInput {
+            pre_states,
+            instruction,
+        },
+        instruction_words,
+    )
 }
 
-pub fn write_nssa_outputs(pre_states: Vec<AccountWithMetadata>, post_states: Vec<Account>) {
+pub fn write_nssa_outputs(
+    instruction_data: InstructionData,
+    pre_states: Vec<AccountWithMetadata>,
+    post_states: Vec<Account>,
+) {
     let output = ProgramOutput {
+        instruction_data,
         pre_states,
         post_states,
         chained_call: None,
@@ -48,11 +66,13 @@ pub fn write_nssa_outputs(pre_states: Vec<AccountWithMetadata>, post_states: Vec
 }
 
 pub fn write_nssa_outputs_with_chained_call(
+    instruction_data: InstructionData,
     pre_states: Vec<AccountWithMetadata>,
     post_states: Vec<Account>,
     chained_call: Option<ChainedCall>,
 ) {
     let output = ProgramOutput {
+        instruction_data,
         pre_states,
         post_states,
         chained_call,
@@ -71,30 +91,35 @@ pub fn validate_execution(
     post_states: &[Account],
     executing_program_id: ProgramId,
 ) -> bool {
-    // 1. Lengths must match
+    // 1. Check account ids are all different
+    if !validate_uniqueness_of_account_ids(pre_states) {
+        return false;
+    }
+
+    // 2. Lengths must match
     if pre_states.len() != post_states.len() {
         return false;
     }
 
     for (pre, post) in pre_states.iter().zip(post_states) {
-        // 2. Nonce must remain unchanged
+        // 3. Nonce must remain unchanged
         if pre.account.nonce != post.nonce {
             return false;
         }
 
-        // 3. Program ownership changes are not allowed
+        // 4. Program ownership changes are not allowed
         if pre.account.program_owner != post.program_owner {
             return false;
         }
 
         let account_program_owner = pre.account.program_owner;
 
-        // 4. Decreasing balance only allowed if owned by executing program
+        // 5. Decreasing balance only allowed if owned by executing program
         if post.balance < pre.account.balance && account_program_owner != executing_program_id {
             return false;
         }
 
-        // 5. Data changes only allowed if owned by executing program or if account pre state has
+        // 6. Data changes only allowed if owned by executing program or if account pre state has
         //    default values
         if pre.account.data != post.data
             && pre.account != Account::default()
@@ -103,14 +128,14 @@ pub fn validate_execution(
             return false;
         }
 
-        // 6. If a post state has default program owner, the pre state must have been a default
+        // 7. If a post state has default program owner, the pre state must have been a default
         //    account
         if post.program_owner == DEFAULT_PROGRAM_ID && pre.account != Account::default() {
             return false;
         }
     }
 
-    // 7. Total balance is preserved
+    // 8. Total balance is preserved
     let total_balance_pre_states: u128 = pre_states.iter().map(|pre| pre.account.balance).sum();
     let total_balance_post_states: u128 = post_states.iter().map(|post| post.balance).sum();
     if total_balance_pre_states != total_balance_post_states {
@@ -118,4 +143,15 @@ pub fn validate_execution(
     }
 
     true
+}
+
+fn validate_uniqueness_of_account_ids(pre_states: &[AccountWithMetadata]) -> bool {
+    let number_of_accounts = pre_states.len();
+    let number_of_account_ids = pre_states
+        .iter()
+        .map(|account| &account.account_id)
+        .collect::<HashSet<_>>()
+        .len();
+
+    number_of_accounts == number_of_account_ids
 }
