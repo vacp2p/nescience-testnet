@@ -43,6 +43,7 @@ impl MerkleTree {
             (1 << (capacity_depth - tree_depth)) - 1
         }
     }
+
     /// Number of levels required to hold all nodes
     fn depth(&self) -> usize {
         self.length.next_power_of_two().trailing_zeros() as usize

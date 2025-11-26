@@ -1,37 +1,32 @@
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::Result;
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+use chain_storage::WalletChainStore;
+use clap::{Parser, Subcommand};
 use common::{
     block::HashableBlockData,
     sequencer_client::SequencerClient,
     transaction::{EncodedTransaction, NSSATransaction},
 };
-
-use anyhow::Result;
-use chain_storage::WalletChainStore;
 use config::WalletConfig;
 use log::info;
 use nssa::{
-    Account, Address, privacy_preserving_transaction::message::EncryptedAccountData,
+    Account, AccountId, privacy_preserving_transaction::message::EncryptedAccountData,
     program::Program,
 };
-
-use clap::{Parser, Subcommand};
 use nssa_core::{Commitment, MembershipProof};
 use tokio::io::AsyncWriteExt;
 
 use crate::{
     cli::{
         WalletSubcommand, account::AccountSubcommand, chain::ChainSubcommand,
-        native_token_transfer_program::AuthTransferSubcommand,
+        config::ConfigSubcommand, native_token_transfer_program::AuthTransferSubcommand,
         pinata_program::PinataProgramAgnosticSubcommand,
         token_program::TokenProgramAgnosticSubcommand,
     },
     config::PersistentStorage,
-    helperfunctions::fetch_persistent_storage,
-};
-use crate::{
-    helperfunctions::{fetch_config, get_home, produce_data_for_storage},
+    helperfunctions::{fetch_config, fetch_persistent_storage, get_home, produce_data_for_storage},
     poller::TxPoller,
 };
 
@@ -77,7 +72,7 @@ impl WalletCore {
         })
     }
 
-    ///Store persistent data at home
+    /// Store persistent data at home
     pub async fn store_persistent_data(&self) -> Result<PathBuf> {
         let home = get_home()?;
         let storage_path = home.join("storage.json");
@@ -93,20 +88,34 @@ impl WalletCore {
         Ok(storage_path)
     }
 
-    pub fn create_new_account_public(&mut self) -> Address {
+    /// Store persistent data at home
+    pub async fn store_config_changes(&self) -> Result<PathBuf> {
+        let home = get_home()?;
+        let config_path = home.join("wallet_config.json");
+        let config = serde_json::to_vec_pretty(&self.storage.wallet_config)?;
+
+        let mut config_file = tokio::fs::File::create(config_path.as_path()).await?;
+        config_file.write_all(&config).await?;
+
+        info!("Stored data at {config_path:#?}");
+
+        Ok(config_path)
+    }
+
+    pub fn create_new_account_public(&mut self) -> AccountId {
         self.storage
             .user_data
             .generate_new_public_transaction_private_key()
     }
 
-    pub fn create_new_account_private(&mut self) -> Address {
+    pub fn create_new_account_private(&mut self) -> AccountId {
         self.storage
             .user_data
             .generate_new_privacy_preserving_transaction_key_chain()
     }
 
-    ///Get account balance
-    pub async fn get_account_balance(&self, acc: Address) -> Result<u128> {
+    /// Get account balance
+    pub async fn get_account_balance(&self, acc: AccountId) -> Result<u128> {
         Ok(self
             .sequencer_client
             .get_account_balance(acc.to_string())
@@ -114,8 +123,8 @@ impl WalletCore {
             .balance)
     }
 
-    ///Get accounts nonces
-    pub async fn get_accounts_nonces(&self, accs: Vec<Address>) -> Result<Vec<u128>> {
+    /// Get accounts nonces
+    pub async fn get_accounts_nonces(&self, accs: Vec<AccountId>) -> Result<Vec<u128>> {
         Ok(self
             .sequencer_client
             .get_accounts_nonces(accs.into_iter().map(|acc| acc.to_string()).collect())
@@ -123,26 +132,33 @@ impl WalletCore {
             .nonces)
     }
 
-    ///Get account
-    pub async fn get_account_public(&self, addr: Address) -> Result<Account> {
-        let response = self.sequencer_client.get_account(addr.to_string()).await?;
+    /// Get account
+    pub async fn get_account_public(&self, account_id: AccountId) -> Result<Account> {
+        let response = self
+            .sequencer_client
+            .get_account(account_id.to_string())
+            .await?;
         Ok(response.account)
     }
 
-    pub fn get_account_private(&self, addr: &Address) -> Option<Account> {
+    pub fn get_account_private(&self, account_id: &AccountId) -> Option<Account> {
         self.storage
             .user_data
             .user_private_accounts
-            .get(addr)
+            .get(account_id)
             .map(|value| value.1.clone())
     }
 
-    pub fn get_private_account_commitment(&self, addr: &Address) -> Option<Commitment> {
-        let (keys, account) = self.storage.user_data.user_private_accounts.get(addr)?;
+    pub fn get_private_account_commitment(&self, account_id: &AccountId) -> Option<Commitment> {
+        let (keys, account) = self
+            .storage
+            .user_data
+            .user_private_accounts
+            .get(account_id)?;
         Some(Commitment::new(&keys.nullifer_public_key, account))
     }
 
-    ///Poll transactions
+    /// Poll transactions
     pub async fn poll_native_token_transfer(&self, hash: String) -> Result<NSSATransaction> {
         let transaction_encoded = self.poller.poll_tx(hash).await?;
         let tx_base64_decode = BASE64.decode(transaction_encoded)?;
@@ -153,9 +169,9 @@ impl WalletCore {
 
     pub async fn check_private_account_initialized(
         &self,
-        addr: &Address,
+        account_id: &AccountId,
     ) -> Result<Option<MembershipProof>> {
-        if let Some(acc_comm) = self.get_private_account_commitment(addr) {
+        if let Some(acc_comm) = self.get_private_account_commitment(account_id) {
             self.sequencer_client
                 .get_proof_for_commitment(acc_comm)
                 .await
@@ -168,9 +184,9 @@ impl WalletCore {
     pub fn decode_insert_privacy_preserving_transaction_results(
         &mut self,
         tx: nssa::privacy_preserving_transaction::PrivacyPreservingTransaction,
-        acc_decode_data: &[(nssa_core::SharedSecretKey, Address)],
+        acc_decode_data: &[(nssa_core::SharedSecretKey, AccountId)],
     ) -> Result<()> {
-        for (output_index, (secret, acc_address)) in acc_decode_data.iter().enumerate() {
+        for (output_index, (secret, acc_account_id)) in acc_decode_data.iter().enumerate() {
             let acc_ead = tx.message.encrypted_private_post_states[output_index].clone();
             let acc_comm = tx.message.new_commitments[output_index].clone();
 
@@ -185,7 +201,7 @@ impl WalletCore {
             println!("Received new acc {res_acc:#?}");
 
             self.storage
-                .insert_private_account_data(*acc_address, res_acc);
+                .insert_private_account_data(*acc_account_id, res_acc);
         }
 
         println!("Transaction data is {:?}", tx.message);
@@ -194,35 +210,38 @@ impl WalletCore {
     }
 }
 
-///Represents CLI command for a wallet
+/// Represents CLI command for a wallet
 #[derive(Subcommand, Debug, Clone)]
 #[clap(about)]
 pub enum Command {
-    ///Authenticated transfer subcommand
+    /// Authenticated transfer subcommand
     #[command(subcommand)]
     AuthTransfer(AuthTransferSubcommand),
-    ///Generic chain info subcommand
+    /// Generic chain info subcommand
     #[command(subcommand)]
     ChainInfo(ChainSubcommand),
-    ///Account view and sync subcommand
+    /// Account view and sync subcommand
     #[command(subcommand)]
     Account(AccountSubcommand),
-    ///Pinata program interaction subcommand
+    /// Pinata program interaction subcommand
     #[command(subcommand)]
     Pinata(PinataProgramAgnosticSubcommand),
-    ///Token program interaction subcommand
+    /// Token program interaction subcommand
     #[command(subcommand)]
     Token(TokenProgramAgnosticSubcommand),
     /// Check the wallet can connect to the node and builtin local programs
     /// match the remote versions
     CheckHealth {},
+    /// Command to setup config, get and set config fields
+    #[command(subcommand)]
+    Config(ConfigSubcommand),
 }
 
-///To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
+/// To execute commands, env var NSSA_WALLET_HOME_DIR must be set into directory with config
 ///
 /// All account adresses must be valid 32 byte base58 strings.
 ///
-/// All account addresses must be provided as {privacy_prefix}/{addr},
+/// All account account_ids must be provided as {privacy_prefix}/{account_id},
 /// where valid options for `privacy_prefix` is `Public` and `Private`
 #[derive(Parser, Debug)]
 #[clap(version, about)]
@@ -238,7 +257,7 @@ pub struct Args {
 #[derive(Debug, Clone)]
 pub enum SubcommandReturnValue {
     PrivacyPreservingTransfer { tx_hash: String },
-    RegisterAccount { addr: nssa::Address },
+    RegisterAccount { account_id: nssa::AccountId },
     Account(nssa::Account),
     Empty,
     SyncedToBlock(u64),
@@ -300,6 +319,11 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
         Command::Token(token_subcommand) => {
             token_subcommand.handle_subcommand(&mut wallet_core).await?
         }
+        Command::Config(config_subcommand) => {
+            config_subcommand
+                .handle_subcommand(&mut wallet_core)
+                .await?
+        }
     };
 
     Ok(subcommand_ret)
@@ -321,7 +345,7 @@ pub async fn parse_block_range(
             if let NSSATransaction::PrivacyPreserving(tx) = nssa_tx {
                 let mut affected_accounts = vec![];
 
-                for (acc_addr, (key_chain, _)) in
+                for (acc_account_id, (key_chain, _)) in
                     &wallet_core.storage.user_data.user_private_accounts
                 {
                     let view_tag = EncryptedAccountData::compute_view_tag(
@@ -350,19 +374,19 @@ pub async fn parse_block_range(
 
                             if let Some(res_acc) = res_acc {
                                 println!(
-                                    "Received new account for addr {acc_addr:#?} with account object {res_acc:#?}"
+                                    "Received new account for account_id {acc_account_id:#?} with account object {res_acc:#?}"
                                 );
 
-                                affected_accounts.push((*acc_addr, res_acc));
+                                affected_accounts.push((*acc_account_id, res_acc));
                             }
                         }
                     }
                 }
 
-                for (affected_addr, new_acc) in affected_accounts {
+                for (affected_account_id, new_acc) in affected_accounts {
                     wallet_core
                         .storage
-                        .insert_private_account_data(affected_addr, new_acc);
+                        .insert_private_account_data(affected_account_id, new_acc);
                 }
             }
         }

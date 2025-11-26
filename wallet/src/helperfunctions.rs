@@ -1,13 +1,13 @@
-use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use nssa_core::account::Nonce;
-use rand::{RngCore, rngs::OsRng};
 use std::{path::PathBuf, str::FromStr};
-use tokio::io::AsyncReadExt;
 
 use anyhow::Result;
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use key_protocol::key_protocol_core::NSSAUserData;
 use nssa::Account;
+use nssa_core::account::Nonce;
+use rand::{RngCore, rngs::OsRng};
 use serde::Serialize;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::{
     HOME_DIR_ENV_VAR,
@@ -17,19 +17,78 @@ use crate::{
 };
 
 /// Get home dir for wallet. Env var `NSSA_WALLET_HOME_DIR` must be set before execution to succeed.
-pub fn get_home() -> Result<PathBuf> {
+pub fn get_home_nssa_var() -> Result<PathBuf> {
     Ok(PathBuf::from_str(&std::env::var(HOME_DIR_ENV_VAR)?)?)
 }
 
-/// Fetch config from `NSSA_WALLET_HOME_DIR`
-pub async fn fetch_config() -> Result<WalletConfig> {
-    let config_home = get_home()?;
-    let config_contents = tokio::fs::read(config_home.join("wallet_config.json")).await?;
-
-    Ok(serde_json::from_slice(&config_contents)?)
+/// Get home dir for wallet. Env var `HOME` must be set before execution to succeed.
+pub fn get_home_default_path() -> Result<PathBuf> {
+    std::env::home_dir()
+        .map(|path| path.join(".nssa").join("wallet"))
+        .ok_or(anyhow::anyhow!("Failed to get HOME"))
 }
 
-/// Fetch data stored at `NSSA_WALLET_HOME_DIR/storage.json`
+/// Get home dir for wallet.
+pub fn get_home() -> Result<PathBuf> {
+    if let Ok(home) = get_home_nssa_var() {
+        Ok(home)
+    } else {
+        get_home_default_path()
+    }
+}
+
+/// Fetch config from default home
+pub async fn fetch_config() -> Result<WalletConfig> {
+    let config_home = get_home()?;
+    let mut config_needs_setup = false;
+
+    let config = match tokio::fs::OpenOptions::new()
+        .read(true)
+        .open(config_home.join("wallet_config.json"))
+        .await
+    {
+        Ok(mut file) => {
+            let mut config_contents = vec![];
+            file.read_to_end(&mut config_contents).await?;
+
+            serde_json::from_slice(&config_contents)?
+        }
+        Err(err) => match err.kind() {
+            std::io::ErrorKind::NotFound => {
+                config_needs_setup = true;
+
+                println!("Config not found, setting up default config");
+
+                WalletConfig::default()
+            }
+            _ => anyhow::bail!("IO error {err:#?}"),
+        },
+    };
+
+    if config_needs_setup {
+        tokio::fs::create_dir_all(&config_home).await?;
+
+        println!("Created configs dir at path {config_home:#?}");
+
+        let mut file = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(config_home.join("wallet_config.json"))
+            .await?;
+
+        let default_config_serialized =
+            serde_json::to_vec_pretty(&WalletConfig::default()).unwrap();
+
+        file.write_all(&default_config_serialized).await?;
+
+        println!("Configs setted up");
+    }
+
+    Ok(config)
+}
+
+/// Fetch data stored at home
 ///
 /// If file not present, it is considered as empty list of persistent accounts
 pub async fn fetch_persistent_storage() -> Result<PersistentStorage> {
@@ -61,20 +120,20 @@ pub fn produce_data_for_storage(
 ) -> PersistentStorage {
     let mut vec_for_storage = vec![];
 
-    for (addr, key) in &user_data.pub_account_signing_keys {
+    for (account_id, key) in &user_data.pub_account_signing_keys {
         vec_for_storage.push(
             PersistentAccountDataPublic {
-                address: *addr,
+                account_id: *account_id,
                 pub_sign_key: key.clone(),
             }
             .into(),
         );
     }
 
-    for (addr, (key, acc)) in &user_data.user_private_accounts {
+    for (account_id, (key, acc)) in &user_data.user_private_accounts {
         vec_for_storage.push(
             PersistentAccountDataPrivate {
-                address: *addr,
+                account_id: *account_id,
                 account: acc.clone(),
                 key_chain: key.clone(),
             }
@@ -95,23 +154,23 @@ pub(crate) fn produce_random_nonces(size: usize) -> Vec<Nonce> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AddressPrivacyKind {
+pub enum AccountPrivacyKind {
     Public,
     Private,
 }
 
 pub(crate) fn parse_addr_with_privacy_prefix(
-    addr_base58: &str,
-) -> Result<(String, AddressPrivacyKind)> {
-    if addr_base58.starts_with("Public/") {
+    account_base58: &str,
+) -> Result<(String, AccountPrivacyKind)> {
+    if account_base58.starts_with("Public/") {
         Ok((
-            addr_base58.strip_prefix("Public/").unwrap().to_string(),
-            AddressPrivacyKind::Public,
+            account_base58.strip_prefix("Public/").unwrap().to_string(),
+            AccountPrivacyKind::Public,
         ))
-    } else if addr_base58.starts_with("Private/") {
+    } else if account_base58.starts_with("Private/") {
         Ok((
-            addr_base58.strip_prefix("Private/").unwrap().to_string(),
-            AddressPrivacyKind::Private,
+            account_base58.strip_prefix("Private/").unwrap().to_string(),
+            AccountPrivacyKind::Private,
         ))
     } else {
         anyhow::bail!("Unsupported privacy kind, available variants is Public/ and Private/");
@@ -164,12 +223,12 @@ mod tests {
         let addr_base58 = "Public/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
         let (_, addr_kind) = parse_addr_with_privacy_prefix(addr_base58).unwrap();
 
-        assert_eq!(addr_kind, AddressPrivacyKind::Public);
+        assert_eq!(addr_kind, AccountPrivacyKind::Public);
 
         let addr_base58 = "Private/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
         let (_, addr_kind) = parse_addr_with_privacy_prefix(addr_base58).unwrap();
 
-        assert_eq!(addr_kind, AddressPrivacyKind::Private);
+        assert_eq!(addr_kind, AccountPrivacyKind::Private);
 
         let addr_base58 = "asdsada/BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy";
         assert!(parse_addr_with_privacy_prefix(addr_base58).is_err());

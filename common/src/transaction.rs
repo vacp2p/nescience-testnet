@@ -1,7 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use log::info;
 use serde::{Deserialize, Serialize};
-
 use sha2::{Digest, digest::FixedOutput};
 
 pub type HashType = [u8; 32];
@@ -41,10 +40,10 @@ pub enum TxKind {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
-///General transaction object
+/// General transaction object
 pub struct EncodedTransaction {
     pub tx_kind: TxKind,
-    ///Encoded blobs of data
+    /// Encoded blobs of data
     pub encoded_transaction_data: Vec<u8>,
 }
 

@@ -9,10 +9,13 @@
 //!
 //! The main entrypoint here is the [Message](enum.Message.html). The others are just building
 //! blocks and you should generally work with `Message` instead.
-use serde::de::{Deserializer, Error, Unexpected, Visitor};
-use serde::ser::{SerializeStruct, Serializer};
-use serde_json::{Result as JsonResult, Value};
 use std::fmt::{Formatter, Result as FmtResult};
+
+use serde::{
+    de::{Deserializer, Error, Unexpected, Visitor},
+    ser::{SerializeStruct, Serializer},
+};
+use serde_json::{Result as JsonResult, Value};
 
 use super::errors::RpcError;
 
@@ -69,6 +72,7 @@ impl Request {
             id: self.id.clone(),
         })
     }
+
     /// Answer the request with an error.
     pub fn error(&self, error: RpcError) -> Message {
         Message::Response(Response {
@@ -207,6 +211,7 @@ impl Message {
             id,
         })
     }
+
     /// Create a top-level error (without an ID).
     pub fn error(error: RpcError) -> Self {
         Message::Response(Response {
@@ -215,6 +220,7 @@ impl Message {
             id: Value::Null,
         })
     }
+
     /// A constructor for a notification.
     pub fn notification(method: String, params: Value) -> Self {
         Message::Notification(Notification {
@@ -223,6 +229,7 @@ impl Message {
             params,
         })
     }
+
     /// A constructor for a response.
     pub fn response(id: Value, result: Result<Value, RpcError>) -> Self {
         Message::Response(Response {
@@ -231,6 +238,7 @@ impl Message {
             id,
         })
     }
+
     /// Returns id or Null if there is no id.
     pub fn id(&self) -> Value {
         match self {
@@ -315,10 +323,7 @@ impl From<Message> for Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-    use serde_json::de::from_slice;
-    use serde_json::json;
-    use serde_json::ser::to_vec;
+    use serde_json::{Value, de::from_slice, json, ser::to_vec};
 
     use super::*;
 

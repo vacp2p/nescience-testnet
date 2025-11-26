@@ -5,7 +5,7 @@ use nssa_core::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::{Address, error::NssaError};
+use crate::{AccountId, error::NssaError};
 
 pub type ViewTag = u8;
 
@@ -44,7 +44,7 @@ impl EncryptedAccountData {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
-    pub(crate) public_addresses: Vec<Address>,
+    pub(crate) public_account_ids: Vec<AccountId>,
     pub(crate) nonces: Vec<Nonce>,
     pub(crate) public_post_states: Vec<Account>,
     pub encrypted_private_post_states: Vec<EncryptedAccountData>,
@@ -54,7 +54,7 @@ pub struct Message {
 
 impl Message {
     pub fn try_from_circuit_output(
-        public_addresses: Vec<Address>,
+        public_account_ids: Vec<AccountId>,
         nonces: Vec<Nonce>,
         public_keys: Vec<(
             NullifierPublicKey,
@@ -78,7 +78,7 @@ impl Message {
             })
             .collect();
         Ok(Self {
-            public_addresses,
+            public_account_ids,
             nonces,
             public_post_states: output.public_post_states,
             encrypted_private_post_states,
@@ -100,7 +100,7 @@ pub mod tests {
     use sha2::{Digest, Sha256};
 
     use crate::{
-        Address,
+        AccountId,
         privacy_preserving_transaction::message::{EncryptedAccountData, Message},
     };
 
@@ -114,7 +114,7 @@ pub mod tests {
         let npk1 = NullifierPublicKey::from(&nsk1);
         let npk2 = NullifierPublicKey::from(&nsk2);
 
-        let public_addresses = vec![Address::new([1; 32])];
+        let public_account_ids = vec![AccountId::new([1; 32])];
 
         let nonces = vec![1, 2, 3];
 
@@ -131,7 +131,7 @@ pub mod tests {
         )];
 
         Message {
-            public_addresses: public_addresses.clone(),
+            public_account_ids: public_account_ids.clone(),
             nonces: nonces.clone(),
             public_post_states: public_post_states.clone(),
             encrypted_private_post_states: encrypted_private_post_states.clone(),

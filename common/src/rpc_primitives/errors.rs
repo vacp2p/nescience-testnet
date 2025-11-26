@@ -1,5 +1,6 @@
-use serde_json::{Value, to_value};
 use std::fmt;
+
+use serde_json::{Value, to_value};
 
 #[derive(serde::Serialize)]
 pub struct RpcParseError(pub String);

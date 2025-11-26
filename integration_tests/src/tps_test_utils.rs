@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use nssa::{
-    Account, AccountId, Address, PrivacyPreservingTransaction, PrivateKey, PublicKey,
-    PublicTransaction,
+    Account, AccountId, PrivacyPreservingTransaction, PrivateKey, PublicKey, PublicTransaction,
     privacy_preserving_transaction::{self as pptx, circuit},
     program::Program,
     public_transaction as putx,
@@ -15,13 +14,13 @@ use nssa_core::{
 use sequencer_core::config::{AccountInitialData, CommitmentsInitialData, SequencerConfig};
 
 pub(crate) struct TpsTestManager {
-    public_keypairs: Vec<(PrivateKey, Address)>,
+    public_keypairs: Vec<(PrivateKey, AccountId)>,
     target_tps: u64,
 }
 
 impl TpsTestManager {
-    /// Generates public account keypairs. These are used to populate the config and to generate valid
-    /// public transactions for the tps test.
+    /// Generates public account keypairs. These are used to populate the config and to generate
+    /// valid public transactions for the tps test.
     pub(crate) fn new(target_tps: u64, number_transactions: usize) -> Self {
         let public_keypairs = (1..(number_transactions + 2))
             .map(|i| {
@@ -29,8 +28,8 @@ impl TpsTestManager {
                 private_key_bytes[..8].copy_from_slice(&i.to_le_bytes());
                 let private_key = PrivateKey::try_new(private_key_bytes).unwrap();
                 let public_key = PublicKey::new_from_private_key(&private_key);
-                let address = Address::from(&public_key);
-                (private_key, address)
+                let account_id = AccountId::from(&public_key);
+                (private_key, account_id)
             })
             .collect::<Vec<_>>();
         Self {
@@ -44,7 +43,6 @@ impl TpsTestManager {
         Duration::from_secs_f64(number_transactions as f64 / self.target_tps as f64)
     }
 
-    ///
     /// Build a batch of public transactions to submit to the node.
     pub fn build_public_txs(&self) -> Vec<PublicTransaction> {
         // Create valid public transactions
@@ -71,15 +69,15 @@ impl TpsTestManager {
     }
 
     /// Generates a sequencer configuration with initial balance in a number of public accounts.
-    /// The transactions generated with the function `build_public_txs` will be valid in a node started
-    /// with the config from this method.
+    /// The transactions generated with the function `build_public_txs` will be valid in a node
+    /// started with the config from this method.
     pub(crate) fn generate_tps_test_config(&self) -> SequencerConfig {
         // Create public public keypairs
         let initial_public_accounts = self
             .public_keypairs
             .iter()
-            .map(|(_, addr)| AccountInitialData {
-                addr: addr.to_string(),
+            .map(|(_, account_id)| AccountInitialData {
+                account_id: account_id.to_string(),
                 balance: 10,
             })
             .collect();

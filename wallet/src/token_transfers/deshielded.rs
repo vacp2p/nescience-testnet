@@ -1,13 +1,13 @@
 use common::{error::ExecutionFailureKind, sequencer_client::json::SendTxResponse};
-use nssa::Address;
+use nssa::AccountId;
 
 use crate::WalletCore;
 
 impl WalletCore {
     pub async fn send_deshielded_native_token_transfer(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         balance_to_move: u128,
     ) -> Result<(SendTxResponse, [nssa_core::SharedSecretKey; 1]), ExecutionFailureKind> {
         let (instruction_data, program, tx_pre_check) =

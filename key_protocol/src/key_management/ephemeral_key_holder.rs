@@ -6,7 +6,8 @@ use rand::{RngCore, rngs::OsRng};
 use sha2::Digest;
 
 #[derive(Debug)]
-///Ephemeral secret key holder. Non-clonable as intended for one-time use. Produces ephemeral public keys. Can produce shared secret for sender.
+/// Ephemeral secret key holder. Non-clonable as intended for one-time use. Produces ephemeral
+/// public keys. Can produce shared secret for sender.
 pub struct EphemeralKeyHolder {
     ephemeral_secret_key: EphemeralSecretKey,
 }

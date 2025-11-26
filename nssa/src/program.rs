@@ -1,13 +1,14 @@
-use crate::program_methods::{AUTHENTICATED_TRANSFER_ELF, PINATA_ELF, TOKEN_ELF};
 use nssa_core::{
     account::AccountWithMetadata,
     program::{InstructionData, ProgramId, ProgramOutput},
 };
-
 use risc0_zkvm::{ExecutorEnv, ExecutorEnvBuilder, default_executor, serde::to_vec};
 use serde::Serialize;
 
-use crate::error::NssaError;
+use crate::{
+    error::NssaError,
+    program_methods::{AUTHENTICATED_TRANSFER_ELF, PINATA_ELF, TOKEN_ELF},
+};
 
 /// Maximum number of cycles for a public execution.
 /// TODO: Make this variable when fees are implemented
@@ -107,13 +108,15 @@ impl Program {
 
 #[cfg(test)]
 mod tests {
-    use crate::program_methods::{
-        AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID, PINATA_ELF, PINATA_ID, TOKEN_ELF,
-        TOKEN_ID,
-    };
     use nssa_core::account::{Account, AccountId, AccountWithMetadata};
 
-    use crate::program::Program;
+    use crate::{
+        program::Program,
+        program_methods::{
+            AUTHENTICATED_TRANSFER_ELF, AUTHENTICATED_TRANSFER_ID, PINATA_ELF, PINATA_ID,
+            TOKEN_ELF, TOKEN_ID,
+        },
+    };
 
     impl Program {
         /// A program that changes the nonce of an account

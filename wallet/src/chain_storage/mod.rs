@@ -19,7 +19,7 @@ impl WalletChainStore {
         for init_acc_data in config.initial_accounts.clone() {
             match init_acc_data {
                 InitialAccountData::Public(data) => {
-                    public_init_acc_map.insert(data.address.parse()?, data.pub_sign_key);
+                    public_init_acc_map.insert(data.account_id.parse()?, data.pub_sign_key);
                 }
                 InitialAccountData::Private(data) => {
                     let mut account = data.account;
@@ -27,7 +27,8 @@ impl WalletChainStore {
                     // the config. Therefore we overwrite it here on startup. Fix this when program
                     // id can be fetched from the node and queried from the wallet.
                     account.program_owner = Program::authenticated_transfer_program().id();
-                    private_init_acc_map.insert(data.address.parse()?, (data.key_chain, account));
+                    private_init_acc_map
+                        .insert(data.account_id.parse()?, (data.key_chain, account));
                 }
             }
         }
@@ -40,13 +41,16 @@ impl WalletChainStore {
 
     pub fn insert_private_account_data(
         &mut self,
-        addr: nssa::Address,
+        account_id: nssa::AccountId,
         account: nssa_core::account::Account,
     ) {
-        println!("inserting at addres {}, this account {:?}", addr, account);
+        println!(
+            "inserting at addres {}, this account {:?}",
+            account_id, account
+        );
         self.user_data
             .user_private_accounts
-            .entry(addr)
+            .entry(account_id)
             .and_modify(|(_, acc)| *acc = account);
     }
 
@@ -55,12 +59,12 @@ impl WalletChainStore {
             PersistentAccountData::Public(acc_data) => {
                 self.user_data
                     .pub_account_signing_keys
-                    .insert(acc_data.address, acc_data.pub_sign_key);
+                    .insert(acc_data.account_id, acc_data.pub_sign_key);
             }
             PersistentAccountData::Private(acc_data) => {
                 self.user_data
                     .user_private_accounts
-                    .insert(acc_data.address, (acc_data.key_chain, acc_data.account));
+                    .insert(acc_data.account_id, (acc_data.key_chain, acc_data.account));
             }
         }
     }
@@ -68,17 +72,14 @@ impl WalletChainStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::InitialAccountData;
-
     use super::*;
-    use std::path::PathBuf;
-    use tempfile::tempdir;
+    use crate::config::InitialAccountData;
 
     fn create_initial_accounts() -> Vec<InitialAccountData> {
         let initial_acc1 = serde_json::from_str(
             r#"{
             "Public": {
-                "address": "BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy",
+                "account_id": "BLgCRDXYdQPMMWVHYRFGQZbgeHx9frkipa8GtpG2Syqy",
                 "pub_sign_key": [
                     16,
                     162,
@@ -121,7 +122,7 @@ mod tests {
         let initial_acc2 = serde_json::from_str(
             r#"{
             "Public": {
-                "address": "Gj1mJy5W7J5pfmLRujmQaLfLMWidNxQ6uwnhb666ZwHw",
+                "account_id": "Gj1mJy5W7J5pfmLRujmQaLfLMWidNxQ6uwnhb666ZwHw",
                 "pub_sign_key": [
                     113,
                     121,
@@ -166,9 +167,8 @@ mod tests {
         initial_accounts
     }
 
-    fn create_sample_wallet_config(home: PathBuf) -> WalletConfig {
+    fn create_sample_wallet_config() -> WalletConfig {
         WalletConfig {
-            home,
             override_rust_log: None,
             sequencer_addr: "http://127.0.0.1".to_string(),
             seq_poll_timeout_millis: 12000,
@@ -181,10 +181,7 @@ mod tests {
 
     #[test]
     fn test_new_initializes_correctly() {
-        let temp_dir = tempdir().unwrap();
-        let path = temp_dir.path();
-
-        let config = create_sample_wallet_config(path.to_path_buf());
+        let config = create_sample_wallet_config();
 
         let _ = WalletChainStore::new(config.clone()).unwrap();
     }

@@ -6,7 +6,7 @@ use crate::transaction::EncodedTransaction;
 pub type HashType = [u8; 32];
 
 #[derive(Debug, Clone)]
-///Our own hasher.
+/// Our own hasher.
 /// Currently it is SHA256 hasher wrapper. May change in a future.
 pub struct OwnHasher {}
 

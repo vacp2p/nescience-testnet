@@ -7,7 +7,7 @@ use nssa_core::{
 };
 
 use crate::{
-    Address, PrivacyPreservingTransaction, PublicKey, Signature,
+    AccountId, PrivacyPreservingTransaction, PublicKey, Signature,
     error::NssaError,
     privacy_preserving_transaction::{
         circuit::Proof,
@@ -48,11 +48,11 @@ impl Message {
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = MESSAGE_ENCODING_PREFIX.to_vec();
 
-        // Public addresses
-        let public_addresses_len: u32 = self.public_addresses.len() as u32;
-        bytes.extend_from_slice(&public_addresses_len.to_le_bytes());
-        for address in &self.public_addresses {
-            bytes.extend_from_slice(address.value());
+        // Public account_ids
+        let public_account_ids_len: u32 = self.public_account_ids.len() as u32;
+        bytes.extend_from_slice(&public_account_ids_len.to_le_bytes());
+        for account_id in &self.public_account_ids {
+            bytes.extend_from_slice(account_id.value());
         }
         // Nonces
         let nonces_len = self.nonces.len() as u32;
@@ -108,14 +108,14 @@ impl Message {
 
         let mut len_bytes = [0u8; 4];
 
-        // Public addresses
+        // Public account_ids
         cursor.read_exact(&mut len_bytes)?;
-        let public_addresses_len = u32::from_le_bytes(len_bytes) as usize;
-        let mut public_addresses = Vec::with_capacity(public_addresses_len);
-        for _ in 0..public_addresses_len {
+        let public_account_ids_len = u32::from_le_bytes(len_bytes) as usize;
+        let mut public_account_ids = Vec::with_capacity(public_account_ids_len);
+        for _ in 0..public_account_ids_len {
             let mut value = [0u8; 32];
             cursor.read_exact(&mut value)?;
-            public_addresses.push(Address::new(value))
+            public_account_ids.push(AccountId::new(value))
         }
 
         // Nonces
@@ -164,7 +164,7 @@ impl Message {
         }
 
         Ok(Self {
-            public_addresses,
+            public_account_ids,
             nonces,
             public_post_states,
             encrypted_private_post_states,

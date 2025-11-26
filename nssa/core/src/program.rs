@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-use crate::account::{Account, AccountWithMetadata};
-use risc0_zkvm::serde::Deserializer;
-use risc0_zkvm::{DeserializeOwned, guest::env};
+use risc0_zkvm::{DeserializeOwned, guest::env, serde::Deserializer};
 use serde::{Deserialize, Serialize};
+
+use crate::account::{Account, AccountWithMetadata};
 
 pub type ProgramId = [u32; 8];
 pub type InstructionData = Vec<u32>;
@@ -128,7 +128,8 @@ pub fn validate_execution(
             return false;
         }
 
-        // 7. If a post state has default program owner, the pre state must have been a default account
+        // 7. If a post state has default program owner, the pre state must have been a default
+        //    account
         if post.program_owner == DEFAULT_PROGRAM_ID && pre.account != Account::default() {
             return false;
         }

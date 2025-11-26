@@ -1,25 +1,20 @@
 // TODO: Consider switching to deriving Borsh
 #[cfg(feature = "host")]
 use std::io::Cursor;
-
 #[cfg(feature = "host")]
 use std::io::Read;
 
-use crate::account::Account;
-
-use crate::account::AccountId;
-#[cfg(feature = "host")]
-use crate::encryption::shared_key_derivation::Secp256k1Point;
-
-use crate::encryption::Ciphertext;
-
-#[cfg(feature = "host")]
-use crate::error::NssaCoreError;
-
-use crate::Commitment;
 #[cfg(feature = "host")]
 use crate::Nullifier;
-use crate::NullifierPublicKey;
+#[cfg(feature = "host")]
+use crate::encryption::shared_key_derivation::Secp256k1Point;
+#[cfg(feature = "host")]
+use crate::error::NssaCoreError;
+use crate::{
+    Commitment, NullifierPublicKey,
+    account::{Account, AccountId},
+    encryption::Ciphertext,
+};
 
 impl Account {
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -55,7 +50,7 @@ impl Account {
         cursor.read_exact(&mut u128_bytes)?;
         let nonce = u128::from_le_bytes(u128_bytes);
 
-        //data
+        // data
         cursor.read_exact(&mut u32_bytes)?;
         let data_length = u32::from_le_bytes(u32_bytes);
         let mut data = vec![0; data_length as usize];

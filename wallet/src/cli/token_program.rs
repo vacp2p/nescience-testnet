@@ -1,51 +1,52 @@
 use anyhow::Result;
 use clap::Subcommand;
 use common::transaction::NSSATransaction;
-use nssa::Address;
+use nssa::AccountId;
 
 use crate::{
     SubcommandReturnValue, WalletCore,
     cli::WalletSubcommand,
-    helperfunctions::{AddressPrivacyKind, parse_addr_with_privacy_prefix},
+    helperfunctions::{AccountPrivacyKind, parse_addr_with_privacy_prefix},
 };
 
-///Represents generic CLI subcommand for a wallet working with token program
+/// Represents generic CLI subcommand for a wallet working with token program
 #[derive(Subcommand, Debug, Clone)]
 pub enum TokenProgramAgnosticSubcommand {
-    ///Produce a new token
+    /// Produce a new token
     ///
-    ///Currently the only supported privacy options is for public definition
+    /// Currently the only supported privacy options is for public definition
     New {
-        ///definition_addr - valid 32 byte base58 string with privacy prefix
+        /// definition_account_id - valid 32 byte base58 string with privacy prefix
         #[arg(long)]
-        definition_addr: String,
-        ///supply_addr - valid 32 byte base58 string with privacy prefix
+        definition_account_id: String,
+        /// supply_account_id - valid 32 byte base58 string with privacy prefix
         #[arg(long)]
-        supply_addr: String,
+        supply_account_id: String,
         #[arg(short, long)]
         name: String,
         #[arg(short, long)]
         total_supply: u128,
     },
-    ///Send tokens from one account to another with variable privacy
+    /// Send tokens from one account to another with variable privacy
     ///
-    ///If receiver is private, then `to` and (`to_npk` , `to_ipk`) is a mutually exclusive patterns.
+    /// If receiver is private, then `to` and (`to_npk` , `to_ipk`) is a mutually exclusive
+    /// patterns.
     ///
-    ///First is used for owned accounts, second otherwise.
+    /// First is used for owned accounts, second otherwise.
     Send {
-        ///from - valid 32 byte base58 string with privacy prefix
+        /// from - valid 32 byte base58 string with privacy prefix
         #[arg(long)]
         from: String,
-        ///to - valid 32 byte base58 string with privacy prefix
+        /// to - valid 32 byte base58 string with privacy prefix
         #[arg(long)]
         to: Option<String>,
-        ///to_npk - valid 32 byte hex string
+        /// to_npk - valid 32 byte hex string
         #[arg(long)]
         to_npk: Option<String>,
-        ///to_ipk - valid 33 byte hex string
+        /// to_ipk - valid 33 byte hex string
         #[arg(long)]
         to_ipk: Option<String>,
-        ///amount - amount of balance to move
+        /// amount - amount of balance to move
         #[arg(long)]
         amount: u128,
     },
@@ -58,43 +59,45 @@ impl WalletSubcommand for TokenProgramAgnosticSubcommand {
     ) -> Result<SubcommandReturnValue> {
         match self {
             TokenProgramAgnosticSubcommand::New {
-                definition_addr,
-                supply_addr,
+                definition_account_id,
+                supply_account_id,
                 name,
                 total_supply,
             } => {
-                let (definition_addr, definition_addr_privacy) =
-                    parse_addr_with_privacy_prefix(&definition_addr)?;
-                let (supply_addr, supply_addr_privacy) =
-                    parse_addr_with_privacy_prefix(&supply_addr)?;
+                let (definition_account_id, definition_addr_privacy) =
+                    parse_addr_with_privacy_prefix(&definition_account_id)?;
+                let (supply_account_id, supply_addr_privacy) =
+                    parse_addr_with_privacy_prefix(&supply_account_id)?;
 
                 let underlying_subcommand = match (definition_addr_privacy, supply_addr_privacy) {
-                    (AddressPrivacyKind::Public, AddressPrivacyKind::Public) => {
+                    (AccountPrivacyKind::Public, AccountPrivacyKind::Public) => {
                         TokenProgramSubcommand::Public(
                             TokenProgramSubcommandPublic::CreateNewToken {
-                                definition_addr,
-                                supply_addr,
+                                definition_account_id,
+                                supply_account_id,
                                 name,
                                 total_supply,
                             },
                         )
                     }
-                    (AddressPrivacyKind::Public, AddressPrivacyKind::Private) => {
+                    (AccountPrivacyKind::Public, AccountPrivacyKind::Private) => {
                         TokenProgramSubcommand::Private(
                             TokenProgramSubcommandPrivate::CreateNewTokenPrivateOwned {
-                                definition_addr,
-                                supply_addr,
+                                definition_account_id,
+                                supply_account_id,
                                 name,
                                 total_supply,
                             },
                         )
                     }
-                    (AddressPrivacyKind::Private, AddressPrivacyKind::Private) => {
-                        //ToDo: maybe implement this one. It is not immediately clear why definition should be private.
+                    (AccountPrivacyKind::Private, AccountPrivacyKind::Private) => {
+                        // ToDo: maybe implement this one. It is not immediately clear why
+                        // definition should be private.
                         anyhow::bail!("Unavailable privacy pairing")
                     }
-                    (AddressPrivacyKind::Private, AddressPrivacyKind::Public) => {
-                        //ToDo: Probably valid. If definition is not public, but supply is it is very suspicious.
+                    (AccountPrivacyKind::Private, AccountPrivacyKind::Public) => {
+                        // ToDo: Probably valid. If definition is not public, but supply is it is
+                        // very suspicious.
                         anyhow::bail!("Unavailable privacy pairing")
                     }
                 };
@@ -111,12 +114,12 @@ impl WalletSubcommand for TokenProgramAgnosticSubcommand {
                 let underlying_subcommand = match (to, to_npk, to_ipk) {
                     (None, None, None) => {
                         anyhow::bail!(
-                            "Provide either account address of receiver or their public keys"
+                            "Provide either account account_id of receiver or their public keys"
                         );
                     }
                     (Some(_), Some(_), Some(_)) => {
                         anyhow::bail!(
-                            "Provide only one variant: either account address of receiver or their public keys"
+                            "Provide only one variant: either account account_id of receiver or their public keys"
                         );
                     }
                     (_, Some(_), None) | (_, None, Some(_)) => {
@@ -127,38 +130,38 @@ impl WalletSubcommand for TokenProgramAgnosticSubcommand {
                         let (to, to_privacy) = parse_addr_with_privacy_prefix(&to)?;
 
                         match (from_privacy, to_privacy) {
-                            (AddressPrivacyKind::Public, AddressPrivacyKind::Public) => {
+                            (AccountPrivacyKind::Public, AccountPrivacyKind::Public) => {
                                 TokenProgramSubcommand::Public(
                                     TokenProgramSubcommandPublic::TransferToken {
-                                        sender_addr: from,
-                                        recipient_addr: to,
+                                        sender_account_id: from,
+                                        recipient_account_id: to,
                                         balance_to_move: amount,
                                     },
                                 )
                             }
-                            (AddressPrivacyKind::Private, AddressPrivacyKind::Private) => {
+                            (AccountPrivacyKind::Private, AccountPrivacyKind::Private) => {
                                 TokenProgramSubcommand::Private(
                                     TokenProgramSubcommandPrivate::TransferTokenPrivateOwned {
-                                        sender_addr: from,
-                                        recipient_addr: to,
+                                        sender_account_id: from,
+                                        recipient_account_id: to,
                                         balance_to_move: amount,
                                     },
                                 )
                             }
-                            (AddressPrivacyKind::Private, AddressPrivacyKind::Public) => {
+                            (AccountPrivacyKind::Private, AccountPrivacyKind::Public) => {
                                 TokenProgramSubcommand::Deshielded(
                                     TokenProgramSubcommandDeshielded::TransferTokenDeshielded {
-                                        sender_addr: from,
-                                        recipient_addr: to,
+                                        sender_account_id: from,
+                                        recipient_account_id: to,
                                         balance_to_move: amount,
                                     },
                                 )
                             }
-                            (AddressPrivacyKind::Public, AddressPrivacyKind::Private) => {
+                            (AccountPrivacyKind::Public, AccountPrivacyKind::Private) => {
                                 TokenProgramSubcommand::Shielded(
                                     TokenProgramSubcommandShielded::TransferTokenShieldedOwned {
-                                        sender_addr: from,
-                                        recipient_addr: to,
+                                        sender_account_id: from,
+                                        recipient_account_id: to,
                                         balance_to_move: amount,
                                     },
                                 )
@@ -169,17 +172,17 @@ impl WalletSubcommand for TokenProgramAgnosticSubcommand {
                         let (from, from_privacy) = parse_addr_with_privacy_prefix(&from)?;
 
                         match from_privacy {
-                            AddressPrivacyKind::Private => TokenProgramSubcommand::Private(
+                            AccountPrivacyKind::Private => TokenProgramSubcommand::Private(
                                 TokenProgramSubcommandPrivate::TransferTokenPrivateForeign {
-                                    sender_addr: from,
+                                    sender_account_id: from,
                                     recipient_npk: to_npk,
                                     recipient_ipk: to_ipk,
                                     balance_to_move: amount,
                                 },
                             ),
-                            AddressPrivacyKind::Public => TokenProgramSubcommand::Shielded(
+                            AccountPrivacyKind::Public => TokenProgramSubcommand::Shielded(
                                 TokenProgramSubcommandShielded::TransferTokenShieldedForeign {
-                                    sender_addr: from,
+                                    sender_account_id: from,
                                     recipient_npk: to_npk,
                                     recipient_ipk: to_ipk,
                                     balance_to_move: amount,
@@ -195,79 +198,79 @@ impl WalletSubcommand for TokenProgramAgnosticSubcommand {
     }
 }
 
-///Represents generic CLI subcommand for a wallet working with token_program
+/// Represents generic CLI subcommand for a wallet working with token_program
 #[derive(Subcommand, Debug, Clone)]
 pub enum TokenProgramSubcommand {
-    ///Public execution
+    /// Public execution
     #[command(subcommand)]
     Public(TokenProgramSubcommandPublic),
-    ///Private execution
+    /// Private execution
     #[command(subcommand)]
     Private(TokenProgramSubcommandPrivate),
-    ///Deshielded execution
+    /// Deshielded execution
     #[command(subcommand)]
     Deshielded(TokenProgramSubcommandDeshielded),
-    ///Shielded execution
+    /// Shielded execution
     #[command(subcommand)]
     Shielded(TokenProgramSubcommandShielded),
 }
 
-///Represents generic public CLI subcommand for a wallet working with token_program
+/// Represents generic public CLI subcommand for a wallet working with token_program
 #[derive(Subcommand, Debug, Clone)]
 pub enum TokenProgramSubcommandPublic {
-    //Create a new token using the token program
+    // Create a new token using the token program
     CreateNewToken {
         #[arg(short, long)]
-        definition_addr: String,
+        definition_account_id: String,
         #[arg(short, long)]
-        supply_addr: String,
+        supply_account_id: String,
         #[arg(short, long)]
         name: String,
         #[arg(short, long)]
         total_supply: u128,
     },
-    //Transfer tokens using the token program
+    // Transfer tokens using the token program
     TransferToken {
         #[arg(short, long)]
-        sender_addr: String,
+        sender_account_id: String,
         #[arg(short, long)]
-        recipient_addr: String,
+        recipient_account_id: String,
         #[arg(short, long)]
         balance_to_move: u128,
     },
 }
 
-///Represents generic private CLI subcommand for a wallet working with token_program
+/// Represents generic private CLI subcommand for a wallet working with token_program
 #[derive(Subcommand, Debug, Clone)]
 pub enum TokenProgramSubcommandPrivate {
-    //Create a new token using the token program
+    // Create a new token using the token program
     CreateNewTokenPrivateOwned {
         #[arg(short, long)]
-        definition_addr: String,
+        definition_account_id: String,
         #[arg(short, long)]
-        supply_addr: String,
+        supply_account_id: String,
         #[arg(short, long)]
         name: String,
         #[arg(short, long)]
         total_supply: u128,
     },
-    //Transfer tokens using the token program
+    // Transfer tokens using the token program
     TransferTokenPrivateOwned {
         #[arg(short, long)]
-        sender_addr: String,
+        sender_account_id: String,
         #[arg(short, long)]
-        recipient_addr: String,
+        recipient_account_id: String,
         #[arg(short, long)]
         balance_to_move: u128,
     },
-    //Transfer tokens using the token program
+    // Transfer tokens using the token program
     TransferTokenPrivateForeign {
         #[arg(short, long)]
-        sender_addr: String,
-        ///recipient_npk - valid 32 byte hex string
+        sender_account_id: String,
+        /// recipient_npk - valid 32 byte hex string
         #[arg(long)]
         recipient_npk: String,
-        ///recipient_ipk - valid 33 byte hex string
+        /// recipient_ipk - valid 33 byte hex string
         #[arg(long)]
         recipient_ipk: String,
         #[arg(short, long)]
@@ -275,40 +278,40 @@ pub enum TokenProgramSubcommandPrivate {
     },
 }
 
-///Represents deshielded public CLI subcommand for a wallet working with token_program
+/// Represents deshielded public CLI subcommand for a wallet working with token_program
 #[derive(Subcommand, Debug, Clone)]
 pub enum TokenProgramSubcommandDeshielded {
-    //Transfer tokens using the token program
+    // Transfer tokens using the token program
     TransferTokenDeshielded {
         #[arg(short, long)]
-        sender_addr: String,
+        sender_account_id: String,
         #[arg(short, long)]
-        recipient_addr: String,
+        recipient_account_id: String,
         #[arg(short, long)]
         balance_to_move: u128,
     },
 }
 
-///Represents generic shielded CLI subcommand for a wallet working with token_program
+/// Represents generic shielded CLI subcommand for a wallet working with token_program
 #[derive(Subcommand, Debug, Clone)]
 pub enum TokenProgramSubcommandShielded {
-    //Transfer tokens using the token program
+    // Transfer tokens using the token program
     TransferTokenShieldedOwned {
         #[arg(short, long)]
-        sender_addr: String,
+        sender_account_id: String,
         #[arg(short, long)]
-        recipient_addr: String,
+        recipient_account_id: String,
         #[arg(short, long)]
         balance_to_move: u128,
     },
-    //Transfer tokens using the token program
+    // Transfer tokens using the token program
     TransferTokenShieldedForeign {
         #[arg(short, long)]
-        sender_addr: String,
-        ///recipient_npk - valid 32 byte hex string
+        sender_account_id: String,
+        /// recipient_npk - valid 32 byte hex string
         #[arg(long)]
         recipient_npk: String,
-        ///recipient_ipk - valid 33 byte hex string
+        /// recipient_ipk - valid 33 byte hex string
         #[arg(long)]
         recipient_ipk: String,
         #[arg(short, long)]
@@ -323,8 +326,8 @@ impl WalletSubcommand for TokenProgramSubcommandPublic {
     ) -> Result<SubcommandReturnValue> {
         match self {
             TokenProgramSubcommandPublic::CreateNewToken {
-                definition_addr,
-                supply_addr,
+                definition_account_id,
+                supply_account_id,
                 name,
                 total_supply,
             } => {
@@ -337,8 +340,8 @@ impl WalletSubcommand for TokenProgramSubcommandPublic {
                 name_bytes[..name.len()].copy_from_slice(name);
                 wallet_core
                     .send_new_token_definition(
-                        definition_addr.parse().unwrap(),
-                        supply_addr.parse().unwrap(),
+                        definition_account_id.parse().unwrap(),
+                        supply_account_id.parse().unwrap(),
                         name_bytes,
                         total_supply,
                     )
@@ -346,14 +349,14 @@ impl WalletSubcommand for TokenProgramSubcommandPublic {
                 Ok(SubcommandReturnValue::Empty)
             }
             TokenProgramSubcommandPublic::TransferToken {
-                sender_addr,
-                recipient_addr,
+                sender_account_id,
+                recipient_account_id,
                 balance_to_move,
             } => {
                 wallet_core
                     .send_transfer_token_transaction(
-                        sender_addr.parse().unwrap(),
-                        recipient_addr.parse().unwrap(),
+                        sender_account_id.parse().unwrap(),
+                        recipient_account_id.parse().unwrap(),
                         balance_to_move,
                     )
                     .await?;
@@ -370,8 +373,8 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
     ) -> Result<SubcommandReturnValue> {
         match self {
             TokenProgramSubcommandPrivate::CreateNewTokenPrivateOwned {
-                definition_addr,
-                supply_addr,
+                definition_account_id,
+                supply_account_id,
                 name,
                 total_supply,
             } => {
@@ -383,13 +386,13 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                 let mut name_bytes = [0; 6];
                 name_bytes[..name.len()].copy_from_slice(name);
 
-                let definition_addr: Address = definition_addr.parse().unwrap();
-                let supply_addr: Address = supply_addr.parse().unwrap();
+                let definition_account_id: AccountId = definition_account_id.parse().unwrap();
+                let supply_account_id: AccountId = supply_account_id.parse().unwrap();
 
                 let (res, [secret_supply]) = wallet_core
                     .send_new_token_definition_private_owned(
-                        definition_addr,
-                        supply_addr,
+                        definition_account_id,
+                        supply_account_id,
                         name_bytes,
                         total_supply,
                     )
@@ -403,7 +406,7 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                     .await?;
 
                 if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                    let acc_decode_data = vec![(secret_supply, supply_addr)];
+                    let acc_decode_data = vec![(secret_supply, supply_account_id)];
 
                     wallet_core.decode_insert_privacy_preserving_transaction_results(
                         tx,
@@ -418,23 +421,23 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                 Ok(SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash })
             }
             TokenProgramSubcommandPrivate::TransferTokenPrivateOwned {
-                sender_addr,
-                recipient_addr,
+                sender_account_id,
+                recipient_account_id,
                 balance_to_move,
             } => {
-                let sender_addr: Address = sender_addr.parse().unwrap();
-                let recipient_addr: Address = recipient_addr.parse().unwrap();
+                let sender_account_id: AccountId = sender_account_id.parse().unwrap();
+                let recipient_account_id: AccountId = recipient_account_id.parse().unwrap();
 
                 let recipient_initialization = wallet_core
-                    .check_private_account_initialized(&recipient_addr)
+                    .check_private_account_initialized(&recipient_account_id)
                     .await?;
 
                 let (res, [secret_sender, secret_recipient]) =
                     if let Some(recipient_proof) = recipient_initialization {
                         wallet_core
                         .send_transfer_token_transaction_private_owned_account_already_initialized(
-                            sender_addr,
-                            recipient_addr,
+                            sender_account_id,
+                            recipient_account_id,
                             balance_to_move,
                             recipient_proof,
                         )
@@ -442,8 +445,8 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                     } else {
                         wallet_core
                             .send_transfer_token_transaction_private_owned_account_not_initialized(
-                                sender_addr,
-                                recipient_addr,
+                                sender_account_id,
+                                recipient_account_id,
                                 balance_to_move,
                             )
                             .await?
@@ -458,8 +461,8 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
 
                 if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
                     let acc_decode_data = vec![
-                        (secret_sender, sender_addr),
-                        (secret_recipient, recipient_addr),
+                        (secret_sender, sender_account_id),
+                        (secret_recipient, recipient_account_id),
                     ];
 
                     wallet_core.decode_insert_privacy_preserving_transaction_results(
@@ -475,12 +478,12 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                 Ok(SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash })
             }
             TokenProgramSubcommandPrivate::TransferTokenPrivateForeign {
-                sender_addr,
+                sender_account_id,
                 recipient_npk,
                 recipient_ipk,
                 balance_to_move,
             } => {
-                let sender_addr: Address = sender_addr.parse().unwrap();
+                let sender_account_id: AccountId = sender_account_id.parse().unwrap();
                 let recipient_npk_res = hex::decode(recipient_npk)?;
                 let mut recipient_npk = [0; 32];
                 recipient_npk.copy_from_slice(&recipient_npk_res);
@@ -495,7 +498,7 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
 
                 let (res, [secret_sender, _]) = wallet_core
                     .send_transfer_token_transaction_private_foreign_account(
-                        sender_addr,
+                        sender_account_id,
                         recipient_npk,
                         recipient_ipk,
                         balance_to_move,
@@ -510,7 +513,7 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                     .await?;
 
                 if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                    let acc_decode_data = vec![(secret_sender, sender_addr)];
+                    let acc_decode_data = vec![(secret_sender, sender_account_id)];
 
                     wallet_core.decode_insert_privacy_preserving_transaction_results(
                         tx,
@@ -535,17 +538,17 @@ impl WalletSubcommand for TokenProgramSubcommandDeshielded {
     ) -> Result<SubcommandReturnValue> {
         match self {
             TokenProgramSubcommandDeshielded::TransferTokenDeshielded {
-                sender_addr,
-                recipient_addr,
+                sender_account_id,
+                recipient_account_id,
                 balance_to_move,
             } => {
-                let sender_addr: Address = sender_addr.parse().unwrap();
-                let recipient_addr: Address = recipient_addr.parse().unwrap();
+                let sender_account_id: AccountId = sender_account_id.parse().unwrap();
+                let recipient_account_id: AccountId = recipient_account_id.parse().unwrap();
 
                 let (res, [secret_sender]) = wallet_core
                     .send_transfer_token_transaction_deshielded(
-                        sender_addr,
-                        recipient_addr,
+                        sender_account_id,
+                        recipient_account_id,
                         balance_to_move,
                     )
                     .await?;
@@ -558,7 +561,7 @@ impl WalletSubcommand for TokenProgramSubcommandDeshielded {
                     .await?;
 
                 if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                    let acc_decode_data = vec![(secret_sender, sender_addr)];
+                    let acc_decode_data = vec![(secret_sender, sender_account_id)];
 
                     wallet_core.decode_insert_privacy_preserving_transaction_results(
                         tx,
@@ -583,12 +586,12 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
     ) -> Result<SubcommandReturnValue> {
         match self {
             TokenProgramSubcommandShielded::TransferTokenShieldedForeign {
-                sender_addr,
+                sender_account_id,
                 recipient_npk,
                 recipient_ipk,
                 balance_to_move,
             } => {
-                let sender_addr: Address = sender_addr.parse().unwrap();
+                let sender_account_id: AccountId = sender_account_id.parse().unwrap();
                 let recipient_npk_res = hex::decode(recipient_npk)?;
                 let mut recipient_npk = [0; 32];
                 recipient_npk.copy_from_slice(&recipient_npk_res);
@@ -603,7 +606,7 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
 
                 let res = wallet_core
                     .send_transfer_token_transaction_shielded_foreign_account(
-                        sender_addr,
+                        sender_account_id,
                         recipient_npk,
                         recipient_ipk,
                         balance_to_move,
@@ -628,23 +631,23 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
                 Ok(SubcommandReturnValue::PrivacyPreservingTransfer { tx_hash })
             }
             TokenProgramSubcommandShielded::TransferTokenShieldedOwned {
-                sender_addr,
-                recipient_addr,
+                sender_account_id,
+                recipient_account_id,
                 balance_to_move,
             } => {
-                let sender_addr: Address = sender_addr.parse().unwrap();
-                let recipient_addr: Address = recipient_addr.parse().unwrap();
+                let sender_account_id: AccountId = sender_account_id.parse().unwrap();
+                let recipient_account_id: AccountId = recipient_account_id.parse().unwrap();
 
                 let recipient_initialization = wallet_core
-                    .check_private_account_initialized(&recipient_addr)
+                    .check_private_account_initialized(&recipient_account_id)
                     .await?;
 
                 let (res, [secret_recipient]) =
                     if let Some(recipient_proof) = recipient_initialization {
                         wallet_core
                         .send_transfer_token_transaction_shielded_owned_account_already_initialized(
-                            sender_addr,
-                            recipient_addr,
+                            sender_account_id,
+                            recipient_account_id,
                             balance_to_move,
                             recipient_proof,
                         )
@@ -652,8 +655,8 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
                     } else {
                         wallet_core
                             .send_transfer_token_transaction_shielded_owned_account_not_initialized(
-                                sender_addr,
-                                recipient_addr,
+                                sender_account_id,
+                                recipient_account_id,
                                 balance_to_move,
                             )
                             .await?
@@ -667,7 +670,7 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
                     .await?;
 
                 if let NSSATransaction::PrivacyPreserving(tx) = transfer_tx {
-                    let acc_decode_data = vec![(secret_recipient, recipient_addr)];
+                    let acc_decode_data = vec![(secret_recipient, recipient_account_id)];
 
                     wallet_core.decode_insert_privacy_preserving_transaction_results(
                         tx,

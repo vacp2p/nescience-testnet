@@ -4,23 +4,23 @@ pub mod types;
 
 use std::sync::Arc;
 
-use common::rpc_primitives::{
-    RpcPollingConfig,
-    errors::{RpcError, RpcErrorKind},
+use common::{
+    rpc_primitives::errors::{RpcError, RpcErrorKind},
+    transaction::EncodedTransaction,
 };
+use mempool::MemPoolHandle;
+pub use net_utils::*;
 use sequencer_core::SequencerCore;
 use serde::Serialize;
 use serde_json::Value;
-
-pub use net_utils::*;
 use tokio::sync::Mutex;
 
 use self::types::err_rpc::RpcErr;
 
-//ToDo: Add necessary fields
+// ToDo: Add necessary fields
 pub struct JsonHandler {
-    pub polling_config: RpcPollingConfig,
-    pub sequencer_state: Arc<Mutex<SequencerCore>>,
+    sequencer_state: Arc<Mutex<SequencerCore>>,
+    mempool_handle: MemPoolHandle<EncodedTransaction>,
 }
 
 fn respond<T: Serialize>(val: T) -> Result<Value, RpcErr> {

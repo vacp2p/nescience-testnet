@@ -1,5 +1,4 @@
 use anyhow::Result;
-
 use integration_tests::main_tests_runner;
 
 pub const NUM_THREADS: usize = 8;

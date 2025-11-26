@@ -26,13 +26,17 @@ pub async fn startup_sequencer(
     let block_timeout = app_config.block_create_timeout_millis;
     let port = app_config.port;
 
-    let sequencer_core = SequencerCore::start_from_config(app_config);
+    let (sequencer_core, mempool_handle) = SequencerCore::start_from_config(app_config);
 
     info!("Sequencer core set up");
 
     let seq_core_wrapped = Arc::new(Mutex::new(sequencer_core));
 
-    let http_server = new_http_server(RpcConfig::with_port(port), seq_core_wrapped.clone())?;
+    let http_server = new_http_server(
+        RpcConfig::with_port(port),
+        Arc::clone(&seq_core_wrapped),
+        mempool_handle,
+    )?;
     info!("HTTP server started");
     let http_server_handle = http_server.handle();
     tokio::spawn(http_server);
@@ -76,7 +80,7 @@ pub async fn main_runner() -> Result<()> {
         }
     }
 
-    //ToDo: Add restart on failures
+    // ToDo: Add restart on failures
     let (_, main_loop_handle) = startup_sequencer(app_config).await?;
 
     main_loop_handle.await??;

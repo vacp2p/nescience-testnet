@@ -38,12 +38,13 @@ impl PrivacyPreservingCircuitOutput {
 #[cfg(feature = "host")]
 #[cfg(test)]
 mod tests {
+    use risc0_zkvm::serde::from_slice;
+
     use super::*;
     use crate::{
         Commitment, Nullifier, NullifierPublicKey,
         account::{Account, AccountId, AccountWithMetadata},
     };
-    use risc0_zkvm::serde::from_slice;
 
     #[test]
     fn test_privacy_preserving_circuit_output_to_bytes_is_compatible_with_from_slice() {

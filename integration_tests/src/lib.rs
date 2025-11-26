@@ -1,8 +1,8 @@
-use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use std::path::PathBuf;
 
 use actix_web::dev::ServerHandle;
 use anyhow::Result;
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use clap::Parser;
 use common::{
     sequencer_client::SequencerClient,
@@ -44,12 +44,12 @@ pub const TIME_TO_WAIT_FOR_BLOCK_SECONDS: u64 = 12;
 
 pub const NSSA_PROGRAM_FOR_TEST_DATA_CHANGER: &[u8] = include_bytes!("data_changer.bin");
 
-fn make_public_account_input_from_str(addr: &str) -> String {
-    format!("Public/{addr}")
+fn make_public_account_input_from_str(account_id: &str) -> String {
+    format!("Public/{account_id}")
 }
 
-fn make_private_account_input_from_str(addr: &str) -> String {
-    format!("Private/{addr}")
+fn make_private_account_input_from_str(account_id: &str) -> String {
+    format!("Private/{account_id}")
 }
 
 #[allow(clippy::type_complexity)]
@@ -96,13 +96,13 @@ pub async fn post_test(residual: (ServerHandle, JoinHandle<Result<()>>, TempDir)
     let wallet_home = wallet::helperfunctions::get_home().unwrap();
     let persistent_data_home = wallet_home.join("storage.json");
 
-    //Removing persistent accounts after run to not affect other executions
-    //Not necessary an error, if fails as there is tests for failure scenario
+    // Removing persistent accounts after run to not affect other executions
+    // Not necessary an error, if fails as there is tests for failure scenario
     let _ = std::fs::remove_file(persistent_data_home)
         .inspect_err(|err| warn!("Failed to remove persistent data with err {err:#?}"));
 
-    //At this point all of the references to sequencer_core must be lost.
-    //So they are dropped and tempdirs will be dropped too,
+    // At this point all of the references to sequencer_core must be lost.
+    // So they are dropped and tempdirs will be dropped too,
 }
 
 pub async fn main_tests_runner() -> Result<()> {
@@ -174,14 +174,14 @@ mod tests {
     use crate::{make_private_account_input_from_str, make_public_account_input_from_str};
 
     #[test]
-    fn correct_addr_from_prefix() {
-        let addr1 = "cafecafe";
-        let addr2 = "deadbeaf";
+    fn correct_account_id_from_prefix() {
+        let account_id1 = "cafecafe";
+        let account_id2 = "deadbeaf";
 
-        let addr1_pub = make_public_account_input_from_str(addr1);
-        let addr2_priv = make_private_account_input_from_str(addr2);
+        let account_id1_pub = make_public_account_input_from_str(account_id1);
+        let account_id2_priv = make_private_account_input_from_str(account_id2);
 
-        assert_eq!(addr1_pub, "Public/cafecafe".to_string());
-        assert_eq!(addr2_priv, "Private/deadbeaf".to_string());
+        assert_eq!(account_id1_pub, "Public/cafecafe".to_string());
+        assert_eq!(account_id2_priv, "Private/deadbeaf".to_string());
     }
 }
