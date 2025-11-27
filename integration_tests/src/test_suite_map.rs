@@ -1169,8 +1169,8 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
     // #[nssa_integration_test]
     // pub async fn test_success_private_transfer_to_another_owned_account_cont_run_path() {
     //     info!(
-    //         "########## test_success_private_transfer_to_another_owned_account_cont_run_path ##########"
-    //     );
+    //         "########## test_success_private_transfer_to_another_owned_account_cont_run_path
+    // ##########"     );
     //     let continious_run_handle = tokio::spawn(wallet::execute_continious_run());
 
     //     let from: AccountId = ACC_SENDER_PRIVATE.parse().unwrap();
