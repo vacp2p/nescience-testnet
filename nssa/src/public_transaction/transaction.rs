@@ -124,7 +124,7 @@ impl PublicTransaction {
             let mut program_output =
                 program.execute(&chained_call.pre_states, &chained_call.instruction_data)?;
 
-            for pre in program_output.pre_states.iter() {
+            for pre in &program_output.pre_states {
                 let account_id = pre.account_id;
                 // Check that the program output pre_states coinicide with the values in the public
                 // state or with any modifications to those values during the chain of calls.
