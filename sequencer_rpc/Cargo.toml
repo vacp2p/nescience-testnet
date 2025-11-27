@@ -19,6 +19,8 @@ actix-web.workspace = true
 tokio.workspace = true
 borsh.workspace = true
 
+# TODO: Move to workspace
+
 [dependencies.sequencer_core]
 path = "../sequencer_core"
 
@@ -27,3 +29,6 @@ path = "../common"
 
 [dependencies.nssa]
 path = "../nssa"
+
+[dependencies.mempool]
+path = "../mempool"

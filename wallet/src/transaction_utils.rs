@@ -1,7 +1,7 @@
 use common::{error::ExecutionFailureKind, sequencer_client::json::SendTxResponse};
 use key_protocol::key_management::ephemeral_key_holder::EphemeralKeyHolder;
 use nssa::{
-    Account, Address, PrivacyPreservingTransaction,
+    Account, AccountId, PrivacyPreservingTransaction,
     privacy_preserving_transaction::{circuit, message::Message, witness_set::WitnessSet},
     program::Program,
 };
@@ -23,12 +23,15 @@ pub(crate) struct AccountPreparedData {
 impl WalletCore {
     pub(crate) async fn private_acc_preparation(
         &self,
-        addr: Address,
+        account_id: AccountId,
         is_authorized: bool,
         needs_proof: bool,
     ) -> Result<AccountPreparedData, ExecutionFailureKind> {
-        let Some((from_keys, from_acc)) =
-            self.storage.user_data.get_private_account(&addr).cloned()
+        let Some((from_keys, from_acc)) = self
+            .storage
+            .user_data
+            .get_private_account(&account_id)
+            .cloned()
         else {
             return Err(ExecutionFailureKind::KeyNotFoundError);
         };
@@ -66,8 +69,8 @@ impl WalletCore {
 
     pub(crate) async fn private_tx_two_accs_all_init(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         instruction_data: InstructionData,
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
@@ -144,8 +147,8 @@ impl WalletCore {
 
     pub(crate) async fn private_tx_two_accs_receiver_uninit(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         instruction_data: InstructionData,
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
@@ -218,7 +221,7 @@ impl WalletCore {
 
     pub(crate) async fn private_tx_two_accs_receiver_outer(
         &self,
-        from: Address,
+        from: AccountId,
         to_npk: NullifierPublicKey,
         to_ipk: IncomingViewingPublicKey,
         instruction_data: InstructionData,
@@ -289,8 +292,8 @@ impl WalletCore {
 
     pub(crate) async fn deshielded_tx_two_accs(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         instruction_data: InstructionData,
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
@@ -349,8 +352,8 @@ impl WalletCore {
 
     pub(crate) async fn shielded_two_accs_all_init(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         instruction_data: InstructionData,
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
@@ -416,8 +419,8 @@ impl WalletCore {
 
     pub(crate) async fn shielded_two_accs_receiver_uninit(
         &self,
-        from: Address,
-        to: Address,
+        from: AccountId,
+        to: AccountId,
         instruction_data: InstructionData,
         tx_pre_check: impl FnOnce(&Account, &Account) -> Result<(), ExecutionFailureKind>,
         program: Program,
@@ -482,7 +485,7 @@ impl WalletCore {
 
     pub(crate) async fn shielded_two_accs_receiver_outer(
         &self,
-        from: Address,
+        from: AccountId,
         to_npk: NullifierPublicKey,
         to_ipk: IncomingViewingPublicKey,
         instruction_data: InstructionData,
@@ -540,7 +543,7 @@ impl WalletCore {
 
     pub async fn register_account_under_authenticated_transfers_programs_private(
         &self,
-        from: Address,
+        from: AccountId,
     ) -> Result<(SendTxResponse, [SharedSecretKey; 1]), ExecutionFailureKind> {
         let AccountPreparedData {
             nsk: _,

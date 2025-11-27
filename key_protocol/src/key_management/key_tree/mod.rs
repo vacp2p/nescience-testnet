@@ -18,7 +18,7 @@ pub mod traits;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KeyTree<N: KeyNode> {
     pub key_map: BTreeMap<ChainIndex, N>,
-    pub addr_map: HashMap<nssa::Address, ChainIndex>,
+    pub account_id_map: HashMap<nssa::AccountId, ChainIndex>,
 }
 
 pub type KeyTreePublic = KeyTree<ChildKeysPublic>;
@@ -33,22 +33,28 @@ impl<N: KeyNode> KeyTree<N> {
             .expect("SeedHolder seed is 64 bytes long");
 
         let root_keys = N::root(seed_fit);
-        let address = root_keys.address();
+        let account_id = root_keys.account_id();
 
         let key_map = BTreeMap::from_iter([(ChainIndex::root(), root_keys)]);
-        let addr_map = HashMap::from_iter([(address, ChainIndex::root())]);
+        let account_id_map = HashMap::from_iter([(account_id, ChainIndex::root())]);
 
-        Self { key_map, addr_map }
+        Self {
+            key_map,
+            account_id_map,
+        }
     }
 
     pub fn new_from_root(root: N) -> Self {
-        let addr_map = HashMap::from_iter([(root.address(), ChainIndex::root())]);
+        let account_id_map = HashMap::from_iter([(root.account_id(), ChainIndex::root())]);
         let key_map = BTreeMap::from_iter([(ChainIndex::root(), root)]);
 
-        Self { key_map, addr_map }
+        Self {
+            key_map,
+            account_id_map,
+        }
     }
 
-    //ToDo: Add function to create a tree from list of nodes with consistency check.
+    // ToDo: Add function to create a tree from list of nodes with consistency check.
 
     pub fn find_next_last_child_of_id(&self, parent_id: &ChainIndex) -> Option<u32> {
         if !self.key_map.contains_key(parent_id) {
@@ -90,7 +96,7 @@ impl<N: KeyNode> KeyTree<N> {
         }
     }
 
-    pub fn generate_new_node(&mut self, parent_cci: ChainIndex) -> Option<nssa::Address> {
+    pub fn generate_new_node(&mut self, parent_cci: ChainIndex) -> Option<nssa::AccountId> {
         let father_keys = self.key_map.get(&parent_cci)?;
         let next_child_id = self
             .find_next_last_child_of_id(&parent_cci)
@@ -99,28 +105,28 @@ impl<N: KeyNode> KeyTree<N> {
 
         let child_keys = father_keys.nth_child(next_child_id);
 
-        let address = child_keys.address();
+        let account_id = child_keys.account_id();
 
         self.key_map.insert(next_cci.clone(), child_keys);
-        self.addr_map.insert(address, next_cci);
+        self.account_id_map.insert(account_id, next_cci);
 
-        Some(address)
+        Some(account_id)
     }
 
-    pub fn get_node(&self, addr: nssa::Address) -> Option<&N> {
-        self.addr_map
-            .get(&addr)
+    pub fn get_node(&self, account_id: nssa::AccountId) -> Option<&N> {
+        self.account_id_map
+            .get(&account_id)
             .and_then(|chain_id| self.key_map.get(chain_id))
     }
 
-    pub fn get_node_mut(&mut self, addr: nssa::Address) -> Option<&mut N> {
-        self.addr_map
-            .get(&addr)
+    pub fn get_node_mut(&mut self, account_id: nssa::AccountId) -> Option<&mut N> {
+        self.account_id_map
+            .get(&account_id)
             .and_then(|chain_id| self.key_map.get_mut(chain_id))
     }
 
-    pub fn insert(&mut self, addr: nssa::Address, chain_index: ChainIndex, node: N) {
-        self.addr_map.insert(addr, chain_index.clone());
+    pub fn insert(&mut self, account_id: nssa::AccountId, chain_index: ChainIndex, node: N) {
+        self.account_id_map.insert(account_id, chain_index.clone());
         self.key_map.insert(chain_index, node);
     }
 }
@@ -129,7 +135,7 @@ impl<N: KeyNode> KeyTree<N> {
 mod tests {
     use std::str::FromStr;
 
-    use nssa::Address;
+    use nssa::AccountId;
 
     use super::*;
 
@@ -146,7 +152,7 @@ mod tests {
         let tree = KeyTreePublic::new(&seed_holder);
 
         assert!(tree.key_map.contains_key(&ChainIndex::root()));
-        assert!(tree.addr_map.contains_key(&Address::new([
+        assert!(tree.account_id_map.contains_key(&AccountId::new([
             46, 223, 229, 177, 59, 18, 189, 219, 153, 31, 249, 90, 112, 230, 180, 164, 80, 25, 106,
             159, 14, 238, 1, 192, 91, 8, 210, 165, 199, 41, 60, 104,
         ])));

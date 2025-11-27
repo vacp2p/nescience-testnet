@@ -4,12 +4,12 @@ use nssa_core::{
 };
 use serde::Serialize;
 
-use crate::{Address, error::NssaError, program::Program};
+use crate::{AccountId, error::NssaError, program::Program};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
     pub(crate) program_id: ProgramId,
-    pub(crate) addresses: Vec<Address>,
+    pub(crate) account_ids: Vec<AccountId>,
     pub(crate) nonces: Vec<Nonce>,
     pub(crate) instruction_data: InstructionData,
 }
@@ -17,14 +17,14 @@ pub struct Message {
 impl Message {
     pub fn try_new<T: Serialize>(
         program_id: ProgramId,
-        addresses: Vec<Address>,
+        account_ids: Vec<AccountId>,
         nonces: Vec<Nonce>,
         instruction: T,
     ) -> Result<Self, NssaError> {
         let instruction_data = Program::serialize_instruction(instruction)?;
         Ok(Self {
             program_id,
-            addresses,
+            account_ids,
             nonces,
             instruction_data,
         })

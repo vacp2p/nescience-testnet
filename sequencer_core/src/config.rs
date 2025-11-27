@@ -1,43 +1,45 @@
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-///Helperstruct for account serialization
+/// Helperstruct for account serialization
 pub struct AccountInitialData {
-    ///Hex encoded `AccountAddress`
-    pub addr: String,
+    /// Hex encoded account id
+    pub account_id: String,
     pub balance: u128,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-///Helperstruct to initialize commitments
+/// Helperstruct to initialize commitments
 pub struct CommitmentsInitialData {
     pub npk: nssa_core::NullifierPublicKey,
     pub account: nssa_core::account::Account,
 }
 
+// TODO: Provide default values
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SequencerConfig {
-    ///Home dir of sequencer storage
+    /// Home dir of sequencer storage
     pub home: PathBuf,
-    ///Override rust log (env var logging level)
+    /// Override rust log (env var logging level)
     pub override_rust_log: Option<String>,
-    ///Genesis id
+    /// Genesis id
     pub genesis_id: u64,
-    ///If `True`, then adds random sequence of bytes to genesis block
+    /// If `True`, then adds random sequence of bytes to genesis block
     pub is_genesis_random: bool,
-    ///Maximum number of transactions in block
+    /// Maximum number of transactions in block
     pub max_num_tx_in_block: usize,
-    ///Mempool maximum size
+    /// Mempool maximum size
     pub mempool_max_size: usize,
-    ///Interval in which blocks produced
+    /// Interval in which blocks produced
     pub block_create_timeout_millis: u64,
-    ///Port to listen
+    /// Port to listen
     pub port: u16,
-    ///List of initial accounts data
+    /// List of initial accounts data
     pub initial_accounts: Vec<AccountInitialData>,
-    ///List of initial commitments
+    /// List of initial commitments
     pub initial_commitments: Vec<CommitmentsInitialData>,
-    ///Sequencer own signing key
+    /// Sequencer own signing key
     pub signing_key: [u8; 32],
 }

@@ -66,7 +66,7 @@ impl ChainIndex {
 
     pub fn next_in_line(&self) -> ChainIndex {
         let mut chain = self.0.clone();
-        //ToDo: Add overflow check
+        // ToDo: Add overflow check
         if let Some(last_p) = chain.last_mut() {
             *last_p += 1
         }

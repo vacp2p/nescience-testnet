@@ -61,8 +61,8 @@ impl KeyNode for ChildKeysPublic {
         self.cci
     }
 
-    fn address(&self) -> nssa::Address {
-        nssa::Address::from(&self.cpk)
+    fn account_id(&self) -> nssa::AccountId {
+        nssa::AccountId::from(&self.cpk)
     }
 }
 

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use k256::{
     AffinePoint, EncodedPoint, FieldBytes, ProjectivePoint,
     elliptic_curve::{
@@ -7,6 +5,7 @@ use k256::{
         sec1::{FromEncodedPoint, ToEncodedPoint},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{SharedSecretKey, encryption::Scalar};
 

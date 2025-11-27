@@ -3,7 +3,7 @@ use clap::Subcommand;
 
 use crate::{SubcommandReturnValue, WalletCore, cli::WalletSubcommand};
 
-///Represents generic config CLI subcommand
+/// Represents generic config CLI subcommand
 #[derive(Subcommand, Debug, Clone)]
 pub enum ConfigSubcommand {
     /// Command to explicitly setup config and storage
@@ -115,7 +115,7 @@ impl WalletSubcommand for ConfigSubcommand {
                     println!("Value of variable RUST_LOG to override, affects logging");
                 }
                 "sequencer_addr" => {
-                    println!("HTTP V4 address of sequencer");
+                    println!("HTTP V4 account_id of sequencer");
                 }
                 "seq_poll_timeout_millis" => {
                     println!(

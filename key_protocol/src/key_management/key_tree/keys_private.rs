@@ -125,8 +125,8 @@ impl KeyNode for ChildKeysPrivate {
         self.cci
     }
 
-    fn address(&self) -> nssa::Address {
-        nssa::Address::from(&self.value.0.nullifer_public_key)
+    fn account_id(&self) -> nssa::AccountId {
+        nssa::AccountId::from(&self.value.0.nullifer_public_key)
     }
 }
 

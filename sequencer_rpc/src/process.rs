@@ -3,10 +3,6 @@ use std::collections::HashMap;
 use actix_web::Error as HttpError;
 use base58::FromBase58;
 use base64::{Engine, engine::general_purpose};
-use nssa::{self, program::Program};
-use sequencer_core::config::AccountInitialData;
-use serde_json::Value;
-
 use common::{
     HashType,
     block::HashableBlockData,
@@ -17,19 +13,20 @@ use common::{
         requests::{
             GetAccountBalanceRequest, GetAccountBalanceResponse, GetAccountRequest,
             GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
-            GetInitialTestnetAccountsRequest, GetProgramIdsRequest, GetProgramIdsResponse,
-            GetProofForCommitmentRequest, GetProofForCommitmentResponse,
-            GetTransactionByHashRequest, GetTransactionByHashResponse,
+            GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
+            GetInitialTestnetAccountsRequest, GetLastBlockRequest, GetLastBlockResponse,
+            GetProgramIdsRequest, GetProgramIdsResponse, GetProofForCommitmentRequest,
+            GetProofForCommitmentResponse, GetTransactionByHashRequest,
+            GetTransactionByHashResponse, HelloRequest, HelloResponse, SendTxRequest,
+            SendTxResponse,
         },
     },
-    transaction::EncodedTransaction,
+    transaction::{EncodedTransaction, NSSATransaction},
 };
-
-use common::rpc_primitives::requests::{
-    GetBlockDataRequest, GetBlockDataResponse, GetGenesisIdRequest, GetGenesisIdResponse,
-    GetLastBlockRequest, GetLastBlockResponse, HelloRequest, HelloResponse, SendTxRequest,
-    SendTxResponse,
-};
+use log::warn;
+use nssa::{self, program::Program};
+use sequencer_core::{TransactionMalformationError, config::AccountInitialData};
+use serde_json::Value;
 
 use super::{JsonHandler, respond, types::err_rpc::RpcErr};
 
@@ -67,16 +64,16 @@ impl JsonHandler {
         }
     }
 
+    /// Example of request processing
     #[allow(clippy::unused_async)]
-    ///Example of request processing
     async fn process_temp_hello(&self, request: Request) -> Result<Value, RpcErr> {
         let _hello_request = HelloRequest::parse(Some(request.params))?;
 
-        let helperstruct = HelloResponse {
+        let response = HelloResponse {
             greeting: HELLO_FROM_SEQUENCER.to_string(),
         };
 
-        respond(helperstruct)
+        respond(response)
     }
 
     async fn process_send_tx(&self, request: Request) -> Result<Value, RpcErr> {
@@ -84,18 +81,25 @@ impl JsonHandler {
         let tx = borsh::from_slice::<EncodedTransaction>(&send_tx_req.transaction).unwrap();
         let tx_hash = hex::encode(tx.hash());
 
-        {
-            let mut state = self.sequencer_state.lock().await;
+        let transaction = NSSATransaction::try_from(&tx)
+            .map_err(|_| TransactionMalformationError::FailedToDecode { tx: tx.hash() })?;
 
-            state.push_tx_into_mempool_pre_check(tx)?;
-        }
+        let authenticated_tx = sequencer_core::transaction_pre_check(transaction)
+            .inspect_err(|err| warn!("Error at pre_check {err:#?}"))?;
 
-        let helperstruct = SendTxResponse {
+        // TODO: Do we need a timeout here? It will be usable if we have too many transactions to
+        // process
+        self.mempool_handle
+            .push(authenticated_tx.into())
+            .await
+            .expect("Mempool is closed, this is a bug");
+
+        let response = SendTxResponse {
             status: TRANSACTION_SUBMITTED.to_string(),
             tx_hash,
         };
 
-        respond(helperstruct)
+        respond(response)
     }
 
     async fn process_get_block_data(&self, request: Request) -> Result<Value, RpcErr> {
@@ -104,14 +108,16 @@ impl JsonHandler {
         let block = {
             let state = self.sequencer_state.lock().await;
 
-            state.block_store.get_block_at_id(get_block_req.block_id)?
+            state
+                .block_store()
+                .get_block_at_id(get_block_req.block_id)?
         };
 
-        let helperstruct = GetBlockDataResponse {
+        let response = GetBlockDataResponse {
             block: borsh::to_vec(&HashableBlockData::from(block)).unwrap(),
         };
 
-        respond(helperstruct)
+        respond(response)
     }
 
     async fn process_get_genesis(&self, request: Request) -> Result<Value, RpcErr> {
@@ -120,12 +126,12 @@ impl JsonHandler {
         let genesis_id = {
             let state = self.sequencer_state.lock().await;
 
-            state.block_store.genesis_id
+            state.block_store().genesis_id()
         };
 
-        let helperstruct = GetGenesisIdResponse { genesis_id };
+        let response = GetGenesisIdResponse { genesis_id };
 
-        respond(helperstruct)
+        respond(response)
     }
 
     async fn process_get_last_block(&self, request: Request) -> Result<Value, RpcErr> {
@@ -134,12 +140,12 @@ impl JsonHandler {
         let last_block = {
             let state = self.sequencer_state.lock().await;
 
-            state.chain_height
+            state.chain_height()
         };
 
-        let helperstruct = GetLastBlockResponse { last_block };
+        let response = GetLastBlockResponse { last_block };
 
-        respond(helperstruct)
+        respond(response)
     }
 
     /// Returns the initial accounts for testnet
@@ -151,83 +157,83 @@ impl JsonHandler {
         let initial_accounts: Vec<AccountInitialData> = {
             let state = self.sequencer_state.lock().await;
 
-            state.sequencer_config.initial_accounts.clone()
+            state.sequencer_config().initial_accounts.clone()
         };
 
         respond(initial_accounts)
     }
 
-    /// Returns the balance of the account at the given address.
-    /// The address must be a valid hex string of the correct length.
+    /// Returns the balance of the account at the given account_id.
+    /// The account_id must be a valid hex string of the correct length.
     async fn process_get_account_balance(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_req = GetAccountBalanceRequest::parse(Some(request.params))?;
-        let address_bytes = get_account_req
-            .address
+        let account_id_bytes = get_account_req
+            .account_id
             .from_base58()
             .map_err(|_| RpcError::invalid_params("invalid base58".to_string()))?;
-        let address = nssa::Address::new(
-            address_bytes
+        let account_id = nssa::AccountId::new(
+            account_id_bytes
                 .try_into()
                 .map_err(|_| RpcError::invalid_params("invalid length".to_string()))?,
         );
 
         let balance = {
             let state = self.sequencer_state.lock().await;
-            let account = state.state.get_account_by_address(&address);
+            let account = state.state().get_account_by_id(&account_id);
             account.balance
         };
 
-        let helperstruct = GetAccountBalanceResponse { balance };
+        let response = GetAccountBalanceResponse { balance };
 
-        respond(helperstruct)
+        respond(response)
     }
 
-    /// Returns the nonces of the accounts at the given addresses.
-    /// Each address must be a valid hex string of the correct length.
+    /// Returns the nonces of the accounts at the given account_ids.
+    /// Each account_id must be a valid hex string of the correct length.
     async fn process_get_accounts_nonces(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_nonces_req = GetAccountsNoncesRequest::parse(Some(request.params))?;
-        let mut addresses = vec![];
-        for address_raw in get_account_nonces_req.addresses {
-            let address = address_raw
-                .parse::<nssa::Address>()
+        let mut account_ids = vec![];
+        for account_id_raw in get_account_nonces_req.account_ids {
+            let account_id = account_id_raw
+                .parse::<nssa::AccountId>()
                 .map_err(|e| RpcError::invalid_params(e.to_string()))?;
 
-            addresses.push(address);
+            account_ids.push(account_id);
         }
 
         let nonces = {
             let state = self.sequencer_state.lock().await;
 
-            addresses
+            account_ids
                 .into_iter()
-                .map(|addr| state.state.get_account_by_address(&addr).nonce)
+                .map(|account_id| state.state().get_account_by_id(&account_id).nonce)
                 .collect()
         };
 
-        let helperstruct = GetAccountsNoncesResponse { nonces };
+        let response = GetAccountsNoncesResponse { nonces };
 
-        respond(helperstruct)
+        respond(response)
     }
 
-    /// Returns account struct for given address.
-    /// Address must be a valid hex string of the correct length.
+    /// Returns account struct for given account_id.
+    /// AccountId must be a valid hex string of the correct length.
     async fn process_get_account(&self, request: Request) -> Result<Value, RpcErr> {
         let get_account_nonces_req = GetAccountRequest::parse(Some(request.params))?;
 
-        let address = get_account_nonces_req
-            .address
-            .parse::<nssa::Address>()
+        let account_id = get_account_nonces_req
+            .account_id
+            .parse::<nssa::AccountId>()
             .map_err(|e| RpcError::invalid_params(e.to_string()))?;
 
         let account = {
             let state = self.sequencer_state.lock().await;
 
-            state.state.get_account_by_address(&address)
+            state.state().get_account_by_id(&account_id)
         };
 
-        let helperstruct = GetAccountResponse { account };
+        let response = GetAccountResponse { account };
 
-        respond(helperstruct)
+        respond(response)
     }
 
     /// Returns the transaction corresponding to the given hash, if it exists in the blockchain.
@@ -243,15 +249,15 @@ impl JsonHandler {
         let transaction = {
             let state = self.sequencer_state.lock().await;
             state
-                .block_store
+                .block_store()
                 .get_transaction_by_hash(hash)
                 .map(|tx| borsh::to_vec(&tx).unwrap())
         };
         let base64_encoded = transaction.map(|tx| general_purpose::STANDARD.encode(tx));
-        let helperstruct = GetTransactionByHashResponse {
+        let response = GetTransactionByHashResponse {
             transaction: base64_encoded,
         };
-        respond(helperstruct)
+        respond(response)
     }
 
     /// Returns the commitment proof, corresponding to commitment
@@ -261,11 +267,11 @@ impl JsonHandler {
         let membership_proof = {
             let state = self.sequencer_state.lock().await;
             state
-                .state
+                .state()
                 .get_proof_for_commitment(&get_proof_req.commitment)
         };
-        let helperstruct = GetProofForCommitmentResponse { membership_proof };
-        respond(helperstruct)
+        let response = GetProofForCommitmentResponse { membership_proof };
+        respond(response)
     }
 
     async fn process_get_program_ids(&self, request: Request) -> Result<Value, RpcErr> {
@@ -282,8 +288,8 @@ impl JsonHandler {
             "privacy_preserving_circuit".to_string(),
             nssa::PRIVACY_PRESERVING_CIRCUIT_ID,
         );
-        let helperstruct = GetProgramIdsResponse { program_ids };
-        respond(helperstruct)
+        let response = GetProgramIdsResponse { program_ids };
+        respond(response)
     }
 
     pub async fn process_request_internal(&self, request: Request) -> Result<Value, RpcErr> {
@@ -309,14 +315,9 @@ impl JsonHandler {
 mod tests {
     use std::sync::Arc;
 
-    use crate::{JsonHandler, rpc_handler};
     use base58::ToBase58;
     use base64::{Engine, engine::general_purpose};
-    use common::{
-        rpc_primitives::RpcPollingConfig, test_utils::sequencer_sign_key_for_testing,
-        transaction::EncodedTransaction,
-    };
-
+    use common::{test_utils::sequencer_sign_key_for_testing, transaction::EncodedTransaction};
     use sequencer_core::{
         SequencerCore,
         config::{AccountInitialData, SequencerConfig},
@@ -325,26 +326,28 @@ mod tests {
     use tempfile::tempdir;
     use tokio::sync::Mutex;
 
+    use crate::{JsonHandler, rpc_handler};
+
     fn sequencer_config_for_tests() -> SequencerConfig {
         let tempdir = tempdir().unwrap();
         let home = tempdir.path().to_path_buf();
-        let acc1_addr: Vec<u8> = vec![
+        let acc1_id: Vec<u8> = vec![
             208, 122, 210, 232, 75, 39, 250, 0, 194, 98, 240, 161, 238, 160, 255, 53, 202, 9, 115,
             84, 126, 106, 16, 111, 114, 241, 147, 194, 220, 131, 139, 68,
         ];
 
-        let acc2_addr: Vec<u8> = vec![
+        let acc2_id: Vec<u8> = vec![
             231, 174, 119, 197, 239, 26, 5, 153, 147, 68, 175, 73, 159, 199, 138, 23, 5, 57, 141,
             98, 237, 6, 207, 46, 20, 121, 246, 222, 248, 154, 57, 188,
         ];
 
         let initial_acc1 = AccountInitialData {
-            addr: acc1_addr.to_base58(),
+            account_id: acc1_id.to_base58(),
             balance: 10000,
         };
 
         let initial_acc2 = AccountInitialData {
-            addr: acc2_addr.to_base58(),
+            account_id: acc2_id.to_base58(),
             balance: 20000,
         };
 
@@ -365,10 +368,10 @@ mod tests {
         }
     }
 
-    fn components_for_tests() -> (JsonHandler, Vec<AccountInitialData>, EncodedTransaction) {
+    async fn components_for_tests() -> (JsonHandler, Vec<AccountInitialData>, EncodedTransaction) {
         let config = sequencer_config_for_tests();
-        let mut sequencer_core = SequencerCore::start_from_config(config);
-        let initial_accounts = sequencer_core.sequencer_config.initial_accounts.clone();
+        let (mut sequencer_core, mempool_handle) = SequencerCore::start_from_config(config);
+        let initial_accounts = sequencer_core.sequencer_config().initial_accounts.clone();
 
         let signing_key = nssa::PrivateKey::try_new([1; 32]).unwrap();
         let balance_to_move = 10;
@@ -383,9 +386,10 @@ mod tests {
             signing_key,
         );
 
-        sequencer_core
-            .push_tx_into_mempool_pre_check(tx.clone())
-            .unwrap();
+        mempool_handle
+            .push(tx.clone())
+            .await
+            .expect("Mempool is closed, this is a bug");
 
         sequencer_core
             .produce_new_block_with_mempool_transactions()
@@ -395,8 +399,8 @@ mod tests {
 
         (
             JsonHandler {
-                polling_config: RpcPollingConfig::default(),
                 sequencer_state: sequencer_core,
+                mempool_handle,
             },
             initial_accounts,
             tx,
@@ -426,11 +430,11 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_account_balance_for_non_existent_account() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": "11".repeat(16) },
+            "params": { "account_id": "11".repeat(16) },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -448,11 +452,11 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_account_balance_for_invalid_base58() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": "not_a_valid_base58" },
+            "params": { "account_id": "not_a_valid_base58" },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -471,11 +475,11 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_account_balance_for_invalid_length() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": "cafecafe" },
+            "params": { "account_id": "cafecafe" },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -494,14 +498,14 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_account_balance_for_existing_account() {
-        let (json_handler, initial_accounts, _) = components_for_tests();
+        let (json_handler, initial_accounts, _) = components_for_tests().await;
 
-        let acc1_addr = initial_accounts[0].addr.clone();
+        let acc1_id = initial_accounts[0].account_id.clone();
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account_balance",
-            "params": { "address": acc1_addr },
+            "params": { "account_id": acc1_id },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -519,11 +523,11 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_accounts_nonces_for_non_existent_account() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_accounts_nonces",
-            "params": { "addresses": ["11".repeat(16)] },
+            "params": { "account_ids": ["11".repeat(16)] },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -541,15 +545,15 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_accounts_nonces_for_existent_account() {
-        let (json_handler, initial_accounts, _) = components_for_tests();
+        let (json_handler, initial_accounts, _) = components_for_tests().await;
 
-        let acc_1_addr = initial_accounts[0].addr.clone();
-        let acc_2_addr = initial_accounts[1].addr.clone();
+        let acc1_id = initial_accounts[0].account_id.clone();
+        let acc2_id = initial_accounts[1].account_id.clone();
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_accounts_nonces",
-            "params": { "addresses": [acc_1_addr, acc_2_addr] },
+            "params": { "account_ids": [acc1_id, acc2_id] },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -567,11 +571,11 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_account_data_for_non_existent_account() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_account",
-            "params": { "address": "11".repeat(16) },
+            "params": { "account_id": "11".repeat(16) },
             "id": 1
         });
         let expected_response = serde_json::json!({
@@ -594,7 +598,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_non_existent_hash() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
@@ -616,7 +620,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_invalid_hex() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
@@ -640,7 +644,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_invalid_length() {
-        let (json_handler, _, _) = components_for_tests();
+        let (json_handler, _, _) = components_for_tests().await;
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "get_transaction_by_hash",
@@ -664,7 +668,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_transaction_by_hash_for_existing_transaction() {
-        let (json_handler, _, tx) = components_for_tests();
+        let (json_handler, _, tx) = components_for_tests().await;
         let tx_hash_hex = hex::encode(tx.hash());
         let expected_base64_encoded = general_purpose::STANDARD.encode(borsh::to_vec(&tx).unwrap());
 

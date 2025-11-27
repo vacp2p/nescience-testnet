@@ -4,7 +4,6 @@ mod public_key;
 
 pub use private_key::PrivateKey;
 pub use public_key::PublicKey;
-
 use rand::{RngCore, rngs::OsRng};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

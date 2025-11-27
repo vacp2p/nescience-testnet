@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use nssa_core::{
-    account::{Account, AccountWithMetadata},
-    address::Address,
+    account::{Account, AccountId, AccountWithMetadata},
     program::{DEFAULT_PROGRAM_ID, validate_execution},
 };
 use sha2::{Digest, digest::FixedOutput};
@@ -36,11 +35,11 @@ impl PublicTransaction {
         &self.witness_set
     }
 
-    pub(crate) fn signer_addresses(&self) -> Vec<Address> {
+    pub(crate) fn signer_account_ids(&self) -> Vec<AccountId> {
         self.witness_set
             .signatures_and_public_keys()
             .iter()
-            .map(|(_, public_key)| Address::from(public_key))
+            .map(|(_, public_key)| AccountId::from(public_key))
             .collect()
     }
 
@@ -54,14 +53,14 @@ impl PublicTransaction {
     pub(crate) fn validate_and_produce_public_state_diff(
         &self,
         state: &V02State,
-    ) -> Result<HashMap<Address, Account>, NssaError> {
+    ) -> Result<HashMap<AccountId, Account>, NssaError> {
         let message = self.message();
         let witness_set = self.witness_set();
 
-        // All addresses must be different
-        if message.addresses.iter().collect::<HashSet<_>>().len() != message.addresses.len() {
+        // All account_ids must be different
+        if message.account_ids.iter().collect::<HashSet<_>>().len() != message.account_ids.len() {
             return Err(NssaError::InvalidInput(
-                "Duplicate addresses found in message".into(),
+                "Duplicate account_ids found in message".into(),
             ));
         }
 
@@ -79,10 +78,10 @@ impl PublicTransaction {
             ));
         }
 
-        let signer_addresses = self.signer_addresses();
+        let signer_account_ids = self.signer_account_ids();
         // Check nonces corresponds to the current nonces on the public state.
-        for (address, nonce) in signer_addresses.iter().zip(&message.nonces) {
-            let current_nonce = state.get_account_by_address(address).nonce;
+        for (account_id, nonce) in signer_account_ids.iter().zip(&message.nonces) {
+            let current_nonce = state.get_account_by_id(account_id).nonce;
             if current_nonce != *nonce {
                 return Err(NssaError::InvalidInput("Nonce mismatch".into()));
             }
@@ -90,18 +89,18 @@ impl PublicTransaction {
 
         // Build pre_states for execution
         let mut input_pre_states: Vec<_> = message
-            .addresses
+            .account_ids
             .iter()
-            .map(|address| {
+            .map(|account_id| {
                 AccountWithMetadata::new(
-                    state.get_account_by_address(address),
-                    signer_addresses.contains(address),
-                    *address,
+                    state.get_account_by_id(account_id),
+                    signer_account_ids.contains(account_id),
+                    *account_id,
                 )
             })
             .collect();
 
-        let mut state_diff: HashMap<Address, Account> = HashMap::new();
+        let mut state_diff: HashMap<AccountId, Account> = HashMap::new();
 
         let mut program_id = message.program_id;
         let mut instruction_data = message.instruction_data.clone();
@@ -189,17 +188,17 @@ pub mod tests {
     use sha2::{Digest, digest::FixedOutput};
 
     use crate::{
-        Address, PrivateKey, PublicKey, PublicTransaction, Signature, V02State,
+        AccountId, PrivateKey, PublicKey, PublicTransaction, Signature, V02State,
         error::NssaError,
         program::Program,
         public_transaction::{Message, WitnessSet},
     };
 
-    fn keys_for_tests() -> (PrivateKey, PrivateKey, Address, Address) {
+    fn keys_for_tests() -> (PrivateKey, PrivateKey, AccountId, AccountId) {
         let key1 = PrivateKey::try_new([1; 32]).unwrap();
         let key2 = PrivateKey::try_new([2; 32]).unwrap();
-        let addr1 = Address::from(&PublicKey::new_from_private_key(&key1));
-        let addr2 = Address::from(&PublicKey::new_from_private_key(&key2));
+        let addr1 = AccountId::from(&PublicKey::new_from_private_key(&key1));
+        let addr2 = AccountId::from(&PublicKey::new_from_private_key(&key2));
         (key1, key2, addr1, addr2)
     }
 
@@ -248,20 +247,20 @@ pub mod tests {
     }
 
     #[test]
-    fn test_signer_addresses() {
+    fn test_signer_account_ids() {
         let tx = transaction_for_tests();
-        let expected_signer_addresses = vec![
-            Address::new([
+        let expected_signer_account_ids = vec![
+            AccountId::new([
                 208, 122, 210, 232, 75, 39, 250, 0, 194, 98, 240, 161, 238, 160, 255, 53, 202, 9,
                 115, 84, 126, 106, 16, 111, 114, 241, 147, 194, 220, 131, 139, 68,
             ]),
-            Address::new([
+            AccountId::new([
                 231, 174, 119, 197, 239, 26, 5, 153, 147, 68, 175, 73, 159, 199, 138, 23, 5, 57,
                 141, 98, 237, 6, 207, 46, 20, 121, 246, 222, 248, 154, 57, 188,
             ]),
         ];
-        let signer_addresses = tx.signer_addresses();
-        assert_eq!(signer_addresses, expected_signer_addresses);
+        let signer_account_ids = tx.signer_account_ids();
+        assert_eq!(signer_account_ids, expected_signer_account_ids);
     }
 
     #[test]
@@ -286,7 +285,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_address_list_cant_have_duplicates() {
+    fn test_account_id_list_cant_have_duplicates() {
         let (key1, _, addr1, _) = keys_for_tests();
         let state = state_for_tests();
         let nonces = vec![0, 0];

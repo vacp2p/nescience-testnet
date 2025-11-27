@@ -1,24 +1,26 @@
 use std::collections::HashMap;
 
-use super::rpc_primitives::requests::{
-    GetAccountBalanceRequest, GetAccountBalanceResponse, GetBlockDataRequest, GetBlockDataResponse,
-    GetGenesisIdRequest, GetGenesisIdResponse, GetInitialTestnetAccountsRequest,
-};
 use anyhow::Result;
 use json::{SendTxRequest, SendTxResponse, SequencerRpcRequest, SequencerRpcResponse};
 use nssa_core::program::ProgramId;
 use reqwest::Client;
 use serde_json::Value;
 
-use crate::error::{SequencerClientError, SequencerRpcError};
-use crate::rpc_primitives::requests::{
-    GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
-    GetLastBlockRequest, GetLastBlockResponse, GetProgramIdsRequest, GetProgramIdsResponse,
-    GetProofForCommitmentRequest, GetProofForCommitmentResponse, GetTransactionByHashRequest,
-    GetTransactionByHashResponse,
+use super::rpc_primitives::requests::{
+    GetAccountBalanceRequest, GetAccountBalanceResponse, GetBlockDataRequest, GetBlockDataResponse,
+    GetGenesisIdRequest, GetGenesisIdResponse, GetInitialTestnetAccountsRequest,
 };
-use crate::sequencer_client::json::AccountInitialData;
-use crate::transaction::{EncodedTransaction, NSSATransaction};
+use crate::{
+    error::{SequencerClientError, SequencerRpcError},
+    rpc_primitives::requests::{
+        GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
+        GetLastBlockRequest, GetLastBlockResponse, GetProgramIdsRequest, GetProgramIdsResponse,
+        GetProofForCommitmentRequest, GetProofForCommitmentResponse, GetTransactionByHashRequest,
+        GetTransactionByHashResponse,
+    },
+    sequencer_client::json::AccountInitialData,
+    transaction::{EncodedTransaction, NSSATransaction},
+};
 
 pub mod json;
 
@@ -62,7 +64,7 @@ impl SequencerClient {
         }
     }
 
-    ///Get block data at `block_id` from sequencer
+    /// Get block data at `block_id` from sequencer
     pub async fn get_block(
         &self,
         block_id: u64,
@@ -78,7 +80,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get last known `blokc_id` from sequencer
+    /// Get last known `blokc_id` from sequencer
     pub async fn get_last_block(&self) -> Result<GetLastBlockResponse, SequencerClientError> {
         let block_req = GetLastBlockRequest {};
 
@@ -91,12 +93,13 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get account public balance for `address`. `address` must be a valid hex-string for 32 bytes.
+    /// Get account public balance for `account_id`. `account_id` must be a valid hex-string for 32
+    /// bytes.
     pub async fn get_account_balance(
         &self,
-        address: String,
+        account_id: String,
     ) -> Result<GetAccountBalanceResponse, SequencerClientError> {
-        let block_req = GetAccountBalanceRequest { address };
+        let block_req = GetAccountBalanceRequest { account_id };
 
         let req = serde_json::to_value(block_req)?;
 
@@ -109,12 +112,13 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get accounts nonces for `addresses`. `addresses` must be a list of valid hex-strings for 32 bytes.
+    /// Get accounts nonces for `account_ids`. `account_ids` must be a list of valid hex-strings for
+    /// 32 bytes.
     pub async fn get_accounts_nonces(
         &self,
-        addresses: Vec<String>,
+        account_ids: Vec<String>,
     ) -> Result<GetAccountsNoncesResponse, SequencerClientError> {
-        let block_req = GetAccountsNoncesRequest { addresses };
+        let block_req = GetAccountsNoncesRequest { account_ids };
 
         let req = serde_json::to_value(block_req)?;
 
@@ -129,9 +133,9 @@ impl SequencerClient {
 
     pub async fn get_account(
         &self,
-        address: String,
+        account_id: String,
     ) -> Result<GetAccountResponse, SequencerClientError> {
-        let block_req = GetAccountRequest { address };
+        let block_req = GetAccountRequest { account_id };
 
         let req = serde_json::to_value(block_req)?;
 
@@ -142,7 +146,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get transaction details for `hash`.
+    /// Get transaction details for `hash`.
     pub async fn get_transaction_by_hash(
         &self,
         hash: String,
@@ -160,7 +164,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Send transaction to sequencer
+    /// Send transaction to sequencer
     pub async fn send_tx_public(
         &self,
         transaction: nssa::PublicTransaction,
@@ -180,7 +184,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Send transaction to sequencer
+    /// Send transaction to sequencer
     pub async fn send_tx_private(
         &self,
         transaction: nssa::PrivacyPreservingTransaction,
@@ -200,7 +204,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get genesis id from sequencer
+    /// Get genesis id from sequencer
     pub async fn get_genesis_id(&self) -> Result<GetGenesisIdResponse, SequencerClientError> {
         let genesis_req = GetGenesisIdRequest {};
 
@@ -216,7 +220,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get initial testnet accounts from sequencer
+    /// Get initial testnet accounts from sequencer
     pub async fn get_initial_testnet_accounts(
         &self,
     ) -> Result<Vec<AccountInitialData>, SequencerClientError> {
@@ -234,7 +238,7 @@ impl SequencerClient {
         Ok(resp_deser)
     }
 
-    ///Get proof for commitment
+    /// Get proof for commitment
     pub async fn get_proof_for_commitment(
         &self,
         commitment: nssa_core::Commitment,

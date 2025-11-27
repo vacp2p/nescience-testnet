@@ -2,13 +2,13 @@ use anyhow::Result;
 use base58::ToBase58;
 use clap::Subcommand;
 use key_protocol::key_management::key_tree::chain_index::ChainIndex;
-use nssa::{Account, Address, program::Program};
+use nssa::{Account, AccountId, program::Program};
 use serde::Serialize;
 
 use crate::{
     SubcommandReturnValue, WalletCore,
     cli::WalletSubcommand,
-    helperfunctions::{AddressPrivacyKind, HumanReadableAccount, parse_addr_with_privacy_prefix},
+    helperfunctions::{AccountPrivacyKind, HumanReadableAccount, parse_addr_with_privacy_prefix},
     parse_block_range,
 };
 
@@ -28,7 +28,7 @@ struct TokenDefinition {
 struct TokenHolding {
     #[allow(unused)]
     account_type: u8,
-    definition_id: Address,
+    definition_id: AccountId,
     balance: u128,
 }
 
@@ -56,7 +56,7 @@ impl TokenHolding {
             None
         } else {
             let account_type = data[0];
-            let definition_id = Address::new(data[1..33].try_into().unwrap());
+            let definition_id = AccountId::new(data[1..33].try_into().unwrap());
             let balance = u128::from_le_bytes(data[33..].try_into().unwrap());
             Some(Self {
                 definition_id,
@@ -67,35 +67,35 @@ impl TokenHolding {
     }
 }
 
-///Represents generic chain CLI subcommand
+/// Represents generic chain CLI subcommand
 #[derive(Subcommand, Debug, Clone)]
 pub enum AccountSubcommand {
-    ///Get account data
+    /// Get account data
     Get {
-        ///Flag to get raw account data
+        /// Flag to get raw account data
         #[arg(short, long)]
         raw: bool,
-        ///Valid 32 byte base58 string with privacy prefix
+        /// Valid 32 byte base58 string with privacy prefix
         #[arg(short, long)]
-        addr: String,
+        account_id: String,
     },
-    ///Produce new public or private account  
+    /// Produce new public or private account
     #[command(subcommand)]
     New(NewSubcommand),
-    ///Sync private accounts
+    /// Sync private accounts
     SyncPrivate {},
 }
 
-///Represents generic register CLI subcommand
+/// Represents generic register CLI subcommand
 #[derive(Subcommand, Debug, Clone)]
 pub enum NewSubcommand {
-    ///Register new public account
+    /// Register new public account
     Public {
         #[arg(long)]
         /// Chain index of a parent node
         cci: ChainIndex,
     },
-    ///Register new private account
+    /// Register new private account
     Private {
         #[arg(long)]
         /// Chain index of a parent node
@@ -110,28 +110,28 @@ impl WalletSubcommand for NewSubcommand {
     ) -> Result<SubcommandReturnValue> {
         match self {
             NewSubcommand::Public { cci } => {
-                let addr = wallet_core.create_new_account_public(cci);
+                let account_id = wallet_core.create_new_account_public(cci);
 
-                println!("Generated new account with addr Public/{addr}");
+                println!("Generated new account with account_id Public/{account_id}");
 
                 let path = wallet_core.store_persistent_data().await?;
 
                 println!("Stored persistent accounts at {path:#?}");
 
-                Ok(SubcommandReturnValue::RegisterAccount { addr })
+                Ok(SubcommandReturnValue::RegisterAccount { account_id })
             }
             NewSubcommand::Private { cci } => {
-                let addr = wallet_core.create_new_account_private(cci);
+                let account_id = wallet_core.create_new_account_private(cci);
 
                 let (key, _) = wallet_core
                     .storage
                     .user_data
-                    .get_private_account(&addr)
+                    .get_private_account(&account_id)
                     .unwrap();
 
                 println!(
-                    "Generated new account with addr Private/{}",
-                    addr.to_bytes().to_base58()
+                    "Generated new account with account_id Private/{}",
+                    account_id.to_bytes().to_base58()
                 );
                 println!("With npk {}", hex::encode(key.nullifer_public_key.0));
                 println!(
@@ -143,7 +143,7 @@ impl WalletSubcommand for NewSubcommand {
 
                 println!("Stored persistent accounts at {path:#?}");
 
-                Ok(SubcommandReturnValue::RegisterAccount { addr })
+                Ok(SubcommandReturnValue::RegisterAccount { account_id })
             }
         }
     }
@@ -202,15 +202,17 @@ impl WalletSubcommand for AccountSubcommand {
         wallet_core: &mut WalletCore,
     ) -> Result<SubcommandReturnValue> {
         match self {
-            AccountSubcommand::Get { raw, addr } => {
-                let (addr, addr_kind) = parse_addr_with_privacy_prefix(&addr)?;
+            AccountSubcommand::Get { raw, account_id } => {
+                let (account_id, addr_kind) = parse_addr_with_privacy_prefix(&account_id)?;
 
-                let addr = addr.parse()?;
+                let account_id = account_id.parse()?;
 
                 let account = match addr_kind {
-                    AddressPrivacyKind::Public => wallet_core.get_account_public(addr).await?,
-                    AddressPrivacyKind::Private => wallet_core
-                        .get_account_private(&addr)
+                    AccountPrivacyKind::Public => {
+                        wallet_core.get_account_public(account_id).await?
+                    }
+                    AccountPrivacyKind::Private => wallet_core
+                        .get_account_private(&account_id)
                         .ok_or(anyhow::anyhow!("Private account not found in storage"))?,
                 };
 
@@ -252,7 +254,9 @@ impl WalletSubcommand for AccountSubcommand {
 
                             serde_json::to_string(&acc_view)?
                         } else {
-                            anyhow::bail!("Invalid data for account {addr:#?} with token program");
+                            anyhow::bail!(
+                                "Invalid data for account {account_id:#?} with token program"
+                            );
                         }
                     }
                     _ => {
@@ -280,7 +284,7 @@ impl WalletSubcommand for AccountSubcommand {
                     .storage
                     .user_data
                     .private_key_tree
-                    .addr_map
+                    .account_id_map
                     .is_empty()
                 {
                     wallet_core.last_synced_block = curr_last_block;

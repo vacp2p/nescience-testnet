@@ -1,10 +1,7 @@
-use std::path::PathBuf;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
 use sequencer_core::config::SequencerConfig;
-
-use std::fs::File;
-use std::io::BufReader;
 
 pub fn from_file(config_home: PathBuf) -> Result<SequencerConfig> {
     let file = File::open(config_home)?;

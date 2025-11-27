@@ -1,9 +1,8 @@
-use nssa_core::address::Address;
+use nssa_core::account::AccountId;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{PrivateKey, error::NssaError};
-
-use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicKey([u8; 32]);
@@ -32,7 +31,7 @@ impl PublicKey {
     }
 }
 
-impl From<&PublicKey> for Address {
+impl From<&PublicKey> for AccountId {
     fn from(key: &PublicKey) -> Self {
         const PUBLIC_ACCOUNT_ID_PREFIX: &[u8; 32] = b"/NSSA/v0.2/AccountId/Public/\x00\x00\x00\x00";
 

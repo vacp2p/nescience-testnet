@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-//Requests
+// Requests
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendTxRequest {
     pub transaction: Vec<u8>,
 }
 
-//Responses
+// Responses
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendTxResponse {
@@ -15,7 +15,7 @@ pub struct SendTxResponse {
     pub tx_hash: String,
 }
 
-//General
+// General
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SequencerRpcRequest {
@@ -31,7 +31,7 @@ impl SequencerRpcRequest {
             jsonrpc: "2.0".to_string(),
             method,
             params: payload,
-            //ToDo: Correct checking of id
+            // ToDo: Correct checking of id
             id: 1,
         }
     }
@@ -45,9 +45,9 @@ pub struct SequencerRpcResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-///Helperstruct for account serialization
+/// Helperstruct for account serialization
 pub struct AccountInitialData {
-    ///Hex encoded `AccountAddress`
-    pub addr: String,
+    /// Hex encoded account id
+    pub account_id: String,
     pub balance: u64,
 }

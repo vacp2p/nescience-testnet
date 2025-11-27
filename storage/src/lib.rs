@@ -8,33 +8,33 @@ use rocksdb::{
 
 pub mod error;
 
-///Maximal size of stored blocks in base
+/// Maximal size of stored blocks in base
 ///
-///Used to control db size
+/// Used to control db size
 ///
-///Currently effectively unbounded.
+/// Currently effectively unbounded.
 pub const BUFF_SIZE_ROCKSDB: usize = usize::MAX;
 
-///Size of stored blocks cache in memory
+/// Size of stored blocks cache in memory
 ///
-///Keeping small to not run out of memory
+/// Keeping small to not run out of memory
 pub const CACHE_SIZE: usize = 1000;
 
-///Key base for storing metainformation about id of first block in db
+/// Key base for storing metainformation about id of first block in db
 pub const DB_META_FIRST_BLOCK_IN_DB_KEY: &str = "first_block_in_db";
-///Key base for storing metainformation about id of last current block in db
+/// Key base for storing metainformation about id of last current block in db
 pub const DB_META_LAST_BLOCK_IN_DB_KEY: &str = "last_block_in_db";
-///Key base for storing metainformation which describe if first block has been set
+/// Key base for storing metainformation which describe if first block has been set
 pub const DB_META_FIRST_BLOCK_SET_KEY: &str = "first_block_set";
 
-///Key base for storing snapshot which describe block id
+/// Key base for storing snapshot which describe block id
 pub const DB_SNAPSHOT_BLOCK_ID_KEY: &str = "block_id";
 
-///Name of block column family
+/// Name of block column family
 pub const CF_BLOCK_NAME: &str = "cf_block";
-///Name of meta column family
+/// Name of meta column family
 pub const CF_META_NAME: &str = "cf_meta";
-///Name of snapshot column family
+/// Name of snapshot column family
 pub const CF_SNAPSHOT_NAME: &str = "cf_snapshot";
 
 pub type DbResult<T> = Result<T, DbError>;
@@ -47,7 +47,7 @@ impl RocksDBIO {
     pub fn open_or_create(path: &Path, start_block: Option<Block>) -> DbResult<Self> {
         let mut cf_opts = Options::default();
         cf_opts.set_max_write_buffer_number(16);
-        //ToDo: Add more column families for different data
+        // ToDo: Add more column families for different data
         let cfb = ColumnFamilyDescriptor::new(CF_BLOCK_NAME, cf_opts.clone());
         let cfmeta = ColumnFamilyDescriptor::new(CF_META_NAME, cf_opts.clone());
         let cfsnapshot = ColumnFamilyDescriptor::new(CF_SNAPSHOT_NAME, cf_opts.clone());
@@ -62,7 +62,7 @@ impl RocksDBIO {
         );
 
         let dbio = Self {
-            //There is no point in handling this from runner code
+            // There is no point in handling this from runner code
             db: db.unwrap(),
         };
 
@@ -86,7 +86,7 @@ impl RocksDBIO {
     pub fn destroy(path: &Path) -> DbResult<()> {
         let mut cf_opts = Options::default();
         cf_opts.set_max_write_buffer_number(16);
-        //ToDo: Add more column families for different data
+        // ToDo: Add more column families for different data
         let _cfb = ColumnFamilyDescriptor::new(CF_BLOCK_NAME, cf_opts.clone());
         let _cfmeta = ColumnFamilyDescriptor::new(CF_META_NAME, cf_opts.clone());
         let _cfsnapshot = ColumnFamilyDescriptor::new(CF_SNAPSHOT_NAME, cf_opts.clone());

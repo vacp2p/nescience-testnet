@@ -10,5 +10,5 @@ pub trait KeyNode {
 
     fn child_index(&self) -> Option<u32>;
 
-    fn address(&self) -> nssa::Address;
+    fn account_id(&self) -> nssa::AccountId;
 }

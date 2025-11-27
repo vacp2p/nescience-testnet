@@ -5,6 +5,10 @@ use wallet::{Args, OverCommand, execute_continious_run, execute_setup, execute_s
 
 pub const NUM_THREADS: usize = 2;
 
+// TODO #169: We have sample configs for sequencer, but not for wallet
+// TODO #168: Why it requires config as a directory? Maybe better to deduce directory from config
+// file path? TODO #172: Why it requires config as env var while sequencer_runner accepts as
+// argument? TODO #171: Running pinata doesn't give output about transaction hash and etc.
 fn main() -> Result<()> {
     let runtime = Builder::new_multi_thread()
         .worker_threads(NUM_THREADS)
