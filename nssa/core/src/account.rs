@@ -1,12 +1,12 @@
-use crate::program::ProgramId;
-use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "host")]
 use std::{fmt::Display, str::FromStr};
 
 #[cfg(feature = "host")]
 use base58::{FromBase58, ToBase58};
+use borsh::{BorshDeserialize, BorshSerialize};
+use serde::{Deserialize, Serialize};
+
+use crate::program::ProgramId;
 
 pub type Nonce = u128;
 pub type Data = Vec<u8>;
