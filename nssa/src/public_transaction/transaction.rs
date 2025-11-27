@@ -168,7 +168,10 @@ impl PublicTransaction {
                 state_diff.insert(pre.account_id, post.clone());
             }
 
-            chained_calls.extend(program_output.chained_calls);
+            for new_call in program_output.chained_calls.into_iter().rev() {
+                chained_calls.push_front(new_call);
+            }
+
             chain_calls_counter += 1;
         }
 
