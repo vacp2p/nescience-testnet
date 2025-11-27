@@ -14,10 +14,15 @@ pub struct ProgramInput<T> {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
+pub struct PdaSeed([u8; 32]);
+
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(any(feature = "host", test), derive(Debug, PartialEq, Eq))]
 pub struct ChainedCall {
     pub program_id: ProgramId,
     pub instruction_data: InstructionData,
     pub pre_states: Vec<AccountWithMetadata>,
+    pub pda_seeds: Vec<PdaSeed>
 }
 
 #[derive(Serialize, Deserialize, Clone)]

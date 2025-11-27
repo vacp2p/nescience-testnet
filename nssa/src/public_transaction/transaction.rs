@@ -107,6 +107,7 @@ impl PublicTransaction {
             program_id: message.program_id,
             instruction_data: message.instruction_data.clone(),
             pre_states: input_pre_states,
+            pda_seeds: vec![],
         };
 
         let mut chained_calls = VecDeque::from_iter([initial_call]);

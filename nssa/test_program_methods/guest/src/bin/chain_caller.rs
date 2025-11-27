@@ -25,6 +25,7 @@ fn main() {
             program_id,
             instruction_data: instruction_data.clone(),
             pre_states: vec![receiver_pre.clone(), sender_pre.clone()], // <- Account order permutation here
+            pda_seeds: vec![]
         };
         num_chain_calls as usize - 1
     ];
@@ -33,6 +34,7 @@ fn main() {
         program_id,
         instruction_data,
         pre_states: vec![receiver_pre.clone(), sender_pre.clone()], // <- Account order permutation here
+        pda_seeds: vec![],
     });
 
     write_nssa_outputs_with_chained_call(
