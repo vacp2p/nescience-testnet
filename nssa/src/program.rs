@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::{
     error::NssaError,
-    program_methods::{AUTHENTICATED_TRANSFER_ELF, PINATA_ELF, TOKEN_ELF},
+    program_methods::{AUTHENTICATED_TRANSFER_ELF, PINATA_ELF, TOKEN_ELF, MODIFIED_TRANSFER_ELF},
 };
 
 /// Maximum number of cycles for a public execution.
@@ -95,6 +95,13 @@ impl Program {
         // `program_methods`
         Self::new(TOKEN_ELF.to_vec()).unwrap()
     }
+
+    pub fn modified_transfer_program() -> Self {
+        // This unwrap won't panic since the `MODIFIED_TRANSFER_ELF` comes from risc0 build of
+        // `program_methods`
+        Self::new(MODIFIED_TRANSFER_ELF.to_vec()).unwrap()
+    }
+        
 }
 
 // TODO: Testnet only. Refactor to prevent compilation on mainnet.

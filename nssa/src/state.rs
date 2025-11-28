@@ -2162,4 +2162,99 @@ pub mod tests {
             Err(NssaError::MaxChainedCallsDepthExceeded)
         ));
     }
+
+
+     #[test]
+    fn test_bad_transaction() {
+
+        let sender_key = PrivateKey::try_new([37; 32]).unwrap();
+        let sender_id =
+            AccountId::from(&PublicKey::new_from_private_key(&sender_key));
+        let sender_init_balance: u128 = 10;
+
+        let recipient_key = PrivateKey::try_new([42; 32]).unwrap();
+        let recipient_id =
+            AccountId::from(&PublicKey::new_from_private_key(&recipient_key));
+        let recipient_init_balance: u128 = 10;
+
+        let mut state =
+            V02State::new_with_genesis_accounts(&[
+                (sender_id.clone(), sender_init_balance),
+                (recipient_id.clone(), recipient_init_balance)], &[]);
+
+        state.insert_program(Program::modified_transfer_program());
+
+
+        let balance_to_move: u128 = 4;
+
+        let sender = AccountWithMetadata::new(
+            state.get_account_by_id(&sender_id.clone()),
+            true,
+            sender_id.clone(),
+        );
+
+        let sender_nonce = sender.account.nonce;
+
+        let recipient = AccountWithMetadata::new(
+                state.get_account_by_id(&recipient_id),
+                false,
+                sender_id.clone());
+                
+
+        let message = public_transaction::Message::try_new(
+            Program::modified_transfer_program().id(),
+            vec![sender_id, recipient_id],
+            vec![sender_nonce],
+            balance_to_move,
+        )
+        .unwrap();
+     
+
+        let base: u128 = 2;
+        let malicious_offset = base.pow(17);
+
+        let witness_set =
+            public_transaction::WitnessSet::for_message(&message, &[&sender_key]);
+        let tx = PublicTransaction::new(message, witness_set);
+        state.transition_from_public_transaction(&tx).unwrap();
+
+        let sender_post = state.get_account_by_id(&sender_id);
+        let recipient_post = state.get_account_by_id(&recipient_id);
+        //        panic!("{}", sender_post.balance);
+
+        let expected_sender_post = {
+            let mut this = state.get_account_by_id(&sender_id);
+            this.balance = sender_init_balance - balance_to_move - malicious_offset;
+            this.nonce = 1;
+            this
+        };
+
+        let expected_recipient_post = {
+            let mut this = state.get_account_by_id(&sender_id);
+            this.balance = recipient_init_balance + balance_to_move + malicious_offset;
+            this.nonce = 0;
+            this
+        };
+
+        assert!(expected_sender_post == sender_post);
+        assert!(expected_recipient_post == recipient_post);
+
+        /*
+        let [expected_new_commitment] = tx.message().new_commitments.clone().try_into().unwrap();
+        assert!(!state.private_state.0.contains(&expected_new_commitment));
+
+        state
+            .transition_from_privacy_preserving_transaction(&tx)
+            .unwrap();
+
+        let sender_post = state.get_account_by_id(&sender_keys.account_id());
+        assert_eq!(sender_post, expected_sender_post);
+        assert!(state.private_state.0.contains(&expected_new_commitment));
+
+        assert_eq!(
+            state.get_account_by_id(&sender_keys.account_id()).balance,
+            200 - balance_to_move
+        );
+        */
+    }
 }
