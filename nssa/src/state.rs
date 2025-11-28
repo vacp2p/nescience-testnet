@@ -2299,6 +2299,9 @@ pub mod tests {
         state.transition_from_public_transaction(&tx).unwrap();
 
         let winner_token_holding_post = state.get_account_by_id(&winner_token_holding_id);
-        assert_eq!(winner_token_holding_post, expected_winner_token_holding_post);
+        assert_eq!(
+            winner_token_holding_post,
+            expected_winner_token_holding_post
+        );
     }
 }
