@@ -11,7 +11,7 @@ use crate::{WalletCore, transaction_utils::AccountPreparedData};
 
 pub enum PrivacyPreservingAccount {
     Public(AccountId),
-    PrivateLocal(AccountId),
+    PrivateOwned(AccountId),
     PrivateForeign {
         npk: NullifierPublicKey,
         ipk: IncomingViewingPublicKey,
@@ -59,7 +59,7 @@ impl Payload {
 
                     (State::Public { account, sk }, 0)
                 }
-                PrivacyPreservingAccount::PrivateLocal(account_id) => {
+                PrivacyPreservingAccount::PrivateOwned(account_id) => {
                     let mut pre = wallet
                         .private_acc_preparation(account_id, true, true)
                         .await?;

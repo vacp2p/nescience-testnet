@@ -7,6 +7,7 @@ use crate::{
     WalletCore,
     cli::{SubcommandReturnValue, WalletSubcommand},
     helperfunctions::{AccountPrivacyKind, parse_addr_with_privacy_prefix},
+    program_facades::token::Token,
 };
 
 /// Represents generic CLI subcommand for a wallet working with token program
@@ -338,8 +339,8 @@ impl WalletSubcommand for TokenProgramSubcommandPublic {
                 }
                 let mut name_bytes = [0; 6];
                 name_bytes[..name.len()].copy_from_slice(name);
-                wallet_core
-                    .send_new_token_definition(
+                Token(wallet_core)
+                    .send_new_definition(
                         definition_account_id.parse().unwrap(),
                         supply_account_id.parse().unwrap(),
                         name_bytes,
@@ -353,8 +354,8 @@ impl WalletSubcommand for TokenProgramSubcommandPublic {
                 recipient_account_id,
                 balance_to_move,
             } => {
-                wallet_core
-                    .send_transfer_token_transaction(
+                Token(wallet_core)
+                    .send_transfer_transaction(
                         sender_account_id.parse().unwrap(),
                         recipient_account_id.parse().unwrap(),
                         balance_to_move,
@@ -389,8 +390,8 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                 let definition_account_id: AccountId = definition_account_id.parse().unwrap();
                 let supply_account_id: AccountId = supply_account_id.parse().unwrap();
 
-                let (res, secret_supply) = wallet_core
-                    .send_new_token_definition_private_owned(
+                let (res, secret_supply) = Token(wallet_core)
+                    .send_new_definition_private_owned(
                         definition_account_id,
                         supply_account_id,
                         name_bytes,
@@ -428,8 +429,8 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                 let sender_account_id: AccountId = sender_account_id.parse().unwrap();
                 let recipient_account_id: AccountId = recipient_account_id.parse().unwrap();
 
-                let (res, [secret_sender, secret_recipient]) = wallet_core
-                    .send_transfer_token_transaction_private_owned_account(
+                let (res, [secret_sender, secret_recipient]) = Token(wallet_core)
+                    .send_transfer_transaction_private_owned_account(
                         sender_account_id,
                         recipient_account_id,
                         balance_to_move,
@@ -480,8 +481,8 @@ impl WalletSubcommand for TokenProgramSubcommandPrivate {
                     recipient_ipk.to_vec(),
                 );
 
-                let (res, [secret_sender, _]) = wallet_core
-                    .send_transfer_token_transaction_private_foreign_account(
+                let (res, [secret_sender, _]) = Token(wallet_core)
+                    .send_transfer_transaction_private_foreign_account(
                         sender_account_id,
                         recipient_npk,
                         recipient_ipk,
@@ -529,8 +530,8 @@ impl WalletSubcommand for TokenProgramSubcommandDeshielded {
                 let sender_account_id: AccountId = sender_account_id.parse().unwrap();
                 let recipient_account_id: AccountId = recipient_account_id.parse().unwrap();
 
-                let (res, secret_sender) = wallet_core
-                    .send_transfer_token_transaction_deshielded(
+                let (res, secret_sender) = Token(wallet_core)
+                    .send_transfer_transaction_deshielded(
                         sender_account_id,
                         recipient_account_id,
                         balance_to_move,
@@ -588,8 +589,8 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
                     recipient_ipk.to_vec(),
                 );
 
-                let (res, _) = wallet_core
-                    .send_transfer_token_transaction_shielded_foreign_account(
+                let (res, _) = Token(wallet_core)
+                    .send_transfer_transaction_shielded_foreign_account(
                         sender_account_id,
                         recipient_npk,
                         recipient_ipk,
@@ -622,8 +623,8 @@ impl WalletSubcommand for TokenProgramSubcommandShielded {
                 let sender_account_id: AccountId = sender_account_id.parse().unwrap();
                 let recipient_account_id: AccountId = recipient_account_id.parse().unwrap();
 
-                let (res, secret_recipient) = wallet_core
-                    .send_transfer_token_transaction_shielded_owned_account(
+                let (res, secret_recipient) = Token(wallet_core)
+                    .send_transfer_transaction_shielded_owned_account(
                         sender_account_id,
                         recipient_account_id,
                         balance_to_move,

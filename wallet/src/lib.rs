@@ -31,8 +31,7 @@ pub mod config;
 pub mod helperfunctions;
 pub mod poller;
 mod privacy_preserving_tx;
-pub mod program_interactions;
-pub mod token_transfers;
+pub mod program_facades;
 pub mod transaction_utils;
 
 pub struct WalletCore {
@@ -214,9 +213,9 @@ impl WalletCore {
     pub async fn send_privacy_preserving_tx(
         &self,
         accounts: Vec<PrivacyPreservingAccount>,
-        instruction_data: InstructionData,
+        instruction_data: &InstructionData,
         tx_pre_check: impl FnOnce(&[&Account]) -> Result<(), ExecutionFailureKind>,
-        program: Program,
+        program: &Program,
     ) -> Result<(SendTxResponse, Vec<SharedSecretKey>), ExecutionFailureKind> {
         let payload = privacy_preserving_tx::Payload::new(self, accounts).await?;
 
@@ -231,7 +230,7 @@ impl WalletCore {
         let private_account_keys = payload.private_account_keys();
         let (output, proof) = nssa::privacy_preserving_transaction::circuit::execute_and_prove(
             &pre_states,
-            &instruction_data,
+            instruction_data,
             payload.visibility_mask(),
             &produce_random_nonces(private_account_keys.len()),
             &private_account_keys
@@ -239,7 +238,7 @@ impl WalletCore {
                 .map(|keys| (keys.npk.clone(), keys.ssk.clone()))
                 .collect::<Vec<_>>(),
             &payload.private_account_auth(),
-            &program,
+            program,
         )
         .unwrap();
 
