@@ -7,6 +7,7 @@ use crate::{
     WalletCore,
     cli::{SubcommandReturnValue, WalletSubcommand},
     helperfunctions::{AccountPrivacyKind, parse_addr_with_privacy_prefix},
+    program_facades::native_token_transfer::NativeTokenTransfer,
 };
 
 /// Represents generic CLI subcommand for a wallet working with native token transfer program
@@ -56,8 +57,8 @@ impl WalletSubcommand for AuthTransferSubcommand {
                     AccountPrivacyKind::Public => {
                         let account_id = account_id.parse()?;
 
-                        let res = wallet_core
-                            .register_account_under_authenticated_transfers_programs(account_id)
+                        let res = NativeTokenTransfer(wallet_core)
+                            .register_account(account_id)
                             .await?;
 
                         println!("Results of tx send is {res:#?}");
@@ -317,8 +318,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandPrivate {
                 let from: AccountId = from.parse().unwrap();
                 let to: AccountId = to.parse().unwrap();
 
-                let (res, [secret_from, secret_to]) = wallet_core
-                    .send_private_native_token_transfer_owned_account(from, to, amount)
+                let (res, [secret_from, secret_to]) = NativeTokenTransfer(wallet_core)
+                    .send_private_transfer_to_owned_account(from, to, amount)
                     .await?;
 
                 println!("Results of tx send is {res:#?}");
@@ -361,8 +362,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandPrivate {
                 let to_ipk =
                     nssa_core::encryption::shared_key_derivation::Secp256k1Point(to_ipk.to_vec());
 
-                let (res, [secret_from, _]) = wallet_core
-                    .send_private_native_token_transfer_outer_account(from, to_npk, to_ipk, amount)
+                let (res, [secret_from, _]) = NativeTokenTransfer(wallet_core)
+                    .send_private_transfer_to_outer_account(from, to_npk, to_ipk, amount)
                     .await?;
 
                 println!("Results of tx send is {res:#?}");
@@ -401,8 +402,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandShielded {
                 let from: AccountId = from.parse().unwrap();
                 let to: AccountId = to.parse().unwrap();
 
-                let (res, secret) = wallet_core
-                    .send_shielded_native_token_transfer(from, to, amount)
+                let (res, secret) = NativeTokenTransfer(wallet_core)
+                    .send_shielded_transfer(from, to, amount)
                     .await?;
 
                 println!("Results of tx send is {res:#?}");
@@ -446,8 +447,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommandShielded {
                 let to_ipk =
                     nssa_core::encryption::shared_key_derivation::Secp256k1Point(to_ipk.to_vec());
 
-                let (res, _) = wallet_core
-                    .send_shielded_native_token_transfer_outer_account(from, to_npk, to_ipk, amount)
+                let (res, _) = NativeTokenTransfer(wallet_core)
+                    .send_shielded_transfer_to_outer_account(from, to_npk, to_ipk, amount)
                     .await?;
 
                 println!("Results of tx send is {res:#?}");
@@ -480,8 +481,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommand {
                 let from: AccountId = from.parse().unwrap();
                 let to: AccountId = to.parse().unwrap();
 
-                let (res, secret) = wallet_core
-                    .send_deshielded_native_token_transfer(from, to, amount)
+                let (res, secret) = NativeTokenTransfer(wallet_core)
+                    .send_deshielded_transfer(from, to, amount)
                     .await?;
 
                 println!("Results of tx send is {res:#?}");
@@ -510,8 +511,8 @@ impl WalletSubcommand for NativeTokenTransferProgramSubcommand {
                 let from: AccountId = from.parse().unwrap();
                 let to: AccountId = to.parse().unwrap();
 
-                let res = wallet_core
-                    .send_public_native_token_transfer(from, to, amount)
+                let res = NativeTokenTransfer(wallet_core)
+                    .send_public_transfer(from, to, amount)
                     .await?;
 
                 println!("Results of tx send is {res:#?}");

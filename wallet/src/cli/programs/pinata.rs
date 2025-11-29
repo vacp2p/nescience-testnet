@@ -7,6 +7,7 @@ use crate::{
     WalletCore,
     cli::{SubcommandReturnValue, WalletSubcommand},
     helperfunctions::{AccountPrivacyKind, parse_addr_with_privacy_prefix},
+    program_facades::pinata::Pinata,
 };
 
 /// Represents generic CLI subcommand for a wallet working with pinata program
@@ -117,8 +118,8 @@ impl WalletSubcommand for PinataProgramSubcommandPublic {
                 winner_account_id,
                 solution,
             } => {
-                let res = wallet_core
-                    .claim_pinata(
+                let res = Pinata(wallet_core)
+                    .claim(
                         pinata_account_id.parse().unwrap(),
                         winner_account_id.parse().unwrap(),
                         solution,
@@ -146,28 +147,9 @@ impl WalletSubcommand for PinataProgramSubcommandPrivate {
                 let pinata_account_id = pinata_account_id.parse().unwrap();
                 let winner_account_id = winner_account_id.parse().unwrap();
 
-                let winner_initialization = wallet_core
-                    .check_private_account_initialized(&winner_account_id)
+                let (res, secret_winner) = Pinata(wallet_core)
+                    .claim_private_owned_account(pinata_account_id, winner_account_id, solution)
                     .await?;
-
-                let (res, [secret_winner]) = if let Some(winner_proof) = winner_initialization {
-                    wallet_core
-                        .claim_pinata_private_owned_account_already_initialized(
-                            pinata_account_id,
-                            winner_account_id,
-                            solution,
-                            winner_proof,
-                        )
-                        .await?
-                } else {
-                    wallet_core
-                        .claim_pinata_private_owned_account_not_initialized(
-                            pinata_account_id,
-                            winner_account_id,
-                            solution,
-                        )
-                        .await?
-                };
 
                 info!("Results of tx send is {res:#?}");
 
