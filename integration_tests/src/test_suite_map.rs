@@ -1379,10 +1379,8 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         let pinata_account_id = PINATA_BASE58;
 
         let pinata_prize = 150;
-        let solution = 989106;
         let command = Command::Pinata(PinataProgramAgnosticSubcommand::Claim {
-            to_account_id: make_public_account_input_from_str(ACC_SENDER),
-            solution,
+            to: make_public_account_input_from_str(ACC_SENDER),
         });
 
         let wallet_config = fetch_config().await.unwrap();
@@ -1508,11 +1506,9 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         info!("########## test_pinata_private_receiver ##########");
         let pinata_account_id = PINATA_BASE58;
         let pinata_prize = 150;
-        let solution = 989106;
 
         let command = Command::Pinata(PinataProgramAgnosticSubcommand::Claim {
-            to_account_id: make_private_account_input_from_str(ACC_SENDER_PRIVATE),
-            solution,
+            to: make_private_account_input_from_str(ACC_SENDER_PRIVATE),
         });
 
         let wallet_config = fetch_config().await.unwrap();
@@ -1565,7 +1561,6 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         info!("########## test_pinata_private_receiver ##########");
         let pinata_account_id = PINATA_BASE58;
         let pinata_prize = 150;
-        let solution = 989106;
 
         // Create new account for the token supply holder (private)
         let SubcommandReturnValue::RegisterAccount {
@@ -1580,8 +1575,7 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         };
 
         let command = Command::Pinata(PinataProgramAgnosticSubcommand::Claim {
-            to_account_id: make_private_account_input_from_str(&winner_account_id.to_string()),
-            solution,
+            to: make_private_account_input_from_str(&winner_account_id.to_string()),
         });
 
         let wallet_config = fetch_config().await.unwrap();

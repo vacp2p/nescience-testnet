@@ -233,8 +233,8 @@ impl V02State {
             Account {
                 program_owner: Program::pinata().id(),
                 balance: 1500,
-                // Difficulty: 3
-                data: vec![3; 33],
+                // Difficulty: 2
+                data: vec![2; 33],
                 nonce: 0,
             },
         );
