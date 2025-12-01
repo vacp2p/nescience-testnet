@@ -1,4 +1,9 @@
-use key_protocol::key_management::KeyChain;
+use key_protocol::key_management::{
+    KeyChain,
+    key_tree::{
+        chain_index::ChainIndex, keys_private::ChildKeysPrivate, keys_public::ChildKeysPublic,
+    },
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,7 +15,8 @@ pub struct InitialAccountDataPublic {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistentAccountDataPublic {
     pub account_id: nssa::AccountId,
-    pub pub_sign_key: nssa::PrivateKey,
+    pub chain_index: ChainIndex,
+    pub data: ChildKeysPublic,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,8 +29,8 @@ pub struct InitialAccountDataPrivate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistentAccountDataPrivate {
     pub account_id: nssa::AccountId,
-    pub account: nssa_core::account::Account,
-    pub key_chain: KeyChain,
+    pub chain_index: ChainIndex,
+    pub data: ChildKeysPrivate,
 }
 
 // Big difference in enum variants sizes
@@ -45,6 +51,7 @@ pub enum InitialAccountData {
 pub enum PersistentAccountData {
     Public(PersistentAccountDataPublic),
     Private(PersistentAccountDataPrivate),
+    Preconfigured(InitialAccountData),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,6 +74,7 @@ impl PersistentAccountData {
         match &self {
             Self::Public(acc) => acc.account_id,
             Self::Private(acc) => acc.account_id,
+            Self::Preconfigured(acc) => acc.account_id(),
         }
     }
 }
@@ -92,6 +100,12 @@ impl From<PersistentAccountDataPublic> for PersistentAccountData {
 impl From<PersistentAccountDataPrivate> for PersistentAccountData {
     fn from(value: PersistentAccountDataPrivate) -> Self {
         Self::Private(value)
+    }
+}
+
+impl From<InitialAccountData> for PersistentAccountData {
+    fn from(value: InitialAccountData) -> Self {
+        Self::Preconfigured(value)
     }
 }
 

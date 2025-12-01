@@ -1,7 +1,13 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
 use anyhow::Result;
-use key_protocol::key_protocol_core::NSSAUserData;
+use key_protocol::{
+    key_management::{
+        key_tree::{KeyTreePrivate, KeyTreePublic, chain_index::ChainIndex},
+        secret_holders::SeedHolder,
+    },
+    key_protocol_core::NSSAUserData,
+};
 use nssa::program::Program;
 
 use crate::config::{InitialAccountData, PersistentAccountData, WalletConfig};
@@ -12,7 +18,76 @@ pub struct WalletChainStore {
 }
 
 impl WalletChainStore {
-    pub fn new(config: WalletConfig) -> Result<Self> {
+    pub fn new(
+        config: WalletConfig,
+        persistent_accounts: Vec<PersistentAccountData>,
+    ) -> Result<Self> {
+        if persistent_accounts.is_empty() {
+            anyhow::bail!("Roots not found; please run setup beforehand");
+        }
+
+        let mut public_init_acc_map = HashMap::new();
+        let mut private_init_acc_map = HashMap::new();
+
+        let public_root = persistent_accounts
+            .iter()
+            .find(|data| match data {
+                &PersistentAccountData::Public(data) => data.chain_index == ChainIndex::root(),
+                _ => false,
+            })
+            .cloned()
+            .expect("Malformed persistent account data, must have public root");
+
+        let private_root = persistent_accounts
+            .iter()
+            .find(|data| match data {
+                &PersistentAccountData::Private(data) => data.chain_index == ChainIndex::root(),
+                _ => false,
+            })
+            .cloned()
+            .expect("Malformed persistent account data, must have private root");
+
+        let mut public_tree = KeyTreePublic::new_from_root(match public_root {
+            PersistentAccountData::Public(data) => data.data,
+            _ => unreachable!(),
+        });
+        let mut private_tree = KeyTreePrivate::new_from_root(match private_root {
+            PersistentAccountData::Private(data) => data.data,
+            _ => unreachable!(),
+        });
+
+        for pers_acc_data in persistent_accounts {
+            match pers_acc_data {
+                PersistentAccountData::Public(data) => {
+                    public_tree.insert(data.account_id, data.chain_index, data.data);
+                }
+                PersistentAccountData::Private(data) => {
+                    private_tree.insert(data.account_id, data.chain_index, data.data);
+                }
+                PersistentAccountData::Preconfigured(acc_data) => match acc_data {
+                    InitialAccountData::Public(data) => {
+                        public_init_acc_map.insert(data.account_id.parse()?, data.pub_sign_key);
+                    }
+                    InitialAccountData::Private(data) => {
+                        private_init_acc_map
+                            .insert(data.account_id.parse()?, (data.key_chain, data.account));
+                    }
+                },
+            }
+        }
+
+        Ok(Self {
+            user_data: NSSAUserData::new_with_accounts(
+                public_init_acc_map,
+                private_init_acc_map,
+                public_tree,
+                private_tree,
+            )?,
+            wallet_config: config,
+        })
+    }
+
+    pub fn new_storage(config: WalletConfig, password: String) -> Result<Self> {
         let mut public_init_acc_map = HashMap::new();
         let mut private_init_acc_map = HashMap::new();
 
@@ -33,8 +108,16 @@ impl WalletChainStore {
             }
         }
 
+        let public_tree = KeyTreePublic::new(&SeedHolder::new_mnemonic(password.clone()));
+        let private_tree = KeyTreePrivate::new(&SeedHolder::new_mnemonic(password));
+
         Ok(Self {
-            user_data: NSSAUserData::new_with_accounts(public_init_acc_map, private_init_acc_map)?,
+            user_data: NSSAUserData::new_with_accounts(
+                public_init_acc_map,
+                private_init_acc_map,
+                public_tree,
+                private_tree,
+            )?,
             wallet_config: config,
         })
     }
@@ -44,36 +127,40 @@ impl WalletChainStore {
         account_id: nssa::AccountId,
         account: nssa_core::account::Account,
     ) {
-        println!(
-            "inserting at addres {}, this account {:?}",
-            account_id, account
-        );
-        self.user_data
-            .user_private_accounts
-            .entry(account_id)
-            .and_modify(|(_, acc)| *acc = account);
-    }
+        println!("inserting at address {account_id}, this account {account:?}");
 
-    pub(crate) fn insert_account_data(&mut self, acc_data: PersistentAccountData) {
-        match acc_data {
-            PersistentAccountData::Public(acc_data) => {
-                self.user_data
-                    .pub_account_signing_keys
-                    .insert(acc_data.account_id, acc_data.pub_sign_key);
-            }
-            PersistentAccountData::Private(acc_data) => {
-                self.user_data
-                    .user_private_accounts
-                    .insert(acc_data.account_id, (acc_data.key_chain, acc_data.account));
-            }
+        let entry = self
+            .user_data
+            .default_user_private_accounts
+            .entry(account_id)
+            .and_modify(|data| data.1 = account.clone());
+
+        if matches!(entry, Entry::Vacant(_)) {
+            self.user_data
+                .private_key_tree
+                .account_id_map
+                .get(&account_id)
+                .map(|chain_index| {
+                    self.user_data
+                        .private_key_tree
+                        .key_map
+                        .entry(chain_index.clone())
+                        .and_modify(|data| data.value.1 = account)
+                });
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use key_protocol::key_management::key_tree::{
+        keys_private::ChildKeysPrivate, keys_public::ChildKeysPublic, traits::KeyNode,
+    };
+
     use super::*;
-    use crate::config::InitialAccountData;
+    use crate::config::{
+        InitialAccountData, PersistentAccountDataPrivate, PersistentAccountDataPublic,
+    };
 
     fn create_initial_accounts() -> Vec<InitialAccountData> {
         let initial_acc1 = serde_json::from_str(
@@ -179,10 +266,29 @@ mod tests {
         }
     }
 
+    fn create_sample_persistent_accounts() -> Vec<PersistentAccountData> {
+        let public_data = ChildKeysPublic::root([42; 64]);
+        let private_data = ChildKeysPrivate::root([47; 64]);
+
+        vec![
+            PersistentAccountData::Public(PersistentAccountDataPublic {
+                account_id: public_data.account_id(),
+                chain_index: ChainIndex::root(),
+                data: public_data,
+            }),
+            PersistentAccountData::Private(PersistentAccountDataPrivate {
+                account_id: private_data.account_id(),
+                chain_index: ChainIndex::root(),
+                data: private_data,
+            }),
+        ]
+    }
+
     #[test]
     fn test_new_initializes_correctly() {
         let config = create_sample_wallet_config();
+        let accs = create_sample_persistent_accounts();
 
-        let _ = WalletChainStore::new(config.clone()).unwrap();
+        let _ = WalletChainStore::new(config.clone(), accs).unwrap();
     }
 }

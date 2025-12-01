@@ -36,9 +36,9 @@ path = "../wallet"
 [dependencies.common]
 path = "../common"
 
+[dependencies.key_protocol]
+path = "../key_protocol"
+
 [dependencies.nssa]
 path = "../nssa"
 features = ["no_docker"]
-
-[dependencies.key_protocol]
-path = "../key_protocol"

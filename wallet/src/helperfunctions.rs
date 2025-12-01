@@ -12,6 +12,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::{
     HOME_DIR_ENV_VAR,
     config::{
+        InitialAccountData, InitialAccountDataPrivate, InitialAccountDataPublic,
         PersistentAccountDataPrivate, PersistentAccountDataPublic, PersistentStorage, WalletConfig,
     },
 };
@@ -90,7 +91,7 @@ pub async fn fetch_config() -> Result<WalletConfig> {
 
 /// Fetch data stored at home
 ///
-/// If file not present, it is considered as empty list of persistent accounts
+/// File must be created through setup beforehand.
 pub async fn fetch_persistent_storage() -> Result<PersistentStorage> {
     let home = get_home()?;
     let accs_path = home.join("storage.json");
@@ -102,10 +103,9 @@ pub async fn fetch_persistent_storage() -> Result<PersistentStorage> {
             Ok(serde_json::from_slice(&storage_content)?)
         }
         Err(err) => match err.kind() {
-            std::io::ErrorKind::NotFound => Ok(PersistentStorage {
-                accounts: vec![],
-                last_synced_block: 0,
-            }),
+            std::io::ErrorKind::NotFound => {
+                anyhow::bail!("Not found, please setup roots from config command beforehand");
+            }
             _ => {
                 anyhow::bail!("IO error {err:#?}");
             }
@@ -120,25 +120,51 @@ pub fn produce_data_for_storage(
 ) -> PersistentStorage {
     let mut vec_for_storage = vec![];
 
-    for (account_id, key) in &user_data.pub_account_signing_keys {
-        vec_for_storage.push(
-            PersistentAccountDataPublic {
-                account_id: *account_id,
-                pub_sign_key: key.clone(),
-            }
-            .into(),
-        );
+    for (account_id, key) in &user_data.public_key_tree.account_id_map {
+        if let Some(data) = user_data.public_key_tree.key_map.get(key) {
+            vec_for_storage.push(
+                PersistentAccountDataPublic {
+                    account_id: *account_id,
+                    chain_index: key.clone(),
+                    data: data.clone(),
+                }
+                .into(),
+            );
+        }
     }
 
-    for (account_id, (key, acc)) in &user_data.user_private_accounts {
+    for (account_id, key) in &user_data.private_key_tree.account_id_map {
+        if let Some(data) = user_data.private_key_tree.key_map.get(key) {
+            vec_for_storage.push(
+                PersistentAccountDataPrivate {
+                    account_id: *account_id,
+                    chain_index: key.clone(),
+                    data: data.clone(),
+                }
+                .into(),
+            );
+        }
+    }
+
+    for (account_id, key) in &user_data.default_pub_account_signing_keys {
         vec_for_storage.push(
-            PersistentAccountDataPrivate {
-                account_id: *account_id,
-                account: acc.clone(),
-                key_chain: key.clone(),
-            }
+            InitialAccountData::Public(InitialAccountDataPublic {
+                account_id: account_id.to_string(),
+                pub_sign_key: key.clone(),
+            })
             .into(),
-        );
+        )
+    }
+
+    for (account_id, (key_chain, account)) in &user_data.default_user_private_accounts {
+        vec_for_storage.push(
+            InitialAccountData::Private(InitialAccountDataPrivate {
+                account_id: account_id.to_string(),
+                account: account.clone(),
+                key_chain: key_chain.clone(),
+            })
+            .into(),
+        )
     }
 
     PersistentStorage {

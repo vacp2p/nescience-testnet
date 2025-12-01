@@ -8,6 +8,8 @@ use rand::{RngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, digest::FixedOutput};
 
+const NSSA_ENTROPY_BYTES: [u8; 32] = [0; 32];
+
 #[derive(Debug)]
 /// Seed holder. Non-clonable to ensure that different holders use different seeds.
 /// Produces `TopSecretKeyHolder` objects.
@@ -37,8 +39,19 @@ impl SeedHolder {
         let mut enthopy_bytes: [u8; 32] = [0; 32];
         OsRng.fill_bytes(&mut enthopy_bytes);
 
-        let mnemonic = Mnemonic::from_entropy(&enthopy_bytes).unwrap();
+        let mnemonic = Mnemonic::from_entropy(&enthopy_bytes)
+            .expect("Enthropy must be a multiple of 32 bytes");
         let seed_wide = mnemonic.to_seed("mnemonic");
+
+        Self {
+            seed: seed_wide.to_vec(),
+        }
+    }
+
+    pub fn new_mnemonic(passphrase: String) -> Self {
+        let mnemonic = Mnemonic::from_entropy(&NSSA_ENTROPY_BYTES)
+            .expect("Enthropy must be a multiple of 32 bytes");
+        let seed_wide = mnemonic.to_seed(passphrase);
 
         Self {
             seed: seed_wide.to_vec(),
@@ -154,5 +167,15 @@ mod tests {
         let top_secret_key_holder = seed_holder.produce_top_secret_key_holder();
 
         let _ = top_secret_key_holder.generate_outgoing_viewing_secret_key();
+    }
+
+    #[test]
+    fn two_seeds_generated_same_from_same_mnemonic() {
+        let mnemonic = "test_pass";
+
+        let seed_holder1 = SeedHolder::new_mnemonic(mnemonic.to_string());
+        let seed_holder2 = SeedHolder::new_mnemonic(mnemonic.to_string());
+
+        assert_eq!(seed_holder1.seed, seed_holder2.seed);
     }
 }

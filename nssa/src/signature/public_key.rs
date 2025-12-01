@@ -1,10 +1,11 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use nssa_core::account::AccountId;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{PrivateKey, error::NssaError};
 
-#[derive(Debug, Clone, PartialEq, Eq, BorshSerialize)]
+#[derive(Debug, Clone, PartialEq, Eq, BorshSerialize, Serialize, Deserialize)]
 pub struct PublicKey([u8; 32]);
 
 impl BorshDeserialize for PublicKey {

@@ -8,12 +8,13 @@ use serde::{Deserialize, Serialize};
 pub type PublicAccountSigningKey = [u8; 32];
 
 pub mod ephemeral_key_holder;
+pub mod key_tree;
 pub mod secret_holders;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Entrypoint to key management
 pub struct KeyChain {
-    secret_spending_key: SecretSpendingKey,
+    pub secret_spending_key: SecretSpendingKey,
     pub private_key_holder: PrivateKeyHolder,
     pub nullifer_public_key: NullifierPublicKey,
     pub incoming_viewing_public_key: IncomingViewingPublicKey,
@@ -24,6 +25,25 @@ impl KeyChain {
         // Currently dropping SeedHolder at the end of initialization.
         // Now entirely sure if we need it in the future.
         let seed_holder = SeedHolder::new_os_random();
+        let secret_spending_key = seed_holder.produce_top_secret_key_holder();
+
+        let private_key_holder = secret_spending_key.produce_private_key_holder();
+
+        let nullifer_public_key = private_key_holder.generate_nullifier_public_key();
+        let incoming_viewing_public_key = private_key_holder.generate_incoming_viewing_public_key();
+
+        Self {
+            secret_spending_key,
+            private_key_holder,
+            nullifer_public_key,
+            incoming_viewing_public_key,
+        }
+    }
+
+    pub fn new_mnemonic(passphrase: String) -> Self {
+        // Currently dropping SeedHolder at the end of initialization.
+        // Not entirely sure if we need it in the future.
+        let seed_holder = SeedHolder::new_mnemonic(passphrase);
         let secret_spending_key = seed_holder.produce_top_secret_key_holder();
 
         let private_key_holder = secret_spending_key.produce_private_key_holder();

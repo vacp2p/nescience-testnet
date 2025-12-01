@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
 use tokio::runtime::Builder;
-use wallet::{Args, execute_continious_run, execute_subcommand};
+use wallet::{Args, OverCommand, execute_continious_run, execute_setup, execute_subcommand};
 
 pub const NUM_THREADS: usize = 2;
 
@@ -21,9 +21,15 @@ fn main() -> Result<()> {
     env_logger::init();
 
     runtime.block_on(async move {
-        if let Some(command) = args.command {
-            // TODO: It should return error, not panic
-            execute_subcommand(command).await.unwrap();
+        if let Some(overcommand) = args.command {
+            match overcommand {
+                OverCommand::Command(command) => {
+                    execute_subcommand(command).await.unwrap();
+                }
+                OverCommand::Setup { password } => {
+                    execute_setup(password).await.unwrap();
+                }
+            }
         } else if args.continious_run {
             execute_continious_run().await.unwrap();
         } else {

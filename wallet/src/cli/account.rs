@@ -2,6 +2,7 @@ use anyhow::Result;
 use base58::ToBase58;
 use clap::Subcommand;
 use itertools::Itertools as _;
+use key_protocol::key_management::key_tree::chain_index::ChainIndex;
 use nssa::{Account, AccountId, program::Program};
 use serde::Serialize;
 
@@ -93,9 +94,17 @@ pub enum AccountSubcommand {
 #[derive(Subcommand, Debug, Clone)]
 pub enum NewSubcommand {
     /// Register new public account
-    Public {},
+    Public {
+        #[arg(long)]
+        /// Chain index of a parent node
+        cci: ChainIndex,
+    },
     /// Register new private account
-    Private {},
+    Private {
+        #[arg(long)]
+        /// Chain index of a parent node
+        cci: ChainIndex,
+    },
 }
 
 impl WalletSubcommand for NewSubcommand {
@@ -104,8 +113,8 @@ impl WalletSubcommand for NewSubcommand {
         wallet_core: &mut WalletCore,
     ) -> Result<SubcommandReturnValue> {
         match self {
-            NewSubcommand::Public {} => {
-                let account_id = wallet_core.create_new_account_public();
+            NewSubcommand::Public { cci } => {
+                let account_id = wallet_core.create_new_account_public(cci);
 
                 println!("Generated new account with account_id Public/{account_id}");
 
@@ -115,8 +124,8 @@ impl WalletSubcommand for NewSubcommand {
 
                 Ok(SubcommandReturnValue::RegisterAccount { account_id })
             }
-            NewSubcommand::Private {} => {
-                let account_id = wallet_core.create_new_account_private();
+            NewSubcommand::Private { cci } => {
+                let account_id = wallet_core.create_new_account_private(cci);
 
                 let (key, _) = wallet_core
                     .storage
@@ -275,12 +284,19 @@ impl WalletSubcommand for AccountSubcommand {
                     .await?
                     .last_block;
 
-                if !wallet_core
+                if wallet_core
                     .storage
                     .user_data
-                    .user_private_accounts
+                    .private_key_tree
+                    .account_id_map
                     .is_empty()
                 {
+                    wallet_core.last_synced_block = curr_last_block;
+
+                    let path = wallet_core.store_persistent_data().await?;
+
+                    println!("Stored persistent data at {path:#?}");
+                } else {
                     parse_block_range(
                         last_synced_block + 1,
                         curr_last_block,
@@ -288,12 +304,6 @@ impl WalletSubcommand for AccountSubcommand {
                         wallet_core,
                     )
                     .await?;
-                } else {
-                    wallet_core.last_synced_block = curr_last_block;
-
-                    let path = wallet_core.store_persistent_data().await?;
-
-                    println!("Stored persistent data at {path:#?}");
                 }
 
                 Ok(SubcommandReturnValue::SyncedToBlock(curr_last_block))
@@ -301,14 +311,28 @@ impl WalletSubcommand for AccountSubcommand {
             AccountSubcommand::List {} => {
                 let user_data = &wallet_core.storage.user_data;
                 let accounts = user_data
-                    .pub_account_signing_keys
+                    .default_pub_account_signing_keys
                     .keys()
-                    .map(|id| format!("Public/{id}"))
+                    .map(|id| format!("Preconfigured Public/{id}"))
                     .chain(
                         user_data
-                            .user_private_accounts
+                            .default_user_private_accounts
                             .keys()
-                            .map(|id| format!("Private/{id}")),
+                            .map(|id| format!("Preconfigured Private/{id}")),
+                    )
+                    .chain(
+                        user_data
+                            .public_key_tree
+                            .account_id_map
+                            .iter()
+                            .map(|(id, chain_index)| format!("{chain_index} Public/{id}")),
+                    )
+                    .chain(
+                        user_data
+                            .private_key_tree
+                            .account_id_map
+                            .iter()
+                            .map(|(id, chain_index)| format!("{chain_index} Private/{id}")),
                     )
                     .format(",\n");
 

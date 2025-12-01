@@ -1,0 +1,324 @@
+use std::collections::{BTreeMap, HashMap};
+
+use serde::{Deserialize, Serialize};
+
+use crate::key_management::{
+    key_tree::{
+        chain_index::ChainIndex, keys_private::ChildKeysPrivate, keys_public::ChildKeysPublic,
+        traits::KeyNode,
+    },
+    secret_holders::SeedHolder,
+};
+
+pub mod chain_index;
+pub mod keys_private;
+pub mod keys_public;
+pub mod traits;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct KeyTree<N: KeyNode> {
+    pub key_map: BTreeMap<ChainIndex, N>,
+    pub account_id_map: HashMap<nssa::AccountId, ChainIndex>,
+}
+
+pub type KeyTreePublic = KeyTree<ChildKeysPublic>;
+pub type KeyTreePrivate = KeyTree<ChildKeysPrivate>;
+
+impl<N: KeyNode> KeyTree<N> {
+    pub fn new(seed: &SeedHolder) -> Self {
+        let seed_fit: [u8; 64] = seed
+            .seed
+            .clone()
+            .try_into()
+            .expect("SeedHolder seed is 64 bytes long");
+
+        let root_keys = N::root(seed_fit);
+        let account_id = root_keys.account_id();
+
+        let key_map = BTreeMap::from_iter([(ChainIndex::root(), root_keys)]);
+        let account_id_map = HashMap::from_iter([(account_id, ChainIndex::root())]);
+
+        Self {
+            key_map,
+            account_id_map,
+        }
+    }
+
+    pub fn new_from_root(root: N) -> Self {
+        let account_id_map = HashMap::from_iter([(root.account_id(), ChainIndex::root())]);
+        let key_map = BTreeMap::from_iter([(ChainIndex::root(), root)]);
+
+        Self {
+            key_map,
+            account_id_map,
+        }
+    }
+
+    // ToDo: Add function to create a tree from list of nodes with consistency check.
+
+    pub fn find_next_last_child_of_id(&self, parent_id: &ChainIndex) -> Option<u32> {
+        if !self.key_map.contains_key(parent_id) {
+            return None;
+        }
+
+        let leftmost_child = parent_id.nth_child(u32::MIN);
+
+        if !self.key_map.contains_key(&leftmost_child) {
+            return Some(0);
+        }
+
+        let mut right = u32::MAX - 1;
+        let mut left_border = u32::MIN;
+        let mut right_border = u32::MAX;
+
+        loop {
+            let rightmost_child = parent_id.nth_child(right);
+
+            let rightmost_ref = self.key_map.get(&rightmost_child);
+            let rightmost_ref_next = self.key_map.get(&rightmost_child.next_in_line());
+
+            match (&rightmost_ref, &rightmost_ref_next) {
+                (Some(_), Some(_)) => {
+                    left_border = right;
+                    right = (right + right_border) / 2;
+                }
+                (Some(_), None) => {
+                    break Some(right + 1);
+                }
+                (None, None) => {
+                    right_border = right;
+                    right = (left_border + right) / 2;
+                }
+                (None, Some(_)) => {
+                    unreachable!();
+                }
+            }
+        }
+    }
+
+    pub fn generate_new_node(&mut self, parent_cci: ChainIndex) -> Option<nssa::AccountId> {
+        let father_keys = self.key_map.get(&parent_cci)?;
+        let next_child_id = self
+            .find_next_last_child_of_id(&parent_cci)
+            .expect("Can be None only if parent is not present");
+        let next_cci = parent_cci.nth_child(next_child_id);
+
+        let child_keys = father_keys.nth_child(next_child_id);
+
+        let account_id = child_keys.account_id();
+
+        self.key_map.insert(next_cci.clone(), child_keys);
+        self.account_id_map.insert(account_id, next_cci);
+
+        Some(account_id)
+    }
+
+    pub fn get_node(&self, account_id: nssa::AccountId) -> Option<&N> {
+        self.account_id_map
+            .get(&account_id)
+            .and_then(|chain_id| self.key_map.get(chain_id))
+    }
+
+    pub fn get_node_mut(&mut self, account_id: nssa::AccountId) -> Option<&mut N> {
+        self.account_id_map
+            .get(&account_id)
+            .and_then(|chain_id| self.key_map.get_mut(chain_id))
+    }
+
+    pub fn insert(&mut self, account_id: nssa::AccountId, chain_index: ChainIndex, node: N) {
+        self.account_id_map.insert(account_id, chain_index.clone());
+        self.key_map.insert(chain_index, node);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use nssa::AccountId;
+
+    use super::*;
+
+    fn seed_holder_for_tests() -> SeedHolder {
+        SeedHolder {
+            seed: [42; 64].to_vec(),
+        }
+    }
+
+    #[test]
+    fn test_simple_key_tree() {
+        let seed_holder = seed_holder_for_tests();
+
+        let tree = KeyTreePublic::new(&seed_holder);
+
+        assert!(tree.key_map.contains_key(&ChainIndex::root()));
+        assert!(tree.account_id_map.contains_key(&AccountId::new([
+            46, 223, 229, 177, 59, 18, 189, 219, 153, 31, 249, 90, 112, 230, 180, 164, 80, 25, 106,
+            159, 14, 238, 1, 192, 91, 8, 210, 165, 199, 41, 60, 104,
+        ])));
+    }
+
+    #[test]
+    fn test_small_key_tree() {
+        let seed_holder = seed_holder_for_tests();
+
+        let mut tree = KeyTreePublic::new(&seed_holder);
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 0);
+
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0").unwrap())
+        );
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 1);
+
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 7);
+    }
+
+    #[test]
+    fn test_key_tree_can_not_make_child_keys() {
+        let seed_holder = seed_holder_for_tests();
+
+        let mut tree = KeyTreePublic::new(&seed_holder);
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 0);
+
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0").unwrap())
+        );
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 1);
+
+        let key_opt = tree.generate_new_node(ChainIndex::from_str("/3").unwrap());
+
+        assert_eq!(key_opt, None);
+    }
+
+    #[test]
+    fn test_key_tree_complex_structure() {
+        let seed_holder = seed_holder_for_tests();
+
+        let mut tree = KeyTreePublic::new(&seed_holder);
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 0);
+
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0").unwrap())
+        );
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 1);
+
+        tree.generate_new_node(ChainIndex::root()).unwrap();
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/1").unwrap())
+        );
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::root())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 2);
+
+        tree.generate_new_node(ChainIndex::from_str("/0").unwrap())
+            .unwrap();
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::from_str("/0").unwrap())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 1);
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0/0").unwrap())
+        );
+
+        tree.generate_new_node(ChainIndex::from_str("/0").unwrap())
+            .unwrap();
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::from_str("/0").unwrap())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 2);
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0/1").unwrap())
+        );
+
+        tree.generate_new_node(ChainIndex::from_str("/0").unwrap())
+            .unwrap();
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::from_str("/0").unwrap())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 3);
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0/2").unwrap())
+        );
+
+        tree.generate_new_node(ChainIndex::from_str("/0/1").unwrap())
+            .unwrap();
+
+        assert!(
+            tree.key_map
+                .contains_key(&ChainIndex::from_str("/0/1/0").unwrap())
+        );
+
+        let next_last_child_for_parent_id = tree
+            .find_next_last_child_of_id(&ChainIndex::from_str("/0/1").unwrap())
+            .unwrap();
+
+        assert_eq!(next_last_child_for_parent_id, 1);
+    }
+}
