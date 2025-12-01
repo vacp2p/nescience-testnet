@@ -843,6 +843,7 @@ pub mod tests {
             &[0xdeadbeef],
             &[(recipient_keys.npk(), shared_secret)],
             &[],
+            &[],
             &Program::authenticated_transfer_program(),
         )
         .unwrap();
@@ -891,10 +892,8 @@ pub mod tests {
                 (sender_keys.npk(), shared_secret_1),
                 (recipient_keys.npk(), shared_secret_2),
             ],
-            &[(
-                sender_keys.nsk,
-                state.get_proof_for_commitment(&sender_commitment).unwrap(),
-            )],
+            &[sender_keys.nsk],
+            &[state.get_proof_for_commitment(&sender_commitment).unwrap()],
             &program,
         )
         .unwrap();
@@ -943,10 +942,8 @@ pub mod tests {
             &[1, 0],
             &[new_nonce],
             &[(sender_keys.npk(), shared_secret)],
-            &[(
-                sender_keys.nsk,
-                state.get_proof_for_commitment(&sender_commitment).unwrap(),
-            )],
+            &[sender_keys.nsk],
+            &[state.get_proof_for_commitment(&sender_commitment).unwrap()],
             &program,
         )
         .unwrap();
@@ -1160,6 +1157,7 @@ pub mod tests {
             &[],
             &[],
             &[],
+            &[],
             &program,
         );
 
@@ -1183,6 +1181,7 @@ pub mod tests {
             &[public_account],
             &Program::serialize_instruction(10u128).unwrap(),
             &[0],
+            &[],
             &[],
             &[],
             &[],
@@ -1212,6 +1211,7 @@ pub mod tests {
             &[],
             &[],
             &[],
+            &[],
             &program,
         );
 
@@ -1238,6 +1238,7 @@ pub mod tests {
             &[],
             &[],
             &[],
+            &[],
             &program,
         );
 
@@ -1261,6 +1262,7 @@ pub mod tests {
             &[public_account],
             &Program::serialize_instruction(()).unwrap(),
             &[0],
+            &[],
             &[],
             &[],
             &[],
@@ -1299,6 +1301,7 @@ pub mod tests {
             &[],
             &[],
             &[],
+            &[],
             &program,
         );
 
@@ -1322,6 +1325,7 @@ pub mod tests {
             &[public_account],
             &Program::serialize_instruction(()).unwrap(),
             &[0],
+            &[],
             &[],
             &[],
             &[],
@@ -1360,6 +1364,7 @@ pub mod tests {
             &[],
             &[],
             &[],
+            &[],
             &program,
         );
 
@@ -1394,6 +1399,7 @@ pub mod tests {
             &[public_account_1, public_account_2],
             &Program::serialize_instruction(10u128).unwrap(),
             &visibility_mask,
+            &[],
             &[],
             &[],
             &[],
@@ -1437,7 +1443,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1471,7 +1478,8 @@ pub mod tests {
             &[1, 2],
             &[0xdeadbeef1, 0xdeadbeef2],
             &private_account_keys,
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1496,7 +1504,7 @@ pub mod tests {
             AccountWithMetadata::new(Account::default(), false, &recipient_keys.npk());
 
         // Setting no auth key for an execution with one non default private accounts.
-        let private_account_auth = [];
+        let private_account_nsks = [];
         let result = execute_and_prove(
             &[private_account_1, private_account_2],
             &Program::serialize_instruction(10u128).unwrap(),
@@ -1512,7 +1520,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &private_account_auth,
+            &private_account_nsks,
+            &[],
             &program,
         );
 
@@ -1548,19 +1557,20 @@ pub mod tests {
                 SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
             ),
         ];
-        let private_account_auth = [
-            // Setting the recipient key to authorize the sender.
-            // This should be set to the sender private account in
-            // a normal circumstance. The recipient can't authorize this.
-            (recipient_keys.nsk, (0, vec![])),
-        ];
+
+        // Setting the recipient key to authorize the sender.
+        // This should be set to the sender private account in
+        // a normal circumstance. The recipient can't authorize this.
+        let private_account_nsks = [recipient_keys.nsk];
+        let private_account_membership_proofs = [(0, vec![])];
         let result = execute_and_prove(
             &[private_account_1, private_account_2],
             &Program::serialize_instruction(10u128).unwrap(),
             &[1, 2],
             &[0xdeadbeef1, 0xdeadbeef2],
             &private_account_keys,
-            &private_account_auth,
+            &private_account_nsks,
+            &private_account_membership_proofs,
             &program,
         );
 
@@ -1606,7 +1616,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1653,7 +1664,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1699,7 +1711,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1745,7 +1758,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1789,7 +1803,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1816,6 +1831,7 @@ pub mod tests {
             &[public_account_1, public_account_2],
             &Program::serialize_instruction(10u128).unwrap(),
             &visibility_mask,
+            &[],
             &[],
             &[],
             &[],
@@ -1860,7 +1876,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1906,7 +1923,8 @@ pub mod tests {
             &[1, 2],
             &[0xdeadbeef1, 0xdeadbeef2],
             &private_account_keys,
-            &[(sender_keys.nsk, (0, vec![]))],
+            &[sender_keys.nsk],
+            &[(0, vec![])],
             &program,
         );
 
@@ -1933,10 +1951,8 @@ pub mod tests {
         // Setting two private account keys for a circuit execution with only one non default
         // private account (visibility mask equal to 1 means that auth keys are expected).
         let visibility_mask = [1, 2];
-        let private_account_auth = [
-            (sender_keys.nsk, (0, vec![])),
-            (recipient_keys.nsk, (1, vec![])),
-        ];
+        let private_account_nsks = [sender_keys.nsk, recipient_keys.nsk];
+        let private_account_membership_proofs = [(0, vec![]), (1, vec![])];
         let result = execute_and_prove(
             &[private_account_1, private_account_2],
             &Program::serialize_instruction(10u128).unwrap(),
@@ -1952,7 +1968,8 @@ pub mod tests {
                     SharedSecretKey::new(&[56; 32], &recipient_keys.ivk()),
                 ),
             ],
-            &private_account_auth,
+            &private_account_nsks,
+            &private_account_membership_proofs,
             &program,
         );
 
@@ -2029,10 +2046,8 @@ pub mod tests {
         );
 
         let visibility_mask = [1, 1];
-        let private_account_auth = [
-            (sender_keys.nsk, (1, vec![])),
-            (sender_keys.nsk, (1, vec![])),
-        ];
+        let private_account_nsks = [sender_keys.nsk, sender_keys.nsk];
+        let private_account_membership_proofs = [(1, vec![]), (1, vec![])];
         let shared_secret = SharedSecretKey::new(&[55; 32], &sender_keys.ivk());
         let result = execute_and_prove(
             &[private_account_1.clone(), private_account_1],
@@ -2043,7 +2058,8 @@ pub mod tests {
                 (sender_keys.npk(), shared_secret.clone()),
                 (sender_keys.npk(), shared_secret),
             ],
-            &private_account_auth,
+            &private_account_nsks,
+            &private_account_membership_proofs,
             &program,
         );
 
