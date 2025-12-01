@@ -333,11 +333,15 @@ Account owned by authenticated transfer program
 > Private accounts are structurally identical to public accounts; they differ only in how their state is stored off-chain and represented on-chain.
 > The raw values of a private account are never stored on-chain. Instead, the chain only holds a 32-byte commitment (a hash-like binding to the actual values). Transactions include encrypted versions of the private values so that users can recover them from the blockchain. The decryption keys are known only to the user and are never shared.
 > Private accounts are not managed through the usual signature mechanism used for public accounts. Instead, each private account is associated with two keypairs:
-> - *Nullifier keys*, for using the corresponding private account in a private execution.
+> - *Nullifier keys*, for using the corresponding private account in privacy preserving executions.
 > - *Viewing keys*, used for encrypting and decrypting the values included in transactions.
 >
 > Private accounts also have a 32-byte identifier, derived from the nullifier public key.
+>
 > Just like public accounts, private accounts can only be initialized once. Any user can initialize them without knowing the owner's secret keys. However, modifying an initialized private account through an off-chain program execution requires knowledge of the owner’s secret keys.
+>
+> Transactions that modify the values of a private account include a commitment to the new values, which will be added to the on-chain commitment set. They also include a nullifier that marks the previous version as old.
+> The nullifier is constructed so that it cannot be linked to any prior commitment, ensuring that updates to the same private account cannot be correlated.
 
 Now let’s switch to the private state and create a private account.
 
@@ -350,8 +354,8 @@ With npk e6366f79d026c8bd64ae6b3d601f0506832ec682ab54897f205fffe64ec0d951
 With ipk 02ddc96d0eb56e00ce14994cfdaec5ae1f76244180a919545983156e3519940a17
 ```
 
-For now, focus only on the account address. Ignore the `npk` and `ipk` values. These are stored locally in the wallet and are used internally to build privacy-preserving transactions.
-Also, the account id for private accounts is derived from the `npk` and `ipk` values. But we won't need them now.
+For now, focus only on the account id. Ignore the `npk` and `ipk` values. These are the Nullifier public key and the Viewing public key. They are stored locally in the wallet and are used internally to build privacy-preserving transactions.
+Also, the account id for private accounts is derived from the `npk` value. But we won't need them now.
 
 Just like public accounts, new private accounts start out uninitialized:
 
@@ -401,8 +405,9 @@ Account owned by authenticated transfer program
 {"balance":17}
 ```
 
-Note: the last command does not query the network.
-It works even offline because private account data lives only in your wallet storage. Other users cannot read your private balances.
+> [!NOTE]
+> The last command does not query the network.
+> It works even offline because private account data lives only in your wallet storage. Other users cannot read your private balances.
 
 #### Digression: modifying private accounts
 
@@ -448,6 +453,10 @@ We’ve shown how to use the authenticated-transfers program for transfers betwe
 ### The token program
 
 So far, we’ve made transfers using the authenticated-transfers program, which handles native token transfers. The Token program, on the other hand, is used for creating and managing custom tokens.
+
+> [!NOTE]
+> The token program is a single program responsible for creating and managing all tokens. There is no need to deploy new programs to introduce new tokens. All token-related operations are performed by invoking the appropriate functions of the token program.
+
 The CLI provides commands to execute the token program. To see the options available run `wallet token`:
 
 ```bash
@@ -457,9 +466,11 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 ```
 
-The Token program manages its accounts in two categories. Meaning, all accounts owned by the Token program fall into one of these types.
-- Token definition accounts: these accounts store metadata about a token, such as its name, total supply, and other identifying properties. They act as the token’s unique identifier.
-- Token holding accounts: these accounts hold actual token balances. In addition to the balance, they also record which token definition they belong to.
+
+> [!NOTE]
+> The Token program manages its accounts in two categories. Meaning, all accounts owned by the Token program fall into one of these types.
+> - Token definition accounts: these accounts store metadata about a token, such as its name, total supply, and other identifying properties. They act as the token’s unique identifier.
+> - Token holding accounts: these accounts hold actual token balances. In addition to the balance, they also record which token definition they belong to.
 
 #### Creating a new token
 
