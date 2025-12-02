@@ -19,8 +19,7 @@ use tokio::io::AsyncWriteExt;
 use crate::{
     config::PersistentStorage,
     helperfunctions::{
-        fetch_config, fetch_persistent_storage, get_home, produce_data_for_storage,
-        produce_random_nonces,
+        fetch_persistent_storage, get_home, produce_data_for_storage, produce_random_nonces,
     },
     poller::TxPoller,
 };
@@ -294,13 +293,4 @@ impl WalletCore {
             shared_secrets,
         ))
     }
-}
-
-pub async fn execute_setup(password: String) -> Result<()> {
-    let config = fetch_config().await?;
-    let wallet_core = WalletCore::start_from_config_new_storage(config.clone(), password).await?;
-
-    wallet_core.store_persistent_data().await?;
-
-    Ok(())
 }

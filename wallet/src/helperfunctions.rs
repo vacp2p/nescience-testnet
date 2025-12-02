@@ -5,7 +5,9 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use common::{
     block::HashableBlockData, sequencer_client::SequencerClient, transaction::NSSATransaction,
 };
-use key_protocol::{key_management::key_tree::traits::KeyNode, key_protocol_core::NSSAUserData};
+use key_protocol::{
+    key_management::key_tree::traits::KeyNode as _, key_protocol_core::NSSAUserData,
+};
 use nssa::{Account, privacy_preserving_transaction::message::EncryptedAccountData};
 use nssa_core::account::Nonce;
 use rand::{RngCore, rngs::OsRng};

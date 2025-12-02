@@ -123,10 +123,6 @@ impl WalletSubcommand for PinataProgramSubcommandPublic {
 
                 println!("Transaction data is {transfer_tx:?}");
 
-                let path = wallet_core.store_persistent_data().await?;
-
-                println!("Stored persistent accounts at {path:#?}");
-
                 Ok(SubcommandReturnValue::Empty)
             }
         }

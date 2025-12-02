@@ -189,3 +189,12 @@ pub async fn execute_continuous_run() -> Result<()> {
         latest_block_num = seq_client.get_last_block().await?.last_block;
     }
 }
+
+pub async fn execute_setup(password: String) -> Result<()> {
+    let config = fetch_config().await?;
+    let wallet_core = WalletCore::start_from_config_new_storage(config.clone(), password).await?;
+
+    wallet_core.store_persistent_data().await?;
+
+    Ok(())
+}
