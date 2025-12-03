@@ -3,7 +3,7 @@ use nssa_core::{
     program::{ProgramInput, read_nssa_inputs, write_nssa_outputs},
 };
 
-// The token program has two functions:
+// The token program has three functions:
 // 1. New token definition.
 //    Arguments to this function are:
 //      * Two **default** accounts: [definition_account, holding_account].
@@ -18,6 +18,11 @@ use nssa_core::{
 //      * Two accounts: [sender_account, recipient_account].
 //      * An instruction data byte string of length 23, indicating the total supply with the following layout
 //        [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00].
+// 3. Initialize account with zero balance
+//    Arguments to this function are:
+//      * Two accounts: [definition_account, account_to_initialize].
+//      * An dummy byte string of length 23, with the following layout
+//        [0x02 || 0x00 || 0x00 || 0x00 || ... || 0x00 || 0x00].
 
 const TOKEN_DEFINITION_TYPE: u8 = 0;
 const TOKEN_DEFINITION_DATA_SIZE: usize = 23;
@@ -45,6 +50,25 @@ impl TokenDefinition {
         bytes[7..].copy_from_slice(&self.total_supply.to_le_bytes());
         bytes.into()
     }
+
+    fn parse(data: &[u8]) -> Option<Self> {
+        if data.len() != TOKEN_DEFINITION_DATA_SIZE || data[0] != TOKEN_DEFINITION_TYPE {
+            None
+        } else {
+            let account_type = data[0];
+            let name = data[1..7].try_into().unwrap();
+            let total_supply = u128::from_le_bytes(
+                data[7..]
+                    .try_into()
+                    .expect("Total supply must be 16 bytes little-endian"),
+            );
+            Some(Self {
+                account_type,
+                name,
+                total_supply,
+            })
+        }
+    }
 }
 
 impl TokenHolding {
@@ -61,8 +85,16 @@ impl TokenHolding {
             None
         } else {
             let account_type = data[0];
-            let definition_id = AccountId::new(data[1..33].try_into().unwrap());
-            let balance = u128::from_le_bytes(data[33..].try_into().unwrap());
+            let definition_id = AccountId::new(
+                data[1..33]
+                    .try_into()
+                    .expect("Defintion ID must be 32 bytes long"),
+            );
+            let balance = u128::from_le_bytes(
+                data[33..]
+                    .try_into()
+                    .expect("balance must be 16 bytes little-endian"),
+            );
             Some(Self {
                 definition_id,
                 balance,
@@ -167,6 +199,33 @@ fn new_definition(
     vec![definition_target_account_post, holding_target_account_post]
 }
 
+fn initialize_account(pre_states: &[AccountWithMetadata]) -> Vec<Account> {
+    if pre_states.len() != 2 {
+        panic!("Invalid number of accounts");
+    }
+
+    let definition = &pre_states[0];
+    let account_to_initialize = &pre_states[1];
+
+    if account_to_initialize.account != Account::default() {
+        panic!("Only uninitialized accounts can be initialized");
+    }
+
+    // TODO: We should check that this is an account owned by the token program.
+    // This check can't be done here since the ID of the program is known only after compiling it
+    //
+    // Check definition account is valid
+    let _definition_values =
+        TokenDefinition::parse(&definition.account.data).expect("Definition account must be valid");
+    let holding_values = TokenHolding::new(&definition.account_id);
+
+    let definition_post = definition.account.clone();
+    let mut account_to_initialize_post = account_to_initialize.account.clone();
+    account_to_initialize_post.data = holding_values.into_data();
+
+    vec![definition_post, account_to_initialize_post]
+}
+
 type Instruction = [u8; 23];
 
 fn main() {
@@ -175,36 +234,59 @@ fn main() {
         instruction,
     } = read_nssa_inputs::<Instruction>();
 
-    match instruction[0] {
+    let (pre_states, post_states) = match instruction[0] {
         0 => {
             // Parse instruction
-            let total_supply = u128::from_le_bytes(instruction[1..17].try_into().unwrap());
-            let name: [u8; 6] = instruction[17..].try_into().unwrap();
+            let total_supply = u128::from_le_bytes(
+                instruction[1..17]
+                    .try_into()
+                    .expect("Total supply must be 16 bytes little-endian"),
+            );
+            let name: [u8; 6] = instruction[17..]
+                .try_into()
+                .expect("Name must be 6 bytes long");
             assert_ne!(name, [0; 6]);
 
             // Execute
             let post_states = new_definition(&pre_states, name, total_supply);
-            write_nssa_outputs(pre_states, post_states);
+            (pre_states, post_states)
         }
         1 => {
             // Parse instruction
-            let balance_to_move = u128::from_le_bytes(instruction[1..17].try_into().unwrap());
-            let name: [u8; 6] = instruction[17..].try_into().unwrap();
+            let balance_to_move = u128::from_le_bytes(
+                instruction[1..17]
+                    .try_into()
+                    .expect("Balance to move must be 16 bytes little-endian"),
+            );
+            let name: [u8; 6] = instruction[17..]
+                .try_into()
+                .expect("Name must be 6 bytes long");
             assert_eq!(name, [0; 6]);
 
             // Execute
             let post_states = transfer(&pre_states, balance_to_move);
-            write_nssa_outputs(pre_states, post_states);
+            (pre_states, post_states)
+        }
+        2 => {
+            // Initialize account
+            assert_eq!(instruction[1..], [0; 22]);
+            let post_states = initialize_account(&pre_states);
+            (pre_states, post_states)
         }
         _ => panic!("Invalid instruction"),
     };
+
+    write_nssa_outputs(pre_states, post_states);
 }
 
 #[cfg(test)]
 mod tests {
     use nssa_core::account::{Account, AccountId, AccountWithMetadata};
 
-    use crate::{new_definition, transfer, TOKEN_HOLDING_DATA_SIZE, TOKEN_HOLDING_TYPE};
+    use crate::{
+        TOKEN_DEFINITION_DATA_SIZE, TOKEN_HOLDING_DATA_SIZE, TOKEN_HOLDING_TYPE,
+        initialize_account, new_definition, transfer,
+    };
 
     #[should_panic(expected = "Invalid number of input accounts")]
     #[test]
@@ -548,6 +630,39 @@ mod tests {
             vec![
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 10, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            ]
+        );
+    }
+
+    #[test]
+    fn test_token_initialize_account_succeeds() {
+        let pre_states = vec![
+            AccountWithMetadata {
+                account: Account {
+                    // Definition ID with
+                    data: vec![0; TOKEN_DEFINITION_DATA_SIZE - 16]
+                        .into_iter()
+                        .chain(u128::to_le_bytes(1000))
+                        .collect(),
+                    ..Account::default()
+                },
+                is_authorized: false,
+                account_id: AccountId::new([1; 32]),
+            },
+            AccountWithMetadata {
+                account: Account::default(),
+                is_authorized: false,
+                account_id: AccountId::new([2; 32]),
+            },
+        ];
+        let post_states = initialize_account(&pre_states);
+        let [definition, holding] = post_states.try_into().ok().unwrap();
+        assert_eq!(definition.data, pre_states[0].account.data);
+        assert_eq!(
+            holding.data,
+            vec![
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             ]
         );
     }

@@ -7,10 +7,11 @@ use nssa::{Account, AccountId, program::Program};
 use serde::Serialize;
 
 use crate::{
-    SubcommandReturnValue, WalletCore,
-    cli::WalletSubcommand,
-    helperfunctions::{AccountPrivacyKind, HumanReadableAccount, parse_addr_with_privacy_prefix},
-    parse_block_range,
+    WalletCore,
+    cli::{SubcommandReturnValue, WalletSubcommand},
+    helperfunctions::{
+        AccountPrivacyKind, HumanReadableAccount, parse_addr_with_privacy_prefix, parse_block_range,
+    },
 };
 
 const TOKEN_DEFINITION_TYPE: u8 = 0;

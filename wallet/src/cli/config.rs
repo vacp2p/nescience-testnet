@@ -1,7 +1,10 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use crate::{SubcommandReturnValue, WalletCore, cli::WalletSubcommand};
+use crate::{
+    WalletCore,
+    cli::{SubcommandReturnValue, WalletSubcommand},
+};
 
 /// Represents generic config CLI subcommand
 #[derive(Subcommand, Debug, Clone)]
