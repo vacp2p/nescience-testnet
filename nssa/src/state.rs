@@ -477,6 +477,7 @@ pub mod tests {
             self.insert_program(Program::minter());
             self.insert_program(Program::burner());
             self.insert_program(Program::chain_caller());
+            self.insert_program(Program::claimer());
             self
         }
 
@@ -2213,5 +2214,31 @@ pub mod tests {
         let to_post = state.get_account_by_id(&to);
         assert_eq!(from_post.balance, initial_balance - amount);
         assert_eq!(to_post, expected_to_post);
+    }
+
+    #[test]
+    fn test_claiming_mechanism_cannot_claim_initialied_accounts() {
+        let claimer = Program::claimer();
+        let mut state = V02State::new_with_genesis_accounts(&[], &[]).with_test_programs();
+        let account_id = AccountId::new([2; 32]);
+
+        // Insert an account with non-default program owner
+        state.force_insert_account(
+            account_id,
+            Account {
+                program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
+                ..Account::default()
+            },
+        );
+
+        let message =
+            public_transaction::Message::try_new(claimer.id(), vec![account_id], vec![], ())
+                .unwrap();
+        let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
+        let tx = PublicTransaction::new(message, witness_set);
+
+        let result = state.transition_from_public_transaction(&tx);
+
+        assert!(matches!(result, Err(NssaError::InvalidProgramBehavior)))
     }
 }

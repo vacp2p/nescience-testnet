@@ -207,6 +207,15 @@ mod tests {
                 elf: CHAIN_CALLER_ELF.to_vec(),
             }
         }
+
+        pub fn claimer() -> Self {
+            use test_program_methods::{CLAIMER_ELF, CLAIMER_ID};
+
+            Program {
+                id: CLAIMER_ID,
+                elf: CLAIMER_ELF.to_vec(),
+            }
+        }
     }
 
     #[test]
