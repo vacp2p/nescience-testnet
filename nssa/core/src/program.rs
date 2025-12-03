@@ -34,6 +34,7 @@ impl AccountPostState {
             claim: false,
         }
     }
+
     pub fn new_claimed(account: Account) -> Self {
         Self {
             account,
@@ -191,5 +192,4 @@ mod tests {
         assert_eq!(account, account_post_state.account);
         assert!(!account_post_state.requires_claim());
     }
-
 }
