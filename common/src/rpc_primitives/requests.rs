@@ -28,6 +28,13 @@ pub struct GetBlockDataRequest {
     pub block_id: u64,
 }
 
+/// Get a range of blocks from `start_block_id` to `end_block_id` (inclusive)
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetBlockRangeDataRequest {
+    pub start_block_id: u64,
+    pub end_block_id: u64,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetGenesisIdRequest {}
 
@@ -69,6 +76,7 @@ parse_request!(HelloRequest);
 parse_request!(RegisterAccountRequest);
 parse_request!(SendTxRequest);
 parse_request!(GetBlockDataRequest);
+parse_request!(GetBlockRangeDataRequest);
 parse_request!(GetGenesisIdRequest);
 parse_request!(GetLastBlockRequest);
 parse_request!(GetInitialTestnetAccountsRequest);
@@ -98,6 +106,11 @@ pub struct SendTxResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetBlockDataResponse {
     pub block: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetBlockRangeDataResponse {
+    pub blocks: Vec<Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

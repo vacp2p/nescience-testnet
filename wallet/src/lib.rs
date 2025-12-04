@@ -304,6 +304,8 @@ impl WalletCore {
             return Ok(());
         }
 
+        let before_polling = std::time::Instant::now();
+
         let poller = self.poller.clone();
         let mut blocks =
             std::pin::pin!(poller.poll_block_range(self.last_synced_block + 1..=block_id));
@@ -316,12 +318,12 @@ impl WalletCore {
 
             self.last_synced_block = block.block_id;
             self.store_persistent_data().await?;
-
-            println!(
-                "Block at id {} with timestamp {} parsed",
-                block.block_id, block.timestamp,
-            );
         }
+
+        println!(
+            "Synced to block {block_id} in {:?}",
+            before_polling.elapsed()
+        );
 
         Ok(())
     }

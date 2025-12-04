@@ -9,21 +9,21 @@ use crate::config::WalletConfig;
 #[derive(Clone)]
 /// Helperstruct to poll transactions
 pub struct TxPoller {
-    pub polling_max_blocks_to_query: usize,
-    pub polling_max_error_attempts: u64,
+    polling_max_blocks_to_query: usize,
+    polling_max_error_attempts: u64,
     // TODO: This should be Duration
-    pub polling_error_delay_millis: u64,
-    pub polling_delay_millis: u64,
-    pub client: Arc<SequencerClient>,
+    polling_delay_millis: u64,
+    block_poll_max_amount: u64,
+    client: Arc<SequencerClient>,
 }
 
 impl TxPoller {
     pub fn new(config: WalletConfig, client: Arc<SequencerClient>) -> Self {
         Self {
             polling_delay_millis: config.seq_poll_timeout_millis,
-            polling_max_blocks_to_query: config.seq_poll_max_blocks,
+            polling_max_blocks_to_query: config.seq_tx_poll_max_blocks,
             polling_max_error_attempts: config.seq_poll_max_retries,
-            polling_error_delay_millis: config.seq_poll_retry_delay_millis,
+            block_poll_max_amount: config.seq_block_poll_max_amount,
             client: client.clone(),
         }
     }
@@ -72,11 +72,21 @@ impl TxPoller {
         range: std::ops::RangeInclusive<u64>,
     ) -> impl futures::Stream<Item = Result<HashableBlockData>> {
         async_stream::stream! {
-            for block_id in range {
-                let block = borsh::from_slice::<HashableBlockData>(
-                    &self.client.get_block(block_id).await?.block,
-                )?;
-                yield Ok(block);
+            let mut chunk_start = *range.start();
+
+            loop {
+                let chunk_end = std::cmp::min(chunk_start + self.block_poll_max_amount - 1, *range.end());
+
+                let blocks = self.client.get_block_range(chunk_start..=chunk_end).await?.blocks;
+                for block in blocks {
+                    let block = borsh::from_slice::<HashableBlockData>(&block)?;
+                    yield Ok(block);
+                }
+
+                chunk_start = chunk_end + 1;
+                if chunk_start > *range.end() {
+                    break;
+                }
             }
         }
     }

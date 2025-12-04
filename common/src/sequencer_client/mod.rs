@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use anyhow::Result;
 use json::{SendTxRequest, SendTxResponse, SequencerRpcRequest, SequencerRpcResponse};
@@ -14,7 +14,8 @@ use crate::{
     error::{SequencerClientError, SequencerRpcError},
     rpc_primitives::requests::{
         GetAccountRequest, GetAccountResponse, GetAccountsNoncesRequest, GetAccountsNoncesResponse,
-        GetLastBlockRequest, GetLastBlockResponse, GetProgramIdsRequest, GetProgramIdsResponse,
+        GetBlockRangeDataRequest, GetBlockRangeDataResponse, GetLastBlockRequest,
+        GetLastBlockResponse, GetProgramIdsRequest, GetProgramIdsResponse,
         GetProofForCommitmentRequest, GetProofForCommitmentResponse, GetTransactionByHashRequest,
         GetTransactionByHashResponse,
     },
@@ -74,6 +75,26 @@ impl SequencerClient {
         let req = serde_json::to_value(block_req)?;
 
         let resp = self.call_method_with_payload("get_block", req).await?;
+
+        let resp_deser = serde_json::from_value(resp)?;
+
+        Ok(resp_deser)
+    }
+
+    pub async fn get_block_range(
+        &self,
+        range: RangeInclusive<u64>,
+    ) -> Result<GetBlockRangeDataResponse, SequencerClientError> {
+        let block_req = GetBlockRangeDataRequest {
+            start_block_id: *range.start(),
+            end_block_id: *range.end(),
+        };
+
+        let req = serde_json::to_value(block_req)?;
+
+        let resp = self
+            .call_method_with_payload("get_block_range", req)
+            .await?;
 
         let resp_deser = serde_json::from_value(resp)?;
 
