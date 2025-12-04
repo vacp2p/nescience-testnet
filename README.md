@@ -65,10 +65,20 @@ Both public and private executions of the same program are enforced to use the s
 
 # Install dependencies
 Install build dependencies
+
 - On Linux
+Ubuntu / Debian
 ```sh
 apt install build-essential clang libssl-dev pkg-config
 ```
+
+Fedora
+```sh
+sudo dnf install clang openssl-devel pkgconf llvm
+```
+
+> **Note for Fedora 41+ users:** GCC 14+ has stricter C++ standard library headers that cause build failures with the bundled RocksDB. You must set `CXXFLAGS="-include cstdint"` when running cargo commands. See the [Run tests](#run-tests) section for examples.
+
 - On Mac
 ```sh
 xcode-select --install
@@ -99,7 +109,10 @@ The NSSA repository includes both unit and integration test suites.
 
 ```bash
 # RISC0_DEV_MODE=1 is used to skip proof generation and reduce test runtime overhead
-RISC0_DEV_MODE=1 cargo test --release 
+RISC0_DEV_MODE=1 cargo test --release
+
+# On Fedora 41+ (GCC 14+), prefix with CXXFLAGS to fix RocksDB build:
+CXXFLAGS="-include cstdint" RISC0_DEV_MODE=1 cargo test --release
 ```
 
 ### Integration tests
@@ -109,6 +122,9 @@ export NSSA_WALLET_HOME_DIR=$(pwd)/integration_tests/configs/debug/wallet/
 cd integration_tests
 # RISC0_DEV_MODE=1 skips proof generation; RUST_LOG=info enables runtime logs
 RUST_LOG=info RISC0_DEV_MODE=1 cargo run $(pwd)/configs/debug all
+
+# On Fedora 41+ (GCC 14+), prefix with CXXFLAGS to fix RocksDB build:
+CXXFLAGS="-include cstdint" RUST_LOG=info RISC0_DEV_MODE=1 cargo run $(pwd)/configs/debug all
 ```
 
 # Run the sequencer
@@ -118,6 +134,9 @@ The sequencer can be run locally:
 ```bash
 cd sequencer_runner
 RUST_LOG=info cargo run --release configs/debug
+
+# On Fedora 41+ (GCC 14+), prefix with CXXFLAGS to fix RocksDB build:
+CXXFLAGS="-include cstdint" RUST_LOG=info cargo run --release configs/debug
 ```
 
 If everything went well you should see an output similar to this:
@@ -142,6 +161,9 @@ This repository includes a CLI for interacting with the Nescience sequencer. To 
 
 ```bash
 cargo install --path wallet --force
+
+# On Fedora 41+ (GCC 14+), prefix with CXXFLAGS to fix RocksDB build:
+CXXFLAGS="-include cstdint" cargo install --path wallet --force
 ```
 Before using the CLI, set the environment variable `NSSA_WALLET_HOME_DIR` to the directory containing the wallet configuration file. A sample configuration is available at `integration_tests/configs/debug/wallet/`. To use it, run:
 
