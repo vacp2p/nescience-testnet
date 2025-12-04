@@ -164,7 +164,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_post_state_new_without_claim_constructor() {
+    fn test_post_state_new_with_claim_constructor() {
         let account = Account {
             program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
             balance: 1337,
@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn test_post_state_new_with_claim_constructor() {
+    fn test_post_state_new_without_claim_constructor() {
         let account = Account {
             program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
             balance: 1337,
