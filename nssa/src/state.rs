@@ -234,7 +234,7 @@ impl V02State {
                 program_owner: Program::pinata().id(),
                 balance: 1500,
                 // Difficulty: 3
-                data: vec![3; 33],
+                data: vec![3; 33].try_into().unwrap(),
                 nonce: 0,
             },
         );
@@ -248,7 +248,7 @@ impl V02State {
             Account {
                 program_owner: Program::pinata_token().id(),
                 // Difficulty: 3
-                data: vec![3; 33],
+                data: vec![3; 33].try_into().expect("should fit"),
                 ..Account::default()
             },
         );
@@ -262,7 +262,7 @@ pub mod tests {
 
     use nssa_core::{
         Commitment, Nullifier, NullifierPublicKey, NullifierSecretKey, SharedSecretKey,
-        account::{Account, AccountId, AccountWithMetadata, Nonce},
+        account::{Account, AccountId, AccountWithMetadata, Nonce, data::Data},
         encryption::{EphemeralPublicKey, IncomingViewingPublicKey, Scalar},
         program::{PdaSeed, ProgramId},
     };
@@ -505,7 +505,7 @@ pub mod tests {
                 ..Account::default()
             };
             let account_with_default_values_except_data = Account {
-                data: vec![0xca, 0xfe],
+                data: vec![0xca, 0xfe].try_into().unwrap(),
                 ..Account::default()
             };
             self.force_insert_account(
@@ -1027,7 +1027,7 @@ pub mod tests {
             program_owner: Program::authenticated_transfer_program().id(),
             balance: 100,
             nonce: 0xdeadbeef,
-            data: vec![],
+            data: Data::default(),
         };
         let recipient_keys = test_private_account_keys_2();
 
@@ -1051,7 +1051,7 @@ pub mod tests {
                 program_owner: Program::authenticated_transfer_program().id(),
                 nonce: 0xcafecafe,
                 balance: sender_private_account.balance - balance_to_move,
-                data: vec![],
+                data: Data::default(),
             },
         );
 
@@ -1093,7 +1093,7 @@ pub mod tests {
             program_owner: Program::authenticated_transfer_program().id(),
             balance: 100,
             nonce: 0xdeadbeef,
-            data: vec![],
+            data: Data::default(),
         };
         let recipient_keys = test_public_account_keys_1();
         let recipient_initial_balance = 400;
@@ -1126,7 +1126,7 @@ pub mod tests {
                 program_owner: Program::authenticated_transfer_program().id(),
                 nonce: 0xcafecafe,
                 balance: sender_private_account.balance - balance_to_move,
-                data: vec![],
+                data: Data::default(),
             },
         );
 
@@ -1692,7 +1692,7 @@ pub mod tests {
         let private_account_2 = AccountWithMetadata::new(
             Account {
                 // Non default data
-                data: b"hola mundo".to_vec(),
+                data: b"hola mundo".to_vec().try_into().unwrap(),
                 ..Account::default()
             },
             false,
@@ -1981,7 +1981,7 @@ pub mod tests {
             program_owner: Program::authenticated_transfer_program().id(),
             balance: 100,
             nonce: 0xdeadbeef,
-            data: vec![],
+            data: Data::default(),
         };
         let recipient_keys = test_private_account_keys_2();
 
@@ -2007,7 +2007,7 @@ pub mod tests {
             program_owner: Program::authenticated_transfer_program().id(),
             balance: 100 - balance_to_move,
             nonce: 0xcafecafe,
-            data: vec![],
+            data: Data::default(),
         };
 
         let tx = private_balance_transfer_for_tests(
@@ -2298,7 +2298,7 @@ pub mod tests {
         expected_winner_account_data[33..].copy_from_slice(&150u128.to_le_bytes());
         let expected_winner_token_holding_post = Account {
             program_owner: token.id(),
-            data: expected_winner_account_data.to_vec(),
+            data: expected_winner_account_data.to_vec().try_into().unwrap(),
             ..Account::default()
         };
 

@@ -1,36 +1,35 @@
 use nssa_core::{
-    account::{Account, AccountId, AccountWithMetadata, Data},
+    account::{Account, AccountId, AccountWithMetadata, Data, data::DATA_MAX_LENGTH_IN_BYTES},
     program::{
         AccountPostState, DEFAULT_PROGRAM_ID, ProgramInput, read_nssa_inputs, write_nssa_outputs,
     },
 };
 
 // The token program has three functions:
-// 1. New token definition.
-//    Arguments to this function are:
-//      * Two **default** accounts: [definition_account, holding_account].
-//        The first default account will be initialized with the token definition account values. The second account will
-//        be initialized to a token holding account for the new token, holding the entire total supply.
-//      * An instruction data of 23-bytes, indicating the total supply and the token name, with
-//        the following layout:
-//        [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)]
-//        The name cannot be equal to [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-// 2. Token transfer
-//    Arguments to this function are:
+// 1. New token definition. Arguments to this function are:
+//      * Two **default** accounts: [definition_account, holding_account]. The first default account
+//        will be initialized with the token definition account values. The second account will be
+//        initialized to a token holding account for the new token, holding the entire total supply.
+//      * An instruction data of 23-bytes, indicating the total supply and the token name, with the
+//        following layout: [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)] The
+//        name cannot be equal to [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+// 2. Token transfer Arguments to this function are:
 //      * Two accounts: [sender_account, recipient_account].
-//      * An instruction data byte string of length 23, indicating the total supply with the following layout
-//        [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00].
-// 3. Initialize account with zero balance
-//    Arguments to this function are:
+//      * An instruction data byte string of length 23, indicating the total supply with the
+//        following layout [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00
+//        || 0x00 || 0x00].
+// 3. Initialize account with zero balance Arguments to this function are:
 //      * Two accounts: [definition_account, account_to_initialize].
-//      * An dummy byte string of length 23, with the following layout
-//        [0x02 || 0x00 || 0x00 || 0x00 || ... || 0x00 || 0x00].
+//      * An dummy byte string of length 23, with the following layout [0x02 || 0x00 || 0x00 || 0x00
+//        || ... || 0x00 || 0x00].
 
 const TOKEN_DEFINITION_TYPE: u8 = 0;
 const TOKEN_DEFINITION_DATA_SIZE: usize = 23;
+const _: () = assert!(TOKEN_DEFINITION_DATA_SIZE <= DATA_MAX_LENGTH_IN_BYTES);
 
 const TOKEN_HOLDING_TYPE: u8 = 1;
 const TOKEN_HOLDING_DATA_SIZE: usize = 49;
+const _: () = assert!(TOKEN_HOLDING_DATA_SIZE <= DATA_MAX_LENGTH_IN_BYTES);
 
 struct TokenDefinition {
     account_type: u8,
@@ -45,12 +44,15 @@ struct TokenHolding {
 }
 
 impl TokenDefinition {
-    fn into_data(self) -> Vec<u8> {
+    fn into_data(self) -> Data {
         let mut bytes = [0; TOKEN_DEFINITION_DATA_SIZE];
         bytes[0] = self.account_type;
         bytes[1..7].copy_from_slice(&self.name);
         bytes[7..].copy_from_slice(&self.total_supply.to_le_bytes());
-        bytes.into()
+        bytes
+            .to_vec()
+            .try_into()
+            .expect("23 bytes should fit into Data")
     }
 
     fn parse(data: &[u8]) -> Option<Self> {
@@ -110,7 +112,10 @@ impl TokenHolding {
         bytes[0] = self.account_type;
         bytes[1..33].copy_from_slice(&self.definition_id.to_bytes());
         bytes[33..].copy_from_slice(&self.balance.to_le_bytes());
-        bytes.into()
+        bytes
+            .to_vec()
+            .try_into()
+            .expect("33 bytes should fit into Data")
     }
 }
 
@@ -401,15 +406,15 @@ mod tests {
         let post_states = new_definition(&pre_states, [0xca, 0xfe, 0xca, 0xfe, 0xca, 0xfe], 10);
         let [definition_account, holding_account] = post_states.try_into().ok().unwrap();
         assert_eq!(
-            definition_account.account().data,
-            vec![
+            definition_account.account().data.as_ref(),
+            &[
                 0, 0xca, 0xfe, 0xca, 0xfe, 0xca, 0xfe, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0
             ]
         );
         assert_eq!(
-            holding_account.account().data,
-            vec![
+            holding_account.account().data.as_ref(),
+            &[
                 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
                 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0
@@ -459,7 +464,9 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // First byte should be `TOKEN_HOLDING_TYPE` for token holding accounts
-                    data: vec![invalid_type; TOKEN_HOLDING_DATA_SIZE],
+                    data: vec![invalid_type; TOKEN_HOLDING_DATA_SIZE]
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -481,7 +488,7 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // Data must be of exact length `TOKEN_HOLDING_DATA_SIZE`
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE - 1],
+                    data: vec![1; TOKEN_HOLDING_DATA_SIZE - 1].try_into().unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -503,7 +510,7 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // Data must be of exact length `TOKEN_HOLDING_DATA_SIZE`
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE + 1],
+                    data: vec![1; TOKEN_HOLDING_DATA_SIZE + 1].try_into().unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -524,7 +531,7 @@ mod tests {
         let pre_states = vec![
             AccountWithMetadata {
                 account: Account {
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE],
+                    data: vec![1; TOKEN_HOLDING_DATA_SIZE].try_into().unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -532,10 +539,12 @@ mod tests {
             },
             AccountWithMetadata {
                 account: Account {
-                    data: vec![1]
+                    data: [1]
                         .into_iter()
                         .chain(vec![2; TOKEN_HOLDING_DATA_SIZE - 1])
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -552,10 +561,12 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // Account with balance 37
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE - 16]
+                    data: [1; TOKEN_HOLDING_DATA_SIZE - 16]
                         .into_iter()
                         .chain(u128::to_le_bytes(37))
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -563,7 +574,7 @@ mod tests {
             },
             AccountWithMetadata {
                 account: Account {
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE],
+                    data: vec![1; TOKEN_HOLDING_DATA_SIZE].try_into().unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -581,10 +592,12 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // Account with balance 37
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE - 16]
+                    data: [1; TOKEN_HOLDING_DATA_SIZE - 16]
                         .into_iter()
                         .chain(u128::to_le_bytes(37))
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: false,
@@ -592,7 +605,7 @@ mod tests {
             },
             AccountWithMetadata {
                 account: Account {
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE],
+                    data: vec![1; TOKEN_HOLDING_DATA_SIZE].try_into().unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -608,10 +621,12 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // Account with balance 37
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE - 16]
+                    data: [1; TOKEN_HOLDING_DATA_SIZE - 16]
                         .into_iter()
                         .chain(u128::to_le_bytes(37))
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -620,10 +635,12 @@ mod tests {
             AccountWithMetadata {
                 account: Account {
                     // Account with balance 255
-                    data: vec![1; TOKEN_HOLDING_DATA_SIZE - 16]
+                    data: [1; TOKEN_HOLDING_DATA_SIZE - 16]
                         .into_iter()
                         .chain(u128::to_le_bytes(255))
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: true,
@@ -633,15 +650,15 @@ mod tests {
         let post_states = transfer(&pre_states, 11);
         let [sender_post, recipient_post] = post_states.try_into().ok().unwrap();
         assert_eq!(
-            sender_post.account().data,
-            vec![
+            sender_post.account().data.as_ref(),
+            [
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             ]
         );
         assert_eq!(
-            recipient_post.account().data,
-            vec![
+            recipient_post.account().data.as_ref(),
+            [
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 10, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             ]
@@ -657,7 +674,9 @@ mod tests {
                     data: [0; TOKEN_DEFINITION_DATA_SIZE - 16]
                         .into_iter()
                         .chain(u128::to_le_bytes(1000))
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                     ..Account::default()
                 },
                 is_authorized: false,
@@ -671,10 +690,13 @@ mod tests {
         ];
         let post_states = initialize_account(&pre_states);
         let [definition, holding] = post_states.try_into().ok().unwrap();
-        assert_eq!(definition.account().data, pre_states[0].account.data);
         assert_eq!(
-            holding.account().data,
-            vec![
+            definition.account().data.as_ref(),
+            pre_states[0].account.data.as_ref()
+        );
+        assert_eq!(
+            holding.account().data.as_ref(),
+            [
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             ]

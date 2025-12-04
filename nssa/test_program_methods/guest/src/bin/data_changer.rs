@@ -12,7 +12,9 @@ fn main() {
 
     let account_pre = &pre.account;
     let mut account_post = account_pre.clone();
-    account_post.data.push(0);
+    let mut data_vec = account_post.data.into_inner();
+    data_vec.push(0);
+    account_post.data = data_vec.try_into().expect("data_vec should fit into Data");
 
     write_nssa_outputs(vec![pre], vec![AccountPostState::new_claimed(account_post)]);
 }

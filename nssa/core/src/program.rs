@@ -222,7 +222,7 @@ mod tests {
         let account = Account {
             program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
             balance: 1337,
-            data: vec![0xde, 0xad, 0xbe, 0xef],
+            data: vec![0xde, 0xad, 0xbe, 0xef].try_into().unwrap(),
             nonce: 10,
         };
 
@@ -237,7 +237,7 @@ mod tests {
         let account = Account {
             program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
             balance: 1337,
-            data: vec![0xde, 0xad, 0xbe, 0xef],
+            data: vec![0xde, 0xad, 0xbe, 0xef].try_into().unwrap(),
             nonce: 10,
         };
 
@@ -252,7 +252,7 @@ mod tests {
         let mut account = Account {
             program_owner: [1, 2, 3, 4, 5, 6, 7, 8],
             balance: 1337,
-            data: vec![0xde, 0xad, 0xbe, 0xef],
+            data: vec![0xde, 0xad, 0xbe, 0xef].try_into().unwrap(),
             nonce: 10,
         };
 

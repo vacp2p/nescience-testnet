@@ -1,15 +1,14 @@
 use std::collections::HashSet;
 
-use risc0_zkvm::{guest::env, serde::to_vec};
-
 use nssa_core::{
-    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme,
-    Nullifier, NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
+    Commitment, CommitmentSetDigest, DUMMY_COMMITMENT_HASH, EncryptionScheme, Nullifier,
+    NullifierPublicKey, PrivacyPreservingCircuitInput, PrivacyPreservingCircuitOutput,
     account::{Account, AccountId, AccountWithMetadata},
     compute_digest_for_path,
     encryption::Ciphertext,
     program::{DEFAULT_PROGRAM_ID, ProgramOutput, validate_execution},
 };
+use risc0_zkvm::{guest::env, serde::to_vec};
 
 fn main() {
     let PrivacyPreservingCircuitInput {
