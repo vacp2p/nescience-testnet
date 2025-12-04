@@ -179,15 +179,10 @@ impl From<TokenDefinition> for TokedDefinitionAccountView {
         Self {
             account_type: "Token definition".to_string(),
             name: {
-                let mut name_vec_trim = vec![];
-                for ch in value.name {
-                    // Assuming, that name does not have UTF-8 NULL and all zeroes are padding.
-                    if ch == 0 {
-                        break;
-                    }
-                    name_vec_trim.push(ch);
-                }
-                String::from_utf8(name_vec_trim).unwrap_or(hex::encode(value.name))
+                // Assuming, that name does not have UTF-8 NULL and all zeroes are padding.
+                let name_trimmed: Vec<_> =
+                    value.name.into_iter().take_while(|ch| *ch != 0).collect();
+                String::from_utf8(name_trimmed).unwrap_or(hex::encode(value.name))
             },
             total_supply: value.total_supply,
         }
