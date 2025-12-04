@@ -89,9 +89,18 @@ impl NSSAUserData {
     /// Returns the account_id of new account
     pub fn generate_new_public_transaction_private_key(
         &mut self,
-        parent_cci: ChainIndex,
-    ) -> nssa::AccountId {
-        self.public_key_tree.generate_new_node(parent_cci).unwrap()
+        parent_cci: Option<ChainIndex>,
+    ) -> (nssa::AccountId, ChainIndex) {
+        match parent_cci {
+            Some(parent_cci) => self
+                .public_key_tree
+                .generate_new_node(&parent_cci)
+                .expect("Parent must be present in a tree"),
+            None => self
+                .public_key_tree
+                .generate_new_node_capped()
+                .expect("No slots left"),
+        }
     }
 
     /// Returns the signing key for public transaction signatures
@@ -113,9 +122,18 @@ impl NSSAUserData {
     /// Returns the account_id of new account
     pub fn generate_new_privacy_preserving_transaction_key_chain(
         &mut self,
-        parent_cci: ChainIndex,
-    ) -> nssa::AccountId {
-        self.private_key_tree.generate_new_node(parent_cci).unwrap()
+        parent_cci: Option<ChainIndex>,
+    ) -> (nssa::AccountId, ChainIndex) {
+        match parent_cci {
+            Some(parent_cci) => self
+                .private_key_tree
+                .generate_new_node(&parent_cci)
+                .expect("Parent must be present in a tree"),
+            None => self
+                .private_key_tree
+                .generate_new_node_capped()
+                .expect("No slots left"),
+        }
     }
 
     /// Returns the signing key for public transaction signatures
@@ -169,10 +187,9 @@ mod tests {
     fn test_new_account() {
         let mut user_data = NSSAUserData::default();
 
-        let account_id_pub =
-            user_data.generate_new_public_transaction_private_key(ChainIndex::root());
-        let account_id_private =
-            user_data.generate_new_privacy_preserving_transaction_key_chain(ChainIndex::root());
+        let (account_id_pub, _) = user_data.generate_new_public_transaction_private_key(None);
+        let (account_id_private, _) =
+            user_data.generate_new_privacy_preserving_transaction_key_chain(None);
 
         let is_private_key_generated = user_data
             .get_pub_account_signing_key(&account_id_pub)

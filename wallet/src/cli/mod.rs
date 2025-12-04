@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -16,7 +16,7 @@ use crate::{
             token::TokenProgramAgnosticSubcommand,
         },
     },
-    helperfunctions::{fetch_config, parse_block_range},
+    helperfunctions::{fetch_config, fetch_persistent_storage, parse_block_range},
 };
 
 pub mod account;
@@ -54,19 +54,13 @@ pub enum Command {
     /// Command to setup config, get and set config fields
     #[command(subcommand)]
     Config(ConfigSubcommand),
-}
-
-/// Represents overarching CLI command for a wallet with setup included
-#[derive(Debug, Subcommand, Clone)]
-#[clap(about)]
-pub enum OverCommand {
-    /// Represents CLI command for a wallet
-    #[command(subcommand)]
-    Command(Command),
-    /// Setup of a storage. Initializes rots for public and private trees from `password`.
-    Setup {
+    /// Restoring keys from given password at given `depth`
+    ///
+    /// !!!WARNING!!! will rewrite current storage
+    RestoreKeys {
         #[arg(short, long)]
-        password: String,
+        /// Indicates, how deep in tree accounts may be. Affects command complexity.
+        depth: u32,
     },
 }
 
@@ -84,7 +78,7 @@ pub struct Args {
     pub continuous_run: bool,
     /// Wallet command
     #[command(subcommand)]
-    pub command: Option<OverCommand>,
+    pub command: Option<Command>,
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +91,13 @@ pub enum SubcommandReturnValue {
 }
 
 pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValue> {
+    if fetch_persistent_storage().await.is_err() {
+        println!("Persistent storage not found, need to execute setup");
+
+        let password = read_password_from_stdin()?;
+        execute_setup(password).await?;
+    }
+
     let wallet_config = fetch_config().await?;
     let mut wallet_core = WalletCore::start_from_config_update_chain(wallet_config).await?;
 
@@ -157,6 +158,12 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
                 .handle_subcommand(&mut wallet_core)
                 .await?
         }
+        Command::RestoreKeys { depth } => {
+            let password = read_password_from_stdin()?;
+            execute_keys_restoration(password, depth).await?;
+
+            SubcommandReturnValue::Empty
+        }
     };
 
     Ok(subcommand_ret)
@@ -190,9 +197,80 @@ pub async fn execute_continuous_run() -> Result<()> {
     }
 }
 
+pub fn read_password_from_stdin() -> Result<String> {
+    let mut password = String::new();
+
+    print!("Input password: ");
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut password)?;
+
+    Ok(password.trim().to_string())
+}
+
 pub async fn execute_setup(password: String) -> Result<()> {
     let config = fetch_config().await?;
     let wallet_core = WalletCore::start_from_config_new_storage(config.clone(), password).await?;
+
+    wallet_core.store_persistent_data().await?;
+
+    Ok(())
+}
+
+pub async fn execute_keys_restoration(password: String, depth: u32) -> Result<()> {
+    let config = fetch_config().await?;
+    let mut wallet_core =
+        WalletCore::start_from_config_new_storage(config.clone(), password.clone()).await?;
+
+    wallet_core
+        .storage
+        .user_data
+        .public_key_tree
+        .generate_tree_for_depth(depth);
+
+    println!("Public tree generated");
+
+    wallet_core
+        .storage
+        .user_data
+        .private_key_tree
+        .generate_tree_for_depth(depth);
+
+    println!("Private tree generated");
+
+    wallet_core
+        .storage
+        .user_data
+        .public_key_tree
+        .cleanup_tree_for_depth(depth, wallet_core.sequencer_client.clone())
+        .await?;
+
+    println!("Public tree cleaned up");
+
+    let last_block = wallet_core
+        .sequencer_client
+        .get_last_block()
+        .await?
+        .last_block;
+
+    println!("Last block is {last_block}");
+
+    parse_block_range(
+        1,
+        last_block,
+        wallet_core.sequencer_client.clone(),
+        &mut wallet_core,
+    )
+    .await?;
+
+    println!("Private tree clean up start");
+
+    wallet_core
+        .storage
+        .user_data
+        .private_key_tree
+        .cleanup_tree_for_depth(depth);
+
+    println!("Private tree cleaned up");
 
     wallet_core.store_persistent_data().await?;
 

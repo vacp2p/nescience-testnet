@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{CommandFactory as _, Parser as _};
 use tokio::runtime::Builder;
-use wallet::cli::{Args, OverCommand, execute_continuous_run, execute_setup, execute_subcommand};
+use wallet::cli::{Args, execute_continuous_run, execute_subcommand};
 
 pub const NUM_THREADS: usize = 2;
 
@@ -23,14 +23,9 @@ fn main() -> Result<()> {
     env_logger::init();
 
     runtime.block_on(async move {
-        if let Some(over_command) = args.command {
-            match over_command {
-                OverCommand::Command(command) => {
-                    let _output = execute_subcommand(command).await?;
-                    Ok(())
-                }
-                OverCommand::Setup { password } => execute_setup(password).await,
-            }
+        if let Some(command) = args.command {
+            let _output = execute_subcommand(command).await?;
+            Ok(())
         } else if args.continuous_run {
             execute_continuous_run().await
         } else {

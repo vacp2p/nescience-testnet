@@ -83,6 +83,16 @@ impl ChainIndex {
 
         ChainIndex(chain)
     }
+
+    pub fn depth(&self) -> u32 {
+        let mut res = 0;
+
+        for cci in &self.0 {
+            res += cci + 1;
+        }
+
+        res
+    }
 }
 
 #[cfg(test)]

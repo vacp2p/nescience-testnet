@@ -1,5 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    sync::Arc,
+};
 
+use anyhow::Result;
+use common::sequencer_client::SequencerClient;
 use serde::{Deserialize, Serialize};
 
 use crate::key_management::{
@@ -14,6 +19,8 @@ pub mod chain_index;
 pub mod keys_private;
 pub mod keys_public;
 pub mod traits;
+
+pub const DEPTH_SOFT_CAP: u32 = 20;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KeyTree<N: KeyNode> {
@@ -96,10 +103,13 @@ impl<N: KeyNode> KeyTree<N> {
         }
     }
 
-    pub fn generate_new_node(&mut self, parent_cci: ChainIndex) -> Option<nssa::AccountId> {
-        let father_keys = self.key_map.get(&parent_cci)?;
+    pub fn generate_new_node(
+        &mut self,
+        parent_cci: &ChainIndex,
+    ) -> Option<(nssa::AccountId, ChainIndex)> {
+        let father_keys = self.key_map.get(parent_cci)?;
         let next_child_id = self
-            .find_next_last_child_of_id(&parent_cci)
+            .find_next_last_child_of_id(parent_cci)
             .expect("Can be None only if parent is not present");
         let next_cci = parent_cci.nth_child(next_child_id);
 
@@ -108,9 +118,43 @@ impl<N: KeyNode> KeyTree<N> {
         let account_id = child_keys.account_id();
 
         self.key_map.insert(next_cci.clone(), child_keys);
-        self.account_id_map.insert(account_id, next_cci);
+        self.account_id_map.insert(account_id, next_cci.clone());
 
-        Some(account_id)
+        Some((account_id, next_cci))
+    }
+
+    fn have_child_slot_capped(&self, cci: &ChainIndex) -> bool {
+        let depth = cci.depth();
+
+        self.find_next_last_child_of_id(cci)
+            .map(|inn| inn + 1 + depth < DEPTH_SOFT_CAP)
+            .unwrap_or(false)
+    }
+
+    pub fn search_new_parent_capped(&self) -> Option<ChainIndex> {
+        let mut parent_list = VecDeque::new();
+        parent_list.push_front(ChainIndex::root());
+
+        let mut search_res = None;
+
+        while let Some(next_parent) = parent_list.pop_back() {
+            if self.have_child_slot_capped(&next_parent) {
+                search_res = Some(next_parent);
+                break;
+            } else {
+                let last_child = self.find_next_last_child_of_id(&next_parent)?;
+
+                for id in 0..last_child {
+                    parent_list.push_front(next_parent.nth_child(id));
+                }
+            }
+        }
+
+        search_res
+    }
+
+    pub fn generate_new_node_capped(&mut self) -> Option<(nssa::AccountId, ChainIndex)> {
+        self.generate_new_node(&self.search_new_parent_capped()?)
     }
 
     pub fn get_node(&self, account_id: nssa::AccountId) -> Option<&N> {
@@ -128,6 +172,99 @@ impl<N: KeyNode> KeyTree<N> {
     pub fn insert(&mut self, account_id: nssa::AccountId, chain_index: ChainIndex, node: N) {
         self.account_id_map.insert(account_id, chain_index.clone());
         self.key_map.insert(chain_index, node);
+    }
+
+    pub fn remove(&mut self, addr: nssa::AccountId) -> Option<N> {
+        let chain_index = self.account_id_map.remove(&addr).unwrap();
+        self.key_map.remove(&chain_index)
+    }
+
+    /// Populates tree with children.
+    ///
+    /// For given `depth` adds children to a tree such that their `ChainIndex::depth(&self) <
+    /// depth`.
+    ///
+    /// Tree must be empty before start
+    pub fn generate_tree_for_depth(&mut self, depth: u32) {
+        let mut id_stack = vec![ChainIndex::root()];
+
+        while let Some(curr_id) = id_stack.pop() {
+            self.generate_new_node(&curr_id);
+
+            let mut next_id = curr_id.nth_child(0);
+
+            while (next_id.depth()) < depth - 1 {
+                id_stack.push(next_id.clone());
+                next_id = next_id.next_in_line();
+            }
+        }
+    }
+}
+
+impl KeyTree<ChildKeysPrivate> {
+    /// Cleanup of all non-initialized accounts in a private tree
+    ///
+    /// For given `depth` checks children to a tree such that their `ChainIndex::depth(&self) <
+    /// depth`.
+    ///
+    /// If account is default, removes them.
+    ///
+    /// Chain must be parsed for accounts beforehand
+    pub fn cleanup_tree_for_depth(&mut self, depth: u32) {
+        let mut id_stack = vec![ChainIndex::root()];
+
+        while let Some(curr_id) = id_stack.pop() {
+            if let Some(node) = self.key_map.get(&curr_id)
+                && node.value.1 == nssa::Account::default()
+                && curr_id != ChainIndex::root()
+            {
+                let addr = node.account_id();
+                self.remove(addr);
+            }
+
+            let mut next_id = curr_id.nth_child(0);
+
+            while (next_id.depth()) < depth - 1 {
+                id_stack.push(next_id.clone());
+                next_id = next_id.next_in_line();
+            }
+        }
+    }
+}
+
+impl KeyTree<ChildKeysPublic> {
+    /// Cleanup of all non-initialized accounts in a public tree
+    ///
+    /// For given `depth` checks children to a tree such that their `ChainIndex::depth(&self) <
+    /// depth`.
+    ///
+    /// If account is default, removes them.
+    pub async fn cleanup_tree_for_depth(
+        &mut self,
+        depth: u32,
+        client: Arc<SequencerClient>,
+    ) -> Result<()> {
+        let mut id_stack = vec![ChainIndex::root()];
+
+        while let Some(curr_id) = id_stack.pop() {
+            if let Some(node) = self.key_map.get(&curr_id) {
+                let address = node.account_id();
+                let node_acc = client.get_account(address.to_string()).await?.account;
+
+                if node_acc == nssa::Account::default() && curr_id != ChainIndex::root() {
+                    self.remove(address);
+                }
+            }
+
+            let mut next_id = curr_id.nth_child(0);
+
+            while (next_id.depth()) < depth - 1 {
+                id_stack.push(next_id.clone());
+                next_id = next_id.next_in_line();
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -170,7 +307,7 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 0);
 
-        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
 
         assert!(
             tree.key_map
@@ -183,12 +320,12 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 1);
 
-        tree.generate_new_node(ChainIndex::root()).unwrap();
-        tree.generate_new_node(ChainIndex::root()).unwrap();
-        tree.generate_new_node(ChainIndex::root()).unwrap();
-        tree.generate_new_node(ChainIndex::root()).unwrap();
-        tree.generate_new_node(ChainIndex::root()).unwrap();
-        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
 
         let next_last_child_for_parent_id = tree
             .find_next_last_child_of_id(&ChainIndex::root())
@@ -209,7 +346,7 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 0);
 
-        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
 
         assert!(
             tree.key_map
@@ -222,7 +359,7 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 1);
 
-        let key_opt = tree.generate_new_node(ChainIndex::from_str("/3").unwrap());
+        let key_opt = tree.generate_new_node(&ChainIndex::from_str("/3").unwrap());
 
         assert_eq!(key_opt, None);
     }
@@ -239,7 +376,7 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 0);
 
-        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
 
         assert!(
             tree.key_map
@@ -252,7 +389,7 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 1);
 
-        tree.generate_new_node(ChainIndex::root()).unwrap();
+        tree.generate_new_node(&ChainIndex::root()).unwrap();
 
         assert!(
             tree.key_map
@@ -265,7 +402,7 @@ mod tests {
 
         assert_eq!(next_last_child_for_parent_id, 2);
 
-        tree.generate_new_node(ChainIndex::from_str("/0").unwrap())
+        tree.generate_new_node(&ChainIndex::from_str("/0").unwrap())
             .unwrap();
 
         let next_last_child_for_parent_id = tree
@@ -279,7 +416,7 @@ mod tests {
                 .contains_key(&ChainIndex::from_str("/0/0").unwrap())
         );
 
-        tree.generate_new_node(ChainIndex::from_str("/0").unwrap())
+        tree.generate_new_node(&ChainIndex::from_str("/0").unwrap())
             .unwrap();
 
         let next_last_child_for_parent_id = tree
@@ -293,7 +430,7 @@ mod tests {
                 .contains_key(&ChainIndex::from_str("/0/1").unwrap())
         );
 
-        tree.generate_new_node(ChainIndex::from_str("/0").unwrap())
+        tree.generate_new_node(&ChainIndex::from_str("/0").unwrap())
             .unwrap();
 
         let next_last_child_for_parent_id = tree
@@ -307,7 +444,7 @@ mod tests {
                 .contains_key(&ChainIndex::from_str("/0/2").unwrap())
         );
 
-        tree.generate_new_node(ChainIndex::from_str("/0/1").unwrap())
+        tree.generate_new_node(&ChainIndex::from_str("/0/1").unwrap())
             .unwrap();
 
         assert!(
@@ -320,5 +457,36 @@ mod tests {
             .unwrap();
 
         assert_eq!(next_last_child_for_parent_id, 1);
+    }
+
+    #[test]
+    fn test_tree_balancing_automatic() {
+        let seed_holder = seed_holder_for_tests();
+
+        let mut tree = KeyTreePublic::new(&seed_holder);
+
+        for _ in 0..19 {
+            tree.generate_new_node_capped().unwrap();
+        }
+
+        let next_suitable_parent = tree.search_new_parent_capped().unwrap();
+
+        assert_eq!(next_suitable_parent, ChainIndex::from_str("/0").unwrap());
+
+        for _ in 0..18 {
+            tree.generate_new_node_capped().unwrap();
+        }
+
+        let next_suitable_parent = tree.search_new_parent_capped().unwrap();
+
+        assert_eq!(next_suitable_parent, ChainIndex::from_str("/1").unwrap());
+
+        for _ in 0..17 {
+            tree.generate_new_node_capped().unwrap();
+        }
+
+        let next_suitable_parent = tree.search_new_parent_capped().unwrap();
+
+        assert_eq!(next_suitable_parent, ChainIndex::from_str("/2").unwrap());
     }
 }
