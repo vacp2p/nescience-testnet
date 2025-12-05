@@ -10,7 +10,7 @@ use anyhow::Result;
 use common::{PINATA_BASE58, sequencer_client::SequencerClient};
 use key_protocol::key_management::key_tree::chain_index::ChainIndex;
 use log::info;
-use nssa::{AccountId, ProgramDeploymentTransaction, program::Program};
+use nssa::{AccountId, program::Program};
 use nssa_core::{NullifierPublicKey, encryption::shared_key_derivation::Secp256k1Point};
 use sequencer_runner::startup_sequencer;
 use tempfile::TempDir;
@@ -1441,14 +1441,17 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
     #[nssa_integration_test]
     pub async fn test_program_deployment() {
         info!("########## test program deployment ##########");
-        let bytecode = NSSA_PROGRAM_FOR_TEST_DATA_CHANGER.to_vec();
-        let message = nssa::program_deployment_transaction::Message::new(bytecode.clone());
-        let transaction = ProgramDeploymentTransaction::new(message);
+
+        let binary_filepath = NSSA_PROGRAM_FOR_TEST_DATA_CHANGER.to_string();
+
+        let command = Command::DeployProgram {
+            binary_filepath: binary_filepath.clone(),
+        };
+
+        wallet::cli::execute_subcommand(command).await.unwrap();
 
         let wallet_config = fetch_config().await.unwrap();
         let seq_client = SequencerClient::new(wallet_config.sequencer_addr.clone()).unwrap();
-
-        let _response = seq_client.send_tx_program(transaction).await.unwrap();
 
         info!("Waiting for next block creation");
         tokio::time::sleep(Duration::from_secs(TIME_TO_WAIT_FOR_BLOCK_SECONDS)).await;
@@ -1457,6 +1460,8 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
         // We pass an uninitialized account and we expect after execution to be owned by the data
         // changer program (NSSA account claiming mechanism) with data equal to [0] (due to program
         // logic)
+        //
+        let bytecode = std::fs::read(binary_filepath).unwrap();
         let data_changer = Program::new(bytecode).unwrap();
         let account_id: AccountId = "11".repeat(16).parse().unwrap();
         let message = nssa::public_transaction::Message::try_new(

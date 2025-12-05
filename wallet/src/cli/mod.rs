@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use nssa::program::Program;
+use nssa::{ProgramDeploymentTransaction, program::Program};
 
 use crate::{
     WalletCore,
@@ -51,6 +51,8 @@ pub enum Command {
     /// Command to setup config, get and set config fields
     #[command(subcommand)]
     Config(ConfigSubcommand),
+    /// Deploy a program
+    DeployProgram { binary_filepath: String },
 }
 
 /// Represents overarching CLI command for a wallet with setup included
@@ -153,6 +155,19 @@ pub async fn execute_subcommand(command: Command) -> Result<SubcommandReturnValu
             config_subcommand
                 .handle_subcommand(&mut wallet_core)
                 .await?
+        }
+        Command::DeployProgram { binary_filepath } => {
+            let bytecode: Vec<u8> = std::fs::read(binary_filepath).expect("File not found");
+            let message = nssa::program_deployment_transaction::Message::new(bytecode);
+            let transaction = ProgramDeploymentTransaction::new(message);
+            let response = wallet_core
+                .sequencer_client
+                .send_tx_program(transaction)
+                .await
+                .expect("Transaction submission error");
+            println!("Response: {:?}", response);
+
+            SubcommandReturnValue::Empty
         }
     };
 

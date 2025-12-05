@@ -42,7 +42,7 @@ pub const ACC_RECEIVER_PRIVATE: &str = "AKTcXgJ1xoynta1Ec7y6Jso1z1JQtHqd7aPQ1h9e
 
 pub const TIME_TO_WAIT_FOR_BLOCK_SECONDS: u64 = 12;
 
-pub const NSSA_PROGRAM_FOR_TEST_DATA_CHANGER: &[u8] = include_bytes!("data_changer.bin");
+pub const NSSA_PROGRAM_FOR_TEST_DATA_CHANGER: &str = "data_changer.bin";
 
 fn make_public_account_input_from_str(account_id: &str) -> String {
     format!("Public/{account_id}")
