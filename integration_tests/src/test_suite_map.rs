@@ -1466,7 +1466,7 @@ pub fn prepare_function_map() -> HashMap<String, TestFunction> {
             data_changer.id(),
             vec![account_id],
             vec![],
-            (),
+            vec![0],
         )
         .unwrap();
         let witness_set = nssa::public_transaction::WitnessSet::for_message(&message, &[]);

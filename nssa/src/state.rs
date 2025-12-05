@@ -730,7 +730,8 @@ pub mod tests {
             program_id
         );
         let message =
-            public_transaction::Message::try_new(program_id, vec![account_id], vec![], ()).unwrap();
+            public_transaction::Message::try_new(program_id, vec![account_id], vec![], vec![0])
+                .unwrap();
         let witness_set = public_transaction::WitnessSet::for_message(&message, &[]);
         let tx = PublicTransaction::new(message, witness_set);
 
@@ -1248,7 +1249,7 @@ pub mod tests {
 
         let result = execute_and_prove(
             &[public_account],
-            &Program::serialize_instruction(()).unwrap(),
+            &Program::serialize_instruction(vec![0]).unwrap(),
             &[0],
             &[],
             &[],
@@ -1257,6 +1258,34 @@ pub mod tests {
         );
 
         assert!(matches!(result, Err(NssaError::CircuitProvingError(_))));
+    }
+
+    #[test]
+    fn test_data_changer_program_should_fail_for_too_large_data_in_privacy_preserving_circuit() {
+        let program = Program::data_changer();
+        let public_account = AccountWithMetadata::new(
+            Account {
+                program_owner: program.id(),
+                balance: 0,
+                ..Account::default()
+            },
+            true,
+            AccountId::new([0; 32]),
+        );
+
+        let large_data: Vec<u8> = vec![0; nssa_core::account::data::DATA_MAX_LENGTH_IN_BYTES + 1];
+
+        let result = execute_and_prove(
+            &[public_account],
+            &Program::serialize_instruction(large_data).unwrap(),
+            &[0],
+            &[],
+            &[],
+            &[],
+            &program,
+        );
+
+        assert!(matches!(result, Err(NssaError::ProgramProveFailed(_))));
     }
 
     #[test]
