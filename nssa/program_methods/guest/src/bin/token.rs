@@ -226,6 +226,54 @@ fn initialize_account(pre_states: &[AccountWithMetadata]) -> Vec<Account> {
     vec![definition_post, account_to_initialize_post]
 }
 
+fn burn(pre_states: &[AccountWithMetadata], balance_to_burn: u128) -> Vec<Account> {
+
+    if pre_states.len() != 2 {
+        panic!("Invalid number of accounts");
+    }
+
+    let definition = &pre_states[0];
+    let user_holding = &pre_states[1];
+
+    let definition_values =
+        TokenDefinition::parse(&definition.account.data).expect("Definition account must be valid");
+    let user_values = 
+        TokenHolding::parse(&user_holding.account.data).expect("Token Holding account must be valid");
+
+    if definition.account_id != user_values.definition_id {
+        panic!("Mismatch token definition and token holding");
+    }
+
+    if !user_holding.is_authorized {
+        panic!("Authorization is missing");
+    }
+
+    if user_values.balance < balance_to_burn {
+        panic!("Insufficient balance to burn");
+    }
+
+    let mut post_user_holding = user_holding.account.clone();
+    let mut post_definition = definition.account.clone();
+
+    post_user_holding.data = TokenHolding::into_data(
+        TokenHolding {
+            account_type: user_values.account_type,
+            definition_id: user_values.definition_id,
+            balance: user_values.balance - balance_to_burn,
+        }
+    );
+
+    post_definition.data = TokenDefinition::into_data(
+        TokenDefinition {
+            account_type: definition_values.account_type,
+            name: definition_values.name,
+            total_supply: definition_values.total_supply - balance_to_burn,
+        }
+    );
+
+    vec![post_definition, post_user_holding]
+}
+
 type Instruction = [u8; 23];
 
 fn main() {
@@ -271,6 +319,21 @@ fn main() {
             // Initialize account
             assert_eq!(instruction[1..], [0; 22]);
             let post_states = initialize_account(&pre_states);
+            (pre_states, post_states)
+        }
+        3 => {
+            let balance_to_burn = u128::from_le_bytes(
+                instruction[1..17]
+                    .try_into()
+                    .expect("Balance to burn must be 16 bytes little-endian"),
+            );
+            let name: [u8; 6] = instruction[17..]
+                .try_into()
+                .expect("Name must be 6 bytes long");
+            assert_eq!(name, [0; 6]);
+
+            // Execute
+            let post_states = burn(&pre_states, balance_to_burn);
             (pre_states, post_states)
         }
         _ => panic!("Invalid instruction"),
@@ -666,4 +729,30 @@ mod tests {
             ]
         );
     }
+
+    // TODO: create a burn test
+    /*
+    #[test]
+    fn test_token_burn_mismatch() {
+        let pre_states = vec![
+            AccountWithMetadata {
+                account: Account {
+
+                },
+                is_authorized: false,
+                account_id: AccountId::new([1;32]);
+            },
+            AccountWithMetadata {
+                account: Account {
+                    account_type: 
+                },
+                is_authorized: true,
+                account_id: AccountId::new([2;32]);
+            }
+        ];
+    }
+    */
+    // Mismatch token types
+    // Insufficient balance
+    // Successful
 }
