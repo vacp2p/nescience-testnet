@@ -69,7 +69,7 @@ Install build dependencies
 - On Linux
 Ubuntu / Debian
 ```sh
-apt install build-essential clang libssl-dev pkg-config
+apt install build-essential clang libclang-dev libssl-dev pkg-config
 ```
 
 Fedora
