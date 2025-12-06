@@ -6,25 +6,22 @@ use nssa_core::{
 };
 
 // The token program has three functions:
-// 1. New token definition.
-//    Arguments to this function are:
-//      * Two **default** accounts: [definition_account, holding_account].
-//        The first default account will be initialized with the token definition account values. The second account will
-//        be initialized to a token holding account for the new token, holding the entire total supply.
-//      * An instruction data of 23-bytes, indicating the total supply and the token name, with
-//        the following layout:
-//        [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)]
-//        The name cannot be equal to [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-// 2. Token transfer
-//    Arguments to this function are:
+// 1. New token definition. Arguments to this function are:
+//      * Two **default** accounts: [definition_account, holding_account]. The first default account
+//        will be initialized with the token definition account values. The second account will be
+//        initialized to a token holding account for the new token, holding the entire total supply.
+//      * An instruction data of 23-bytes, indicating the total supply and the token name, with the
+//        following layout: [0x00 || total_supply (little-endian 16 bytes) || name (6 bytes)] The
+//        name cannot be equal to [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+// 2. Token transfer Arguments to this function are:
 //      * Two accounts: [sender_account, recipient_account].
-//      * An instruction data byte string of length 23, indicating the total supply with the following layout
-//        [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00].
-// 3. Initialize account with zero balance
-//    Arguments to this function are:
+//      * An instruction data byte string of length 23, indicating the total supply with the
+//        following layout [0x01 || amount (little-endian 16 bytes) || 0x00 || 0x00 || 0x00 || 0x00
+//        || 0x00 || 0x00].
+// 3. Initialize account with zero balance Arguments to this function are:
 //      * Two accounts: [definition_account, account_to_initialize].
-//      * An dummy byte string of length 23, with the following layout
-//        [0x02 || 0x00 || 0x00 || 0x00 || ... || 0x00 || 0x00].
+//      * An dummy byte string of length 23, with the following layout [0x02 || 0x00 || 0x00 || 0x00
+//        || ... || 0x00 || 0x00].
 
 const TOKEN_DEFINITION_TYPE: u8 = 0;
 const TOKEN_DEFINITION_DATA_SIZE: usize = 23;

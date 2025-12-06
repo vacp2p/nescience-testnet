@@ -2386,4 +2386,70 @@ pub mod tests {
 
         assert!(matches!(result, Err(NssaError::InvalidProgramBehavior)))
     }
+
+    /// This test ensures that even if a malicious program tries to perform overflow of balances
+    /// it will not be able to break the balance validation.
+    #[test]
+    fn test_malicious_program_cannot_break_balance_validation() {
+        let sender_key = PrivateKey::try_new([37; 32]).unwrap();
+        let sender_id = AccountId::from(&PublicKey::new_from_private_key(&sender_key));
+        let sender_init_balance: u128 = 10;
+
+        let recipient_key = PrivateKey::try_new([42; 32]).unwrap();
+        let recipient_id = AccountId::from(&PublicKey::new_from_private_key(&recipient_key));
+        let recipient_init_balance: u128 = 10;
+
+        let mut state = V02State::new_with_genesis_accounts(
+            &[
+                (sender_id, sender_init_balance),
+                (recipient_id, recipient_init_balance),
+            ],
+            &[],
+        );
+
+        state.insert_program(Program::modified_transfer_program());
+
+        let balance_to_move: u128 = 4;
+
+        let sender =
+            AccountWithMetadata::new(state.get_account_by_id(&sender_id.clone()), true, sender_id);
+
+        let sender_nonce = sender.account.nonce;
+
+        let _recipient =
+            AccountWithMetadata::new(state.get_account_by_id(&recipient_id), false, sender_id);
+
+        let message = public_transaction::Message::try_new(
+            Program::modified_transfer_program().id(),
+            vec![sender_id, recipient_id],
+            vec![sender_nonce],
+            balance_to_move,
+        )
+        .unwrap();
+
+        let witness_set = public_transaction::WitnessSet::for_message(&message, &[&sender_key]);
+        let tx = PublicTransaction::new(message, witness_set);
+        let res = state.transition_from_public_transaction(&tx);
+        assert!(matches!(res, Err(NssaError::InvalidProgramBehavior)));
+
+        let sender_post = state.get_account_by_id(&sender_id);
+        let recipient_post = state.get_account_by_id(&recipient_id);
+
+        let expected_sender_post = {
+            let mut this = state.get_account_by_id(&sender_id);
+            this.balance = sender_init_balance;
+            this.nonce = 0;
+            this
+        };
+
+        let expected_recipient_post = {
+            let mut this = state.get_account_by_id(&sender_id);
+            this.balance = recipient_init_balance;
+            this.nonce = 0;
+            this
+        };
+
+        assert!(expected_sender_post == sender_post);
+        assert!(expected_recipient_post == recipient_post);
+    }
 }

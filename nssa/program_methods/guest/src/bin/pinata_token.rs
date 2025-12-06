@@ -1,8 +1,11 @@
 use nssa_core::program::{
-    read_nssa_inputs, write_nssa_outputs_with_chained_call, AccountPostState, ChainedCall, PdaSeed, ProgramInput
+    AccountPostState, ChainedCall, PdaSeed, ProgramInput, read_nssa_inputs,
+    write_nssa_outputs_with_chained_call,
 };
-use risc0_zkvm::serde::to_vec;
-use risc0_zkvm::sha::{Impl, Sha256};
+use risc0_zkvm::{
+    serde::to_vec,
+    sha::{Impl, Sha256},
+};
 
 const PRIZE: u128 = 150;
 
@@ -46,7 +49,8 @@ impl Challenge {
 /// A pinata program
 fn main() {
     // Read input accounts.
-    // It is expected to receive three accounts: [pinata_definition, pinata_token_holding, winner_token_holding]
+    // It is expected to receive three accounts: [pinata_definition, pinata_token_holding,
+    // winner_token_holding]
     let ProgramInput {
         pre_states,
         instruction: solution,
@@ -83,7 +87,10 @@ fn main() {
     let chained_calls = vec![ChainedCall {
         program_id: pinata_token_holding_post.program_owner,
         instruction_data: to_vec(&instruction_data).unwrap(),
-        pre_states: vec![pinata_token_holding_for_chain_call, winner_token_holding.clone()],
+        pre_states: vec![
+            pinata_token_holding_for_chain_call,
+            winner_token_holding.clone(),
+        ],
         pda_seeds: vec![PdaSeed::new([0; 32])],
     }];
 
